@@ -9,8 +9,8 @@ const getRandomSeed = () => {
 };
 
 export const OPENAI_CONFIG = {
-  baseURL: import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  baseURL: import.meta.env.VITE_OPENAI_BASE_URL || 'https://text.pollinations.ai/openai',
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY || 'dummy-api-key',
   getModelConfig: (modelId) => {
     const model = getModelById(modelId);
     return {
