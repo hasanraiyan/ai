@@ -17,11 +17,13 @@ export function SearchCommand({
   searchQuery, 
   onSearchChange, 
   onNewChat,
-  chats = [],
+  chats: rawChats = [],
   onChatSelect,
   selectedModel,
   onModelSelect
 }) {
+  const chats = Array.isArray(rawChats) ? rawChats : [];
+
   const filteredChats = chats.filter(chat => 
     chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.messages.some(msg => msg.content.toLowerCase().includes(searchQuery.toLowerCase()))

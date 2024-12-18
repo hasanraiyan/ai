@@ -4,8 +4,14 @@ const STORAGE_KEY = 'chat_history';
 
 export function useChatHistory() {
   const [chats, setChats] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const parsedChats = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsedChats) ? parsedChats : [];
+    } catch (error) {
+      console.error('Failed to parse chat history:', error);
+      return [];
+    }
   });
   const [currentChatId, setCurrentChatId] = useState(null);
 
@@ -79,6 +85,7 @@ export function useChatHistory() {
   }, []);
 
   const getCurrentChat = useCallback(() => {
+    if (!Array.isArray(chats)) return null;
     return chats.find(chat => chat.id === currentChatId);
   }, [chats, currentChatId]);
 

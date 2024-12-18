@@ -3,7 +3,7 @@ import { useChatHistory } from "../hooks/use-chat-history";
 import { getDefaultModel, getModelById } from "../config/ai-models";
 import { createOpenAIClient } from "../config/openai-config";
 import { ModelSelector } from "./chat/ModelSelector";
-import { RecentChats } from "./chat/RecentChats";
+import RecentChats from "./chat/RecentChats";
 import { ChatHeader } from "./chat/ChatHeader";
 import { ChatMessages } from "./chat/ChatMessages";
 import { ChatInput } from "./chat/ChatInput";
@@ -61,23 +61,27 @@ export function ChatLayout() {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isGenerating) return;
 
-    let chatId = currentChatId;
     const messageContent = inputMessage.trim();
-      // Generate title and create new chat if there isn't one
-      if (!currentChatId) {
-        const chatId = createNewChat(currentModel.name, {
-          content: inputMessage,
-          type: 'user',
-          timestamp: new Date(),
-          modelId: currentModel.name
-        });
+    
+    // Generate title and create new chat if there isn't one
+    if (!currentChatId) {
+      const newChatId = createNewChat(currentModel.name, {
+        content: messageContent,
+        type: 'user',
+        timestamp: new Date(),
+        modelId: currentModel.name
+      });
 
-        // Generate and update title
-        const title = await openAIClient.generateTitle(inputMessage, currentModel.name);
+      // Generate and update title
+      try {
+        const title = await openAIClient.generateTitle(messageContent, currentModel.name);
         if (title) {
-          renameChat(chatId, title);
+          renameChat(newChatId, title);
         }
+      } catch (error) {
+        console.error('Error generating title:', error);
       }
+    }
 
     const newMessages = [
       ...messages,

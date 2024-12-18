@@ -29,64 +29,33 @@ import {
 } from "lucide-react";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
 
-export function RecentChats({ 
-  chats, 
-  currentChatId, 
-  onChatSelect, 
-  onDelete, 
-  onArchive, 
-  onRename 
-}) {
-  const groupChats = (chats) => {
-    return chats.reduce((acc, chat) => {
-      const date = new Date(chat.date);
-      let group = 'Older';
-      
-      if (isToday(date)) {
-        group = 'Today';
-      } else if (isYesterday(date)) {
-        group = 'Yesterday';
-      } else if (isThisWeek(date)) {
-        group = 'This Week';
-      } else if (isThisMonth(date)) {
-        group = 'This Month';
-      }
-      
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(chat);
-      return acc;
-    }, {});
-  };
+const groupChats = (chats) => {
+  if (!Array.isArray(chats)) return {};
+  
+  return chats.reduce((groups, chat) => {
+    const date = new Date(chat.date);
+    let key = 'Older';
 
-  const handleAction = (action, chat, e) => {
-    // Prevent the chat selection when clicking menu items
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    switch (action) {
-      case 'share':
-        // TODO: Implement share functionality
-        console.log('Share:', chat);
-        break;
-      case 'rename':
-        const newTitle = prompt('Enter new title:', chat.title);
-        if (newTitle && newTitle.trim() !== '') {
-          onRename(chat.id, newTitle.trim());
-        }
-        break;
-      case 'archive':
-        onArchive(chat.id);
-        break;
-      case 'delete':
-        onDelete(chat.id);
-        break;
-      default:
-        break;
+    if (isToday(date)) {
+      key = 'Today';
+    } else if (isYesterday(date)) {
+      key = 'Yesterday';
+    } else if (isThisWeek(date)) {
+      key = 'This Week';
+    } else if (isThisMonth(date)) {
+      key = 'This Month';
     }
-  };
 
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(chat);
+    return groups;
+  }, {});
+};
+
+const RecentChats = ({ chats: rawChats, ...props }) => {
+  const chats = Array.isArray(rawChats) ? rawChats : [];
   const groupedChats = groupChats(chats);
   const groups = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older'];
 
@@ -111,9 +80,9 @@ export function RecentChats({
                     <Button
                       variant="ghost"
                       className={`w-full justify-start h-auto py-3 px-3 dark:hover:bg-slate-800/50 ${
-                        currentChatId === chat.id ? 'bg-accent' : ''
+                        props.currentChatId === chat.id ? 'bg-accent' : ''
                       }`}
-                      onClick={() => onChatSelect(chat.id)}
+                      onClick={() => props.onChatSelect(chat.id)}
                     >
                       <div className="flex items-center gap-3 min-w-0 w-[calc(100%-24px)]">
                         {ModelIcon && (
@@ -151,15 +120,11 @@ export function RecentChats({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 dark:bg-slate-800 dark:border-slate-700">
-                        <DropdownMenuItem onClick={(e) => handleAction('share', chat, e)}>
-                          <Share2 className="mr-2 h-4 w-4" />
-                          <span>Share</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => handleAction('rename', chat, e)}>
+                        <DropdownMenuItem onClick={() => props.onRename?.(chat.id, chat.title)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           <span>Rename</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => handleAction('archive', chat, e)}>
+                        <DropdownMenuItem onClick={() => props.onArchive?.(chat.id)}>
                           <Archive className="mr-2 h-4 w-4" />
                           <span>Archive</span>
                         </DropdownMenuItem>
@@ -189,7 +154,7 @@ export function RecentChats({
                                 Cancel
                               </AlertDialogCancel>
                               <AlertDialogAction 
-                                onClick={(e) => handleAction('delete', chat, e)}
+                                onClick={() => props.onDelete?.(chat.id)}
                                 className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
                               >
                                 Delete Chat
@@ -208,4 +173,6 @@ export function RecentChats({
       })}
     </div>
   );
-}
+};
+
+export default RecentChats;
