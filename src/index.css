@@ -1,0 +1,290 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+ 
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Markdown Content Styles */
+.wmde-markdown {
+  background-color: transparent !important;
+  font-size: inherit !important;
+}
+
+/* Code Block Styles */
+.wmde-markdown pre {
+  background-color: rgb(2 6 23) !important;
+  border-radius: 0.5rem !important;
+  margin: 1rem 0 !important;
+}
+
+.wmde-markdown code {
+  color: #e2e8f0 !important;
+  background-color: rgba(2, 6, 23, 0.5) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 0.25rem !important;
+  font-size: 0.875em !important;
+}
+
+.wmde-markdown pre code {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Table Styles */
+.wmde-markdown table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgb(51 65 85 / 0.2);
+}
+
+.wmde-markdown th {
+  background-color: rgb(241 245 249 / 0.1);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgb(51 65 85 / 0.2);
+}
+
+.wmde-markdown td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgb(51 65 85 / 0.2);
+}
+
+.wmde-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+/* Dark Mode Adjustments */
+.dark .wmde-markdown code {
+  color: #f1f5f9 !important;
+}
+
+.dark .wmde-markdown th {
+  background-color: rgb(30 41 59 / 0.5);
+}
+
+/* Syntax Highlighting */
+.wmde-markdown .hljs {
+  color: #e2e8f0;
+}
+
+.wmde-markdown .hljs-keyword {
+  color: #93c5fd;
+}
+
+.wmde-markdown .hljs-string {
+  color: #86efac;
+}
+
+.wmde-markdown .hljs-number {
+  color: #fca5a5;
+}
+
+.wmde-markdown .hljs-function {
+  color: #c4b5fd;
+}
+
+.wmde-markdown .hljs-comment {
+  color: #64748b;
+}
+
+.wmde-markdown .hljs-variable {
+  color: #f9a8d4;
+}
+
+.wmde-markdown .hljs-operator {
+  color: #e2e8f0;
+}
+
+/* Lists and Blockquotes */
+.wmde-markdown ul,
+.wmde-markdown ol {
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.wmde-markdown blockquote {
+  border-left: 4px solid rgb(51 65 85 / 0.2);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: rgb(100 116 139);
+}
+
+/* Links */
+.wmde-markdown a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.wmde-markdown a:hover {
+  text-decoration: underline;
+}
+
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Light mode scrollbar */
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 hover:bg-slate-600;
+}
+
+/* Hide scrollbar when not hovering */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Show scrollbar on hover */
+.hide-scrollbar:hover {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+
+.hide-scrollbar:hover::-webkit-scrollbar {
+  display: block;
+}
+
+/* Sidebar scrollbar */
+.sidebar-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/50 hover:bg-slate-400/50;
+}
+
+.dark .sidebar-content::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 hover:bg-slate-600/50;
+}
+
+/* Command menu scrollbar */
+.command-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.command-menu::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/50 hover:bg-slate-400/50;
+}
+
+.dark .command-menu::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 hover:bg-slate-600/50;
+}
+
+/* Chat messages scrollbar */
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/50 hover:bg-slate-400/50;
+}
+
+.dark .messages-container::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 hover:bg-slate-600/50;
+}
+
+/* Dropdown menu scrollbar */
+.dropdown-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dropdown-content::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/50 hover:bg-slate-400/50;
+}
+
+.dark .dropdown-content::-webkit-scrollbar-thumb {
+  @apply bg-slate-700/50 hover:bg-slate-600/50;
+}
