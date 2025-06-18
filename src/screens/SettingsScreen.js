@@ -18,7 +18,7 @@ import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, webSearchModelName, setWebSearchModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const models = gemmaModels;
   const [showApiKey, setShowApiKey] = useState(false);
@@ -105,30 +105,6 @@ function SettingsScreen({ navigation }) {
                   pressed && styles.modelOptionItemPressed,
                 ]}
                 onPress={() => setTitleModelName(m)}
-                android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
-              >
-                <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>
-                {isSelected && <Ionicons name="checkmark-circle" size={22} color="#6366F1" />}
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="search-circle-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Web Search Triage Model</Text>
-          </View>
-          {gemmaModels.map(m => {
-            const isSelected = webSearchModelName === m;
-            return (
-              <Pressable
-                key={m}
-                style={({ pressed }) => [
-                  styles.modelOptionItem,
-                  isSelected && styles.modelOptionItemSelected,
-                  pressed && styles.modelOptionItemPressed,
-                ]}
-                onPress={() => setWebSearchModelName(m)}
                 android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
               >
                 <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>

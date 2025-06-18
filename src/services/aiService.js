@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
+import { ddg } from "duckduckgo-search";
 
 export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
   if (!apiKey) return null;
@@ -83,40 +84,27 @@ export const shouldPerformSearch = async (apiKey, modelName, query) => {
   return { web_search: false, query: '' };
 };
 
-export const performWebSearch = async (query) => {
-  console.log(`Performing web search for: "${query}"`);
+
+export async function performWebSearch(query) {
+  console.log(`🔍 Scraping DuckDuckGo for: "${query}"`);
   try {
-    const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&pretty=1&no_html=1&skip_disambig=1`;
-    const response = await fetch(searchUrl);
-    if (!response.ok) {
-      throw new Error(`DuckDuckGo API request failed with status ${response.status}`);
-    }
-    const data = await response.json();
+    // This returns an array of { title, href, body } objects.
+    const results = await ddg(query, { safe: false, moderate: true });
 
-    let results = [];
-    if (data.AbstractText) {
-      results.push(`- Summary: ${data.AbstractText}`);
-    }
-    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-      data.RelatedTopics.slice(0, 3).forEach(topic => { // Limit to 3 related topics
-        if (topic.Text) {
-          results.push(`- Related: ${topic.Text} (Source: ${topic.FirstURL || 'N/A'})`);
-        }
-      });
+    if (!results.length) {
+      return "❌ No results found via duckduckgo-search.";
     }
 
-    if (results.length === 0) {
-      return "No direct answer or related topics found on DuckDuckGo.";
-    }
-
-    console.log("Web search results:", results.join('\n'));
-    return results.join('\n');
-  } catch (error) {
-    console.error("Error performing web search:", error);
-    return "An error occurred while searching the web.";
+    // Take top 5 hits and format as Markdown
+    return results.slice(0, 5).map(r =>
+      `- [${r.title}](${r.href})\n  > ${r.body}`
+    ).join("\n\n");
   }
-};
-
+  catch (err) {
+    console.error("Error scraping DuckDuckGo:", err);
+    return "⚠️ Error fetching from duckduckgo-search.";
+  }
+}
 export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText) => {
   if (!apiKey) {
     throw new Error("API Key Missing. Please set your API Key in Settings.");

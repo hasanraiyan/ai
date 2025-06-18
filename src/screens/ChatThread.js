@@ -23,14 +23,14 @@ import { DrawerActions } from '@react-navigation/native';
 
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
-import { generateChatTitle, sendMessageToAI, shouldPerformSearch, performWebSearch } from '../services/aiService';
+import { generateChatTitle, sendMessageToAI } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
 
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, titleModelName, webSearchModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
+  const { modelName, titleModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const [input, setInput] = useState('');
@@ -74,23 +74,6 @@ function ChatThread({ navigation, route }) {
     }
 
     try {
-      if (mode === 'agent') {
-        const searchDecision = await shouldPerformSearch(apiKey, webSearchModelName, text);
-        if (searchDecision.web_search && searchDecision.query) {
-          const searchResults = await performWebSearch(searchDecision.query);
-          const toolMessage = {
-            id: `tool-${Date.now()}`,
-            role: 'user', // We send tool results as user messages for context
-            text: `[Web Search Results for "${searchDecision.query}"]: \n${searchResults}`,
-            ts,
-            isHidden: true,
-          };
-          updatedMessages.push(toolMessage);
-          historyForAPI.push(toolMessage);
-          updateThreadMessages(threadId, updatedMessages);
-        }
-      }
-
       const reply = await sendMessageToAI(apiKey, modelName, historyForAPI, text);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
