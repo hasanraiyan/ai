@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useContext, createContext } from 'react';
 import {
   StyleSheet,
@@ -71,7 +72,6 @@ function ChatThread({ navigation, route }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
-  const firstSent = useRef(false);
   const titled = useRef(false);
   const inputRef = useRef(null);
   useEffect(() => {
@@ -101,52 +101,31 @@ function ChatThread({ navigation, route }) {
       setLoading(false);
       return;
     }
-
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
-
-    // Determine if this is the very first message in the thread
-    const isFirstMessage = thread.messages.length === 0;
-
-    // Immediately update the UI with the user's message
-    const messagesWithUser = [...thread.messages, userMsg];
-    updateThreadMessages(threadId, messagesWithUser);
+    const isFirstRealMessage = thread.messages.length === 2;
+    const updatedMessages = [...thread.messages, userMsg];
+    updateThreadMessages(threadId, updatedMessages);
     setLoading(true);
-
     try {
-      // 1. Construct the history for the API call from the existing messages
-      let history = thread.messages
+      const history = thread.messages
         .filter(m => !m.error)
         .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-
-      // 2. If it's the first message, prepend the system instruction
-      if (isFirstMessage && systemPrompt) {
-        history.unshift({ role: 'user', parts: [{ text: systemPrompt }] });
-      }
-
       const genAI = new GoogleGenerativeAI(apiKey);
       const chat = genAI.getGenerativeModel({ model: modelName, safetySettings }).startChat({ history });
-
       const res = await chat.sendMessage(text);
       const reply = await (await res.response).text();
-
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
-      updateThreadMessages(threadId, [...messagesWithUser, aiMsg]);
-
-      // Use the same flag to generate the title
-      if (isFirstMessage) {
+      updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
+      if (isFirstRealMessage && !titled.current) {
         generateTitle(text);
-        // We don't need titled.current anymore, but it doesn't hurt to keep it if you have other plans for it.
         titled.current = true;
       }
-
     } catch (e) {
-      console.error("AI Error:", e); // It's good practice to log the actual error
       const errMsg = { id: `e${Date.now()}`, text: 'An error occurred while fetching the response.', role: 'model', error: true, ts };
-      updateThreadMessages(threadId, [...messagesWithUser, errMsg]);
+      updateThreadMessages(threadId, [...updatedMessages, errMsg]);
     } finally {
       setLoading(false);
-      // A small delay ensures the list has time to re-render before scrolling
       setTimeout(() => scrollToBottom(), 100);
     }
   };
@@ -161,6 +140,7 @@ function ChatThread({ navigation, route }) {
     Linking.openURL(url).catch(() => { });
     return false;
   };
+  const displayMessages = thread.messages.filter((_, idx) => idx > 1);
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -175,7 +155,7 @@ function ChatThread({ navigation, route }) {
       </View>
       <FlatList
         ref={listRef}
-        data={thread.messages}
+        data={displayMessages}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
         renderItem={({ item }) =>
@@ -522,7 +502,23 @@ export default function App() {
   useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]);
   const createThread = () => {
     const id = Date.now().toString();
-    setThreads(prev => [...prev, { id, name: 'New Chat', messages: [] }]);
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const initialMessages = [
+      {
+        id: `u-system-${id}`,
+        text: systemPrompt,
+        role: 'user',
+        ts,
+      },
+      {
+        id: `a-system-${id}`,
+        text: "Understood. I'm ready to assist you as Arya. How can I help you today?",
+        role: 'model',
+        ts,
+      },
+    ];
+    const newThread = { id, name: 'New Chat', messages: initialMessages };
+    setThreads(prev => [...prev, newThread]);
     return id;
   };
   const updateThreadMessages = (threadId, messages) =>
