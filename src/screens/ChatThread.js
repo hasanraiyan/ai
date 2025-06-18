@@ -23,14 +23,14 @@ import { DrawerActions } from '@react-navigation/native';
 
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
-import { generateChatTitle, sendMessageToAI } from '../services/aiService';
+import { generateChatTitle, sendMessageToAI, shouldPerformSearch, performWebSearch } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
 
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, titleModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
+  const { modelName, titleModelName, webSearchModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const [input, setInput] = useState('');
@@ -62,18 +62,35 @@ function ChatThread({ navigation, route }) {
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.length === 2;
-    const updatedMessages = [...thread.messages, userMsg];
+    let updatedMessages = [...thread.messages, userMsg];
     updateThreadMessages(threadId, updatedMessages);
     setLoading(true);
 
     const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
-    const historyForAPI = thread.messages.map(m => ({ ...m }));
+    let historyForAPI = thread.messages.map(m => ({ ...m }));
     const systemMessageIndex = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (systemMessageIndex > -1) {
         historyForAPI[systemMessageIndex].text = currentSystemPrompt;
     }
-    
+
     try {
+      if (mode === 'agent') {
+        const searchDecision = await shouldPerformSearch(apiKey, webSearchModelName, text);
+        if (searchDecision.web_search && searchDecision.query) {
+          const searchResults = await performWebSearch(searchDecision.query);
+          const toolMessage = {
+            id: `tool-${Date.now()}`,
+            role: 'user', // We send tool results as user messages for context
+            text: `[Web Search Results for "${searchDecision.query}"]: \n${searchResults}`,
+            ts,
+            isHidden: true,
+          };
+          updatedMessages.push(toolMessage);
+          historyForAPI.push(toolMessage);
+          updateThreadMessages(threadId, updatedMessages);
+        }
+      }
+
       const reply = await sendMessageToAI(apiKey, modelName, historyForAPI, text);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
@@ -104,7 +121,7 @@ function ChatThread({ navigation, route }) {
     return false;
   };
 
-  const displayMessages = thread.messages.filter((_, idx) => idx > 1);
+  const displayMessages = thread.messages.filter((m, idx) => idx > 1 && !m.isHidden);
 
   return (
     <SafeAreaView style={styles.root}>

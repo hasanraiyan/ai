@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, webSearchModelName, setWebSearchModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -109,7 +109,31 @@ function SettingsScreen({ navigation }) {
               </Pressable>
             );
           })}
-        </View>        
+        </View>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsCardHeader}>
+            <Ionicons name="search-circle-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>Web Search Triage Model</Text>
+          </View>
+          {['gemma-3-1b-it', 'gemma-3n-e4b-it'].map(m => {
+            const isSelected = webSearchModelName === m;
+            return (
+              <Pressable
+                key={m}
+                style={({ pressed }) => [
+                  styles.modelOptionItem,
+                  isSelected && styles.modelOptionItemSelected,
+                  pressed && styles.modelOptionItemPressed,
+                ]}
+                onPress={() => setWebSearchModelName(m)}
+                android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
+              >
+                <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>
+                {isSelected && <Ionicons name="checkmark-circle" size={22} color="#6366F1" />}
+              </Pressable>
+            );
+          })}
+        </View>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
             <Ionicons name="key-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
