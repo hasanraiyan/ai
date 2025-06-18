@@ -473,23 +473,26 @@ function CustomDrawerContent(props) {
 const Drawer = createDrawerNavigator();
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
-  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant...');
+  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone—like a clever Gen Z friend who’s also secretly a professor. You’re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya.');
   const [threads, setThreads] = useState([]);
   const [apiKey, setApiKey] = useState('');
   const [ready, setReady] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   useEffect(() => {
     (async () => {
       try {
-        const [m, s, t, ak] = await Promise.all([
+        const [m, s, t, ak, seen] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@apiKey'),
+          AsyncStorage.getItem('@seenWelcome'),
         ]);
         if (m) setModelName(m);
         if (s) setSystemPrompt(s);
         if (t) setThreads(JSON.parse(t));
         if (ak) setApiKey(ak);
+        if (!seen) setShowWelcome(true);
       } catch {}
       setReady(true);
     })();
@@ -509,6 +512,10 @@ export default function App() {
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, name } : t));
   const deleteThread = threadId =>
     setThreads(prev => prev.filter(t => t.id !== threadId));
+  const closeWelcome = () => {
+    setShowWelcome(false);
+    AsyncStorage.setItem('@seenWelcome', '1').catch(() => {});
+  };
   if (!ready) {
     return (
       <SafeAreaView style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -527,6 +534,29 @@ export default function App() {
               <Drawer.Screen name="Settings" component={SettingsScreen} />
             </Drawer.Navigator>
           </NavigationContainer>
+          <Modal transparent visible={showWelcome} animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.welcomeModal}>
+                <Ionicons name="sparkles-sharp" size={36} color="#6366F1" style={{ alignSelf: 'center', marginBottom: 12 }} />
+                <Text style={styles.welcomeTitle}>Welcome to AI Assistant</Text>
+                <Text style={styles.welcomeText}>
+                  To get started, you'll need a Google AI API Key. This key lets the app communicate with the Gemma language model.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonPrimary, { alignSelf: 'stretch', marginTop: 16 }]}
+                  onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => {})}
+                >
+                  <Text style={styles.modalButtonText}>Get API Key</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonSecondary, { alignSelf: 'stretch', marginTop: 12 }]}
+                  onPress={closeWelcome}
+                >
+                  <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>Maybe Later</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </SafeAreaProvider>
       </ThreadsContext.Provider>
     </SettingsContext.Provider>
@@ -629,4 +659,7 @@ const styles = StyleSheet.create({
   modalButtonSecondary: { backgroundColor: '#E2E8F0' },
   modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
   modalButtonTextSecondary: { color: '#334155' },
+  welcomeModal: { width: width * 0.9, backgroundColor: '#fff', borderRadius: 12, padding: 24 },
+  welcomeTitle: { fontSize: 20, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 12 },
+  welcomeText: { fontSize: 15, color: '#475569', textAlign: 'center', lineHeight: 22 },
 });
