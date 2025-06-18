@@ -18,12 +18,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import Markdown from 'react-native-markdown-display';
 import { DrawerActions } from '@react-navigation/native';
 
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
+import { generateChatTitle, sendMessageToAI } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
@@ -45,22 +45,11 @@ function ChatThread({ navigation, route }) {
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
-  const generateTitle = async firstUserText => {
+  const handleGenerateTitle = async firstUserText => {
     try {
-      if (!apiKey) return;
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const prompt = `Generate a short chat title summarizing: "${firstUserText}". Respond only in JSON with a "title" field.`;
-      const chat = genAI
-        .getGenerativeModel({ model: 'gemma-3-1b-it', safetySettings })
-        .startChat({ history: [{ role: 'user', parts: [{ text: prompt }] }] });
-      const res = await chat.sendMessage(prompt);
-      const raw = await (await res.response).text();
-      const match = raw.match(/\{[^]*\}/);
-      if (match) {
-        const obj = JSON.parse(match[0]);
-        if (obj.title) renameThread(threadId, obj.title.trim().slice(0, 30));
-      }
-    } catch { }
+      const title = await generateChatTitle(apiKey, firstUserText);
+      if (title) renameThread(threadId, title);
+    } catch (e) { console.error("Title generation failed:", e); }
   };
 
   const sendAI = async text => {
@@ -76,21 +65,16 @@ function ChatThread({ navigation, route }) {
     updateThreadMessages(threadId, updatedMessages);
     setLoading(true);
     try {
-      const history = thread.messages
-        .filter(m => !m.error)
-        .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const chat = genAI.getGenerativeModel({ model: modelName, safetySettings }).startChat({ history });
-      const res = await chat.sendMessage(text);
-      const reply = await (await res.response).text();
+      const reply = await sendMessageToAI(apiKey, modelName, thread.messages, text);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
       if (isFirstRealMessage && !titled.current) {
-        generateTitle(text);
+        handleGenerateTitle(text);
         titled.current = true;
       }
     } catch (e) {
-      const errMsg = { id: `e${Date.now()}`, text: 'An error occurred while fetching the response.', role: 'model', error: true, ts };
+      const errMsgText = e.message.includes("API Key Missing") ? e.message : 'An error occurred while fetching the response.';
+      const errMsg = { id: `e${Date.now()}`, text: errMsgText, role: 'model', error: true, ts };
       updateThreadMessages(threadId, [...updatedMessages, errMsg]);
     } finally {
       setLoading(false);
