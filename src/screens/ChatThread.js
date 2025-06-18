@@ -302,7 +302,8 @@ const styles = StyleSheet.create({
   chatContent: {
     padding: 12,
     paddingBottom: 60,
-    marginTop: 80
+    marginTop: 25,
+    marginBottom: 10
   },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', margin: 8 },
   userBubble: { backgroundColor: '#6366F1', padding: 12, borderRadius: 16, maxWidth: '80%' },
