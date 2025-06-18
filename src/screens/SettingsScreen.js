@@ -8,12 +8,12 @@ import {
   ScrollView,
   Pressable,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { SettingsContext } from '../contexts/SettingsContext';
-import { styles } from '../styles/globalStyles';
 
 function SettingsScreen({ navigation }) {
   const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
@@ -96,5 +96,28 @@ function SettingsScreen({ navigation }) {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  headerIconButton: { padding: 8 },
+  settingsHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#fff' },
+  settingsTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginLeft: 16 },
+  settingsScrollView: { paddingVertical: 16, paddingHorizontal: 16 },
+  settingsCard: { backgroundColor: '#fff', borderRadius: 8, padding: 16, marginBottom: 16, ...Platform.select({ android: { elevation: 2 }, ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 } }) },
+  settingsCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  settingsCardIcon: { marginRight: 10 },
+  settingsCardTitle: { fontSize: 17, fontWeight: '600', color: '#1E293B' },
+  systemInstructionInput: { backgroundColor: '#F1F5F9', borderRadius: 6, padding: 12, minHeight: 100, textAlignVertical: 'top', color: '#1E293B', fontSize: 15, lineHeight: 20 },
+  settingsCharCount: { textAlign: 'right', fontSize: 12, color: '#64748B', marginTop: 8 },
+  modelOptionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 8 },
+  modelOptionItemSelected: { backgroundColor: '#EEF2FF' },
+  modelOptionItemPressed: { backgroundColor: '#E0E7FF' },
+  modelOptionText: { fontSize: 15, color: '#334155' },
+  modelOptionTextSelected: { fontWeight: '600', color: '#1E293B' },
+  apiKeyInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 12 },
+  apiKeyInput: { flex: 1, paddingVertical: 12, color: '#1E293B', fontSize: 15 },
+  showHideButton: { padding: 8, marginLeft: 8 },
+  settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8 },
+});
 
 export default SettingsScreen;

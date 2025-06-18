@@ -3,10 +3,10 @@ import {
   Text,
   View,
   Pressable,
+  StyleSheet,
 } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { styles } from '../styles/globalStyles';
 
 function CustomDrawerContent(props) {
   const activeRouteName = props.state.routes[props.state.index].name;
@@ -57,5 +57,23 @@ function CustomDrawerContent(props) {
     </DrawerContentScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  drawerContentContainer: { flex: 1, backgroundColor: '#fff' },
+  drawerHeaderContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  drawerLogo: { marginRight: 15 },
+  drawerHeaderText: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  drawerSection: { marginTop: 10, marginBottom: 5 },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, marginHorizontal: 12, borderRadius: 8, marginBottom: 2 },
+  drawerItemActive: { backgroundColor: '#EEF2FF' },
+  drawerItemPressed: { backgroundColor: '#E0E7FF' },
+  drawerIcon: { marginRight: 18, color: '#475569' },
+  drawerText: { fontSize: 15, color: '#334155', fontWeight: '500' },
+  drawerTextActive: { color: '#6366F1', fontWeight: '600' },
+  drawerSeparator: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 20, marginVertical: 10 },
+  drawerFooterIcon: { marginRight: 18, color: '#64748B' },
+  drawerFooterText: { fontSize: 14, color: '#475569', fontWeight: 'normal' },
+  appVersionText: { textAlign: 'center', color: '#94A3B8', fontSize: 12, paddingVertical: 15, marginTop: 'auto' },
+});
 
 export default CustomDrawerContent;

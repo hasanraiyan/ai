@@ -8,6 +8,8 @@ import {
   Linking,
   ActivityIndicator,
   Modal,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -21,9 +23,9 @@ import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
-import { styles } from './src/styles/globalStyles'; // For WelcomeModal and loading indicator
 
 const Drawer = createDrawerNavigator();
+const { width } = Dimensions.get('window');
 
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
@@ -132,3 +134,19 @@ export default function App() {
     </SettingsContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  // Styles for WelcomeModal and loading indicator
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  welcomeModal: { width: width * 0.9, backgroundColor: '#fff', borderRadius: 12, padding: 24 },
+  welcomeTitle: { fontSize: 20, fontWeight: '700', color: '#1E293B', textAlign: 'center', marginBottom: 12 },
+  welcomeText: { fontSize: 15, color: '#475569', textAlign: 'center', lineHeight: 22 },
+  modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6, marginLeft: 10, minWidth: 80, alignItems: 'center' },
+  modalButtonPrimary: { backgroundColor: '#6366F1' },
+  modalButtonSecondary: { backgroundColor: '#E2E8F0' },
+  modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
+  modalButtonTextSecondary: { color: '#334155' },
+  // For loading screen
+  loadingContainer: { justifyContent: 'center', alignItems: 'center' },
+});

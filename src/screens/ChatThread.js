@@ -26,7 +26,6 @@ import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
-import { styles } from '../styles/globalStyles';
 import { markdownStyles } from '../styles/markdownStyles';
 
 function ChatThread({ navigation, route }) {
@@ -182,5 +181,30 @@ function ChatThread({ navigation, route }) {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' },
+  headerIconButton: { padding: 8 },
+  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginHorizontal: 12, flex: 1 },
+  userRow: { flexDirection: 'row', justifyContent: 'flex-end', margin: 8 },
+  userBubble: { backgroundColor: '#6366F1', padding: 12, borderRadius: 16, maxWidth: '80%' },
+  userText: { color: '#fff', fontSize: 16 },
+  aiRow: { flexDirection: 'row', margin: 8, alignItems: 'flex-end' },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  aiBubble: { backgroundColor: '#fff', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', maxWidth: '80%' },
+  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  errorText: { color: '#B91C1C', fontSize: 16 },
+  time: { fontSize: 10, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
+  errorTime: { color: '#FCA5A5' },
+  chatContent: { padding: 12, paddingBottom: 60 },
+  inputRow: { flexDirection: 'row', padding: 8, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#E2E8F0' },
+  input: { flex: 1, padding: 12, backgroundColor: '#F1F5F9', borderRadius: 20, marginRight: 8, maxHeight: 100 },
+  sendBtn: { backgroundColor: '#6366F1', padding: 12, borderRadius: 20, justifyContent: 'center' },
+  sendDisabled: { backgroundColor: '#A5B4FC' },
+  // Styles for TypingIndicator are in its own file if it's a separate component
+  // typingBubble: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: 60, height: 40 },
+  // typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#94A3B8', margin: 3 },
+});
 
 export default ChatThread;

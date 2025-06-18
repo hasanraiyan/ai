@@ -8,12 +8,14 @@ import {
   FlatList,
   Modal,
   StatusBar,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThreadsContext } from '../contexts/ThreadsContext';
-import { styles } from '../styles/globalStyles';
+const { width } = Dimensions.get('window');
 
 function ThreadsList({ navigation }) {
   const { threads, createThread, renameThread, deleteThread } = useContext(ThreadsContext);
@@ -154,5 +156,49 @@ function ThreadsList({ navigation }) {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#fff' },
+  headerIconButton: { padding: 8 },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#F1F5F9' },
+  listTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  searchContainer: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#fff' },
+  searchInput: { backgroundColor: '#F1F5F9', borderRadius: 20, paddingHorizontal: 12, height: 40, fontSize: 16, color: '#1E293B' },
+  threadsListContainer: { paddingVertical: 8 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { marginTop: 8, fontSize: 16, color: '#64748B' },
+  threadCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 12,
+    ...Platform.select({
+      android: { elevation: 2 },
+      ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 },
+    }),
+  },
+  threadCardContent: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+  threadIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  threadTextContainer: { flex: 1 },
+  threadTitle: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
+  threadSnippet: { fontSize: 14, color: '#64748B', marginTop: 4 },
+  threadTime: { fontSize: 12, color: '#94A3B8', marginLeft: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1E293B', marginBottom: 16, textAlign: 'center' },
+  actionModal: { width: width * 0.85, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 20 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, },
+  actionIcon: { marginRight: 12 },
+  actionText: { fontSize: 16, color: '#1E293B', },
+  deleteActionText: { color: '#DC2626' },
+  cancelActionBtn: { borderTopWidth: 1, borderColor: '#F1F5F9', marginTop: 8, paddingTop: 14 },
+  renameModal: { width: width * 0.85, backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+  renameInput: { backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: '#1E293B', marginBottom: 20 },
+  renameBtns: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
+  modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6, marginLeft: 10, minWidth: 80, alignItems: 'center' },
+  modalButtonPrimary: { backgroundColor: '#6366F1' },
+  modalButtonSecondary: { backgroundColor: '#E2E8F0' },
+  modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
+  modalButtonTextSecondary: { color: '#334155' },
+});
 
 export default ThreadsList;

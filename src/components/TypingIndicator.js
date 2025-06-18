@@ -3,9 +3,9 @@ import {
   View,
   Animated,
   Easing,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { styles } from '../styles/globalStyles';
 
 const TypingIndicator = () => {
   const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current];
@@ -34,5 +34,13 @@ const TypingIndicator = () => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  aiRow: { flexDirection: 'row', margin: 8, alignItems: 'flex-end' },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  aiBubble: { backgroundColor: '#fff', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', maxWidth: '80%' },
+  typingBubble: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: 60, height: 40 },
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#94A3B8', margin: 3 },
+});
 
 export default TypingIndicator;
