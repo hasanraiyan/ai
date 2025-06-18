@@ -75,11 +75,17 @@ export default function App() {
       },
     ];
     const newThread = { id, name: 'New Chat', messages: initialMessages };
-    setThreads(prev => [...prev, newThread]);
+    // Add new thread to the beginning
+    setThreads(prev => [newThread, ...prev]);
     return id;
   };
   const updateThreadMessages = (threadId, messages) =>
-    setThreads(prev => prev.map(t => t.id === threadId ? { ...t, messages } : t));
+    setThreads(prev => {
+      const updatedThread = { ...prev.find(t => t.id === threadId), messages };
+      const otherThreads = prev.filter(t => t.id !== threadId);
+      // Move updated thread to the beginning
+      return [updatedThread, ...otherThreads];
+    });
   const renameThread = (threadId, name) =>
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, name } : t));
   const deleteThread = threadId =>
