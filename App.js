@@ -22,15 +22,45 @@ import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
+import { getAvailableTools } from './src/services/tools';
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
+
+const generateAgentPrompt = () => {
+  const tools = getAvailableTools();
+  const toolDescriptions = tools.map(t => `- ${t.agent_id}: ${t.description} Input: ${JSON.stringify(t.input_format)}`).join('\n');
+
+  return `You are a helpful and intelligent agent. Your primary goal is to assist users by breaking down their requests into tasks that can be executed by available tools.
+
+You have access to the following tools:
+${toolDescriptions}
+
+Here is how you must operate:
+1.  Analyze the user's request.
+2.  Determine if one or more of the available tools can fulfill the request.
+3.  If they can, you MUST respond ONLY with a single, valid JSON object that specifies the tools to be called. The JSON format is: { "tools-required": true, "tool_name": { "parameter": "value" }, ... }.
+4.  For example, if the user asks "What is 25 * 8 and what are the latest AI trends?", your response should be:
+    {
+      "tools-required": true,
+      "calculator": {
+        "expression": "25 * 8"
+      },
+      "search_web": {
+        "query": "latest AI trends"
+      }
+    }
+5.  If the user's request cannot be handled by the available tools (e.g., a simple greeting or a question you can answer from your own knowledge), respond as a standard conversational AI. Do NOT attempt to use tools.
+6.  After you provide the JSON, you will receive the results from the tools in a subsequent message. You must then use these results to construct a final, user-friendly, natural language response.
+7.  IMPORTANT: If the 'image_generator' tool was used, you MUST embed the resulting 'image_url' in your final response using Markdown format. For example: 'Here is the image you requested: ![A description of the image](the_image_url_here)'.`;
+};
+
 
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); // Added for specific title generation model
   const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone—like a clever Gen Z friend who’s also secretly a professor. You’re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya.');
-  const [agentSystemPrompt, setAgentSystemPrompt] = useState('You are a helpful agent. You are direct, concise, and assist with tasks. Your goal is to provide actionable information or perform tasks as requested. If you receive context from a web search, use it to form your primary response.');
+  const [agentSystemPrompt, setAgentSystemPrompt] = useState(generateAgentPrompt());
   const [threads, setThreads] = useState([]);
   const [apiKey, setApiKey] = useState('');
   const [ready, setReady] = useState(false);
@@ -38,11 +68,10 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [m, tm, s, asp, t, ak, seen] = await Promise.all([
+        const [m, tm, s, t, ak, seen] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@titleModelName'),
           AsyncStorage.getItem('@systemPrompt'),
-          AsyncStorage.getItem('@agentSystemPrompt'),
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@apiKey'),
           AsyncStorage.getItem('@seenWelcome'),
@@ -50,7 +79,8 @@ export default function App() {
         if (m) setModelName(m);
         if (tm) setTitleModelName(tm);
         if (s) setSystemPrompt(s);
-        if (asp) setAgentSystemPrompt(asp);
+        // Agent prompt is now generated dynamically, so we don't load/save it.
+        // if (asp) setAgentSystemPrompt(asp);
         if (t) setThreads(JSON.parse(t));
         if (ak) setApiKey(ak);
         if (!seen) setShowWelcome(true);
@@ -61,7 +91,8 @@ export default function App() {
   useEffect(() => { AsyncStorage.setItem('@modelName', modelName); }, [modelName]);
   useEffect(() => { AsyncStorage.setItem('@titleModelName', titleModelName); }, [titleModelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
-  useEffect(() => { AsyncStorage.setItem('@agentSystemPrompt', agentSystemPrompt); }, [agentSystemPrompt]);
+  // We no longer save agentSystemPrompt as it's generated
+  // useEffect(() => { AsyncStorage.setItem('@agentSystemPrompt', agentSystemPrompt); }, [agentSystemPrompt]);
   useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)); }, [threads]);
   useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]);
   const createThread = () => {

@@ -16,11 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { gemmaModels } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
+import { getAvailableTools } from '../services/tools';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const models = gemmaModels;
+  const availableTools = getAvailableTools(); // Get tools for display
   const [showApiKey, setShowApiKey] = useState(false);
 
   return (
@@ -36,7 +38,7 @@ function SettingsScreen({ navigation }) {
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
             <Ionicons name="chatbubble-ellipses-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Chat Instruction</Text>
+            <Text style={styles.settingsCardTitle}>Chat Instruction (Persona)</Text>
           </View>
           <TextInput
             style={styles.systemInstructionInput}
@@ -51,19 +53,16 @@ function SettingsScreen({ navigation }) {
         </View>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
-            <Ionicons name="construct-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Agent Instruction</Text>
+            <Ionicons name="build-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>Available Tools (Agent Mode)</Text>
           </View>
-          <TextInput
-            style={styles.systemInstructionInput}
-            value={agentSystemPrompt}
-            onChangeText={setAgentSystemPrompt}
-            placeholder="Define the Agent's persona and behavior..."
-            placeholderTextColor="#9CA3AF"
-            multiline
-            textAlignVertical="top"
-          />
-          <Text style={styles.settingsCharCount}>{agentSystemPrompt.length} characters</Text>
+          <Text style={styles.settingsInfoTextSmall}>The agent can use these tools. The prompt is auto-generated.</Text>
+          {availableTools.map(tool => (
+            <View key={tool.agent_id} style={styles.toolInfoItem}>
+              <Text style={styles.toolName}>{tool.agent_id}</Text>
+              <Text style={styles.toolDescription}>{tool.description}</Text>
+            </View>
+          ))}
         </View>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
@@ -184,9 +183,13 @@ const styles = StyleSheet.create({
   apiKeyInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 12 },
   apiKeyInput: { flex: 1, paddingVertical: 12, color: '#1E293B', fontSize: 15 },
   showHideButton: { padding: 8, marginLeft: 8 },
-  settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8 },
+  settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8, marginBottom: 8 },
   dangerButton: { backgroundColor: '#FEE2E2', borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
   dangerButtonText: { color: '#DC2626', fontSize: 15, fontWeight: '600' },
+  // Styles for Tool Info
+  toolInfoItem: { backgroundColor: '#F8FAFC', borderRadius: 6, padding: 12, marginBottom: 8 },
+  toolName: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+  toolDescription: { fontSize: 14, color: '#475569', marginTop: 4, lineHeight: 18 },
 });
 
 export default SettingsScreen;

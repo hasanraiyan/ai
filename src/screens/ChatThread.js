@@ -15,12 +15,11 @@ import {
   Pressable,
   Clipboard,
   Alert,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
-import { DrawerActions } from '@react-navigation/native';
-
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { generateChatTitle, sendMessageToAI } from '../services/aiService';
@@ -28,7 +27,7 @@ import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
 
-function ChatThread({ navigation, route }) {
+export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
   const { modelName, titleModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
@@ -39,6 +38,21 @@ function ChatThread({ navigation, route }) {
   const listRef = useRef(null);
   const titled = useRef(false);
   const inputRef = useRef(null);
+
+  // Animation for mode selector
+  const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
+  const [selectorWidth, setSelectorWidth] = useState(0);
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: mode === 'chat' ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true
+    }).start();
+  }, [mode]);
+  const translateX = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, selectorWidth / 2]
+  });
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
@@ -70,11 +84,24 @@ function ChatThread({ navigation, route }) {
     let historyForAPI = thread.messages.map(m => ({ ...m }));
     const systemMessageIndex = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (systemMessageIndex > -1) {
-        historyForAPI[systemMessageIndex].text = currentSystemPrompt;
+      historyForAPI[systemMessageIndex].text = currentSystemPrompt;
     }
 
+    const handleToolResult = toolResultText => {
+      const toolMsg = { id: `t${Date.now()}`, text: toolResultText, role: 'tool-result', ts };
+      updatedMessages = [...updatedMessages, toolMsg];
+      updateThreadMessages(threadId, updatedMessages);
+    };
+
     try {
-      const reply = await sendMessageToAI(apiKey, modelName, historyForAPI, text);
+      const reply = await sendMessageToAI(
+        apiKey,
+        modelName,
+        historyForAPI,
+        text,
+        mode === 'agent',
+        handleToolResult
+      );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
       if (isFirstRealMessage && !titled.current) {
@@ -104,30 +131,83 @@ function ChatThread({ navigation, route }) {
     return false;
   };
 
+  const renderMessageItem = ({ item }) => {
+    if (item.role === 'user') {
+      return (
+        <View style={styles.userRow}>
+          <View style={styles.userBubble}>
+            <Text style={styles.userText}>{item.text}</Text>
+            <Text style={styles.time}>{item.ts}</Text>
+          </View>
+        </View>
+      );
+    }
+
+    if (item.role === 'tool-result') {
+      return (
+        <View style={styles.toolRow}>
+          <View style={styles.toolIconContainer}>
+            <Ionicons name="build-outline" size={16} color="#0F766E" />
+          </View>
+          <View style={styles.toolBubble}>
+            <Text style={styles.toolTitle}>Tool Results</Text>
+            <Markdown style={markdownStyles}>{`\`\`\`json\n${item.text}\n\`\`\``}</Markdown>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.aiRow}>
+        <View style={styles.avatar}>
+          <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
+        </View>
+        <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
+          {item.error
+            ? <Text style={styles.errorText}>{item.text}</Text>
+            : <Markdown style={markdownStyles} onLinkPress={onLinkPress}>{item.text}</Markdown>
+          }
+          <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
+        </View>
+      </View>
+    );
+  };
+
   const displayMessages = thread.messages.filter((m, idx) => idx > 1 && !m.isHidden);
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.chatHeader}>
-         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={24} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
-       
       </View>
-      <View style={styles.modeSelectorContainer}>
+      <View
+        style={styles.modeSelectorContainer}
+        onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
+      >
+        <Animated.View
+          style={[
+            styles.selectorIndicator,
+            {
+              width: selectorWidth / 2,
+              transform: [{ translateX }]
+            }
+          ]}
+        />
         <TouchableOpacity
-            style={[styles.modeButton, mode === 'chat' && styles.modeButtonActive]}
-            onPress={() => setMode('chat')}
+          style={styles.modeButton}
+          onPress={() => setMode('chat')}
         >
-            <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>Chat</Text>
+          <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>Chat</Text>
         </TouchableOpacity>
         <TouchableOpacity
-            style={[styles.modeButton, mode === 'agent' && styles.modeButtonActive]}
-            onPress={() => setMode('agent')}
+          style={styles.modeButton}
+          onPress={() => setMode('agent')}
         >
-            <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>Agent</Text>
+          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>Agent</Text>
         </TouchableOpacity>
       </View>
       <FlatList
@@ -137,27 +217,7 @@ function ChatThread({ navigation, route }) {
         contentContainerStyle={styles.chatContent}
         renderItem={({ item }) =>
           <Pressable onLongPress={() => { Clipboard.setString(item.text); }}>
-            {item.role === 'user' ? (
-              <View style={styles.userRow}>
-                <View style={styles.userBubble}>
-                  <Text style={styles.userText}>{item.text}</Text>
-                  <Text style={styles.time}>{item.ts}</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.aiRow}>
-                <View style={styles.avatar}>
-                  <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
-                </View>
-                <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
-                  {item.error
-                    ? <Text style={styles.errorText}>{item.text}</Text>
-                    : <Markdown style={markdownStyles} onLinkPress={onLinkPress}>{item.text}</Markdown>
-                  }
-                  <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
-                </View>
-              </View>
-            )}
+            {renderMessageItem({ item })}
           </Pressable>
         }
         ListFooterComponent={loading && <TypingIndicator />}
@@ -189,48 +249,131 @@ function ChatThread({ navigation, route }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff' },
-  chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9'
+  },
   headerIconButton: { padding: 8 },
-  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', marginHorizontal: 12, flex: 1 },
-  userRow: { flexDirection: 'row', justifyContent: 'flex-end', margin: 8 },
-  userBubble: { backgroundColor: '#6366F1', padding: 12, borderRadius: 16, maxWidth: '80%' },
-  userText: { color: '#fff', fontSize: 16 },
-  aiRow: { flexDirection: 'row', margin: 8, alignItems: 'flex-end' },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  aiBubble: { backgroundColor: '#fff', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', maxWidth: '80%' },
-  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
-  errorText: { color: '#B91C1C', fontSize: 16 },
-  time: { fontSize: 10, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
-  errorTime: { color: '#FCA5A5' },
-  chatContent: { padding: 12, paddingBottom: 60 },
-  inputRow: { flexDirection: 'row', padding: 8, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#E2E8F0' },
-  input: { flex: 1, padding: 12, backgroundColor: '#F1F5F9', borderRadius: 20, marginRight: 8, maxHeight: 100 },
-  sendBtn: { backgroundColor: '#6366F1', padding: 12, borderRadius: 20, justifyContent: 'center' },
-  sendDisabled: { backgroundColor: '#A5B4FC' },
+  chatTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginHorizontal: 12,
+    flex: 1
+  },
   modeSelectorContainer: {
+    position: 'absolute',
+    top: 60,
     flexDirection: 'row',
     alignSelf: 'center',
     backgroundColor: '#E2E8F0',
     borderRadius: 20,
     padding: 4,
+    width: '40%',
     marginVertical: 10,
+    zIndex: 10,
+    overflow: 'hidden'
+  },
+  selectorIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#6366F1',
+    borderRadius: 16
   },
   modeButton: {
+    flex: 1,
     paddingVertical: 6,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-  },
-  modeButtonActive: {
-    backgroundColor: '#6366F1',
+    alignItems: 'center'
+
   },
   modeButtonText: {
     fontWeight: '600',
     color: '#334155',
-    fontSize: 15,
+    fontSize: 15
   },
   modeButtonTextActive: {
-    color: '#FFFFFF',
+    color: '#FFFFFF'
   },
+  chatContent: {
+    padding: 12,
+    paddingBottom: 60,
+    marginTop: 80
+  },
+  userRow: { flexDirection: 'row', justifyContent: 'flex-end', margin: 8 },
+  userBubble: { backgroundColor: '#6366F1', padding: 12, borderRadius: 16, maxWidth: '80%' },
+  userText: { color: '#fff', fontSize: 16 },
+  aiRow: { flexDirection: 'row', margin: 8, alignItems: 'flex-end' },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8
+  },
+  aiBubble: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxWidth: '80%'
+  },
+  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  errorText: { color: '#B91C1C', fontSize: 16 },
+  time: { fontSize: 10, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
+  errorTime: { color: '#FCA5A5' },
+  toolRow: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginVertical: 12,
+    alignItems: 'flex-start'
+  },
+  toolIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#CCFBF1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    marginTop: 4
+  },
+  toolBubble: {
+    backgroundColor: '#F0FDFA',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#5EEAD4',
+    flex: 1
+  },
+  toolTitle: { fontWeight: 'bold', color: '#115E59', marginBottom: 4 },
+  inputRow: {
+    flexDirection: 'row',
+    padding: 8,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  input: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    marginRight: 8,
+    maxHeight: 100
+  },
+  sendBtn: {
+    backgroundColor: '#6366F1',
+    padding: 12,
+    borderRadius: 20,
+    justifyContent: 'center'
+  },
+  sendDisabled: { backgroundColor: '#A5B4FC' }
 });
-
-export default ChatThread;

@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
-import { ddg } from "duckduckgo-search";
+import { toolDispatcher } from './tools';
+
 
 export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
   if (!apiKey) return null;
@@ -25,87 +26,19 @@ export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
   return null;
 };
 
-export const shouldPerformSearch = async (apiKey, modelName, query) => {
-  if (!apiKey) return { web_search: false, query: '' };
-  console.log("Performing search triage for query:", query);
+const extractJson = (text) => {
+  const match = text.match(/```json\n([\s\S]*?)\n```|({[\s\S]*})/);
+  if (!match) return null;
+  const jsonString = match[1] || match[2];
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // This is the improved, more stringent prompt for the triage model.
-    const prompt = `You are a highly efficient decision-making agent. Your primary goal is to determine if a user's query can be answered sufficiently with your existing knowledge, which has a cutoff in early 2023. You must decide whether to use an external web search tool. Your default behavior is to AVOID using the tool unless it's absolutely necessary.
-
-    CRITERIA FOR WEB SEARCH (web_search: true):
-    - The query asks for information about events, news, or developments that occurred AFTER early 2023.
-    - The query asks for real-time data that changes frequently (e.g., stock prices, weather, sports scores).
-    - The query asks about a very specific, niche, or non-famous entity that is unlikely to be in your training data.
-
-    CRITERIA TO AVOID WEB SEARCH (web_search: false):
-    - The query is about general knowledge, historical facts, or scientific concepts (e.g., "Who was Shakespeare?", "Explain black holes").
-    - The query is a creative request (e.g., "Write a story about a dragon").
-    - The query involves math, logic, or coding help.
-
-    Analyze the following user query based on these criteria.
-
-    User Query: "${query}"
-
-    Respond ONLY with a single, valid JSON object and nothing else.
-    If a search is needed, provide an optimized search query string.
-    If no search is needed, the query field must be an empty string.
-
-    Example 1:
-    User Query: "What were the main announcements at the last Apple event?"
-    Your Response: {"web_search": true, "query": "Apple event 2024 announcements summary"}
-
-    Example 2:
-    User Query: "What is the capital of France?"
-    Your Response: {"web_search": false, "query": ""}`;
-
-    const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    console.log("Triage response:", responseText);
-    // Use a more robust regex to find the JSON object
-    const match = responseText.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        const parsedJson = JSON.parse(match[0]);
-        // Final validation to ensure the structure is correct
-        if (typeof parsedJson.web_search === 'boolean') {
-          return parsedJson;
-        }
-      } catch (e) {
-        console.error("Error parsing triage JSON:", e, "Raw response:", responseText);
-      }
-    }
-  } catch (error) {
-    console.error("Error in search triage:", error);
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("Failed to parse JSON:", e);
+    return null;
   }
-  // Default to no search if anything fails
-  return { web_search: false, query: '' };
 };
 
-
-export async function performWebSearch(query) {
-  console.log(`🔍 Scraping DuckDuckGo for: "${query}"`);
-  try {
-    // This returns an array of { title, href, body } objects.
-    const results = await ddg(query, { safe: false, moderate: true });
-
-    if (!results.length) {
-      return "❌ No results found via duckduckgo-search.";
-    }
-
-    // Take top 5 hits and format as Markdown
-    return results.slice(0, 5).map(r =>
-      `- [${r.title}](${r.href})\n  > ${r.body}`
-    ).join("\n\n");
-  }
-  catch (err) {
-    console.error("Error scraping DuckDuckGo:", err);
-    return "⚠️ Error fetching from duckduckgo-search.";
-  }
-}
-export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText) => {
+export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolResult) => {
   if (!apiKey) {
     throw new Error("API Key Missing. Please set your API Key in Settings.");
   }
@@ -114,7 +47,7 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
   const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
 
   const chatHistory = historyMessages
-    .filter(m => !m.error) // Exclude previous error messages from history
+    .filter(m => !m.error && m.role !== 'tool-result') // Exclude errors and previous tool results from history
     .map(m => ({
       role: m.role,
       parts: [{ text: m.text }],
@@ -122,6 +55,25 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
 
   const chat = model.startChat({ history: chatHistory });
   const result = await chat.sendMessage(newMessageText);
-  const responseText = await result.response.text();
+  let responseText = await result.response.text();
+
+  if (isAgentMode) {
+    const toolCall = extractJson(responseText);
+    if (toolCall && toolCall['tools-required']) {
+      // It's a tool call, execute it
+      const toolResults = await toolDispatcher(toolCall);
+      const toolResultText = `Context from tool calls:\n${JSON.stringify(toolResults, null, 2)}`;
+      
+      // Callback to display intermediate tool results in the UI
+      if (onToolResult) {
+        onToolResult(toolResultText);
+      }
+      
+      // Add the tool result to the history and send it back to the AI for a final response
+      const finalResult = await chat.sendMessage(toolResultText);
+      responseText = await finalResult.response.text();
+    }
+  }
+
   return responseText;
 };
