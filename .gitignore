@@ -40,4 +40,5 @@ android
 TEMPORARY
 
 main.py
-digest.py
+digest.md
+.expo

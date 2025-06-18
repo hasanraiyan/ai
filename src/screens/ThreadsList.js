@@ -81,15 +81,7 @@ function ThreadsList({ navigation }) {
           <Ionicons name="menu-outline" size={24} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.listTitle}>Conversations</Text>
-        <TouchableOpacity
-          onPress={() => {
-            const id = createThread();
-            navigation.navigate('Chat', { threadId: id, name: 'New Chat' });
-          }}
-          style={styles.headerIconButton}
-        >
-          <Ionicons name="add-circle" size={28} color="#6366F1" />
-        </TouchableOpacity>
+        <View style={{ width: 24 + 8 * 2 }} />{/* Placeholder for balance */}
       </View>
       <View style={styles.searchContainer}>
         <TextInput
@@ -106,12 +98,23 @@ function ThreadsList({ navigation }) {
           <Text style={styles.emptyText}>No chats yet. Tap + to start.</Text>
         </View>
       ) : (
-        <FlatList
-          data={displayedThreads}
-          keyExtractor={i => i.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.threadsListContainer}
-        />
+        <>
+          <FlatList
+            data={displayedThreads}
+            keyExtractor={i => i.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.threadsListContainer}
+          />
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => {
+              const id = createThread();
+              navigation.navigate('Chat', { threadId: id, name: 'New Chat' });
+            }}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+        </>
       )}
       <Modal transparent visible={actionModalVisible} animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setActionModalVisible(false)}>
@@ -199,6 +202,23 @@ const styles = StyleSheet.create({
   modalButtonSecondary: { backgroundColor: '#E2E8F0' },
   modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
   modalButtonTextSecondary: { color: '#334155' },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#6366F1',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4, // Android shadow
+    shadowColor: '#000', // iOS shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
 });
 
 export default ThreadsList;
