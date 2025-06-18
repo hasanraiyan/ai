@@ -9,15 +9,18 @@ import {
   Pressable,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
+import { gemmaModels } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
+import { ThreadsContext } from '../contexts/ThreadsContext';
 
 function SettingsScreen({ navigation }) {
   const { modelName, setModelName, titleModelName, setTitleModelName, webSearchModelName, setWebSearchModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
-  const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
+  const { clearAllThreads } = useContext(ThreadsContext);
+  const models = gemmaModels;
   const [showApiKey, setShowApiKey] = useState(false);
 
   return (
@@ -91,7 +94,7 @@ function SettingsScreen({ navigation }) {
             <Ionicons name="document-text-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
             <Text style={styles.settingsCardTitle}>Title Generation Model</Text>
           </View>
-          {['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'].map(m => {
+          {gemmaModels.map(m => {
             const isSelected = titleModelName === m;
             return (
               <Pressable
@@ -115,7 +118,7 @@ function SettingsScreen({ navigation }) {
             <Ionicons name="search-circle-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
             <Text style={styles.settingsCardTitle}>Web Search Triage Model</Text>
           </View>
-          {['gemma-3-1b-it', 'gemma-3n-e4b-it'].map(m => {
+          {gemmaModels.map(m => {
             const isSelected = webSearchModelName === m;
             return (
               <Pressable
@@ -156,6 +159,30 @@ function SettingsScreen({ navigation }) {
           </View>
           <Text style={styles.settingsInfoTextSmall}>Your API key is stored locally and never shared.</Text>
         </View>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsCardHeader}>
+            <Ionicons name="trash-outline" size={22} color="#DC2626" style={styles.settingsCardIcon} />
+            <Text style={[styles.settingsCardTitle, { color: '#DC2626' }]}>Danger Zone</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.dangerButton}
+            onPress={() => {
+              Alert.alert(
+                "Clear All Chat History?",
+                "This will permanently delete all your conversations. This action cannot be undone.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Clear History",
+                    style: "destructive",
+                    onPress: () => clearAllThreads(),
+                  },
+                ]
+              );
+            }}>
+            <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -182,6 +209,8 @@ const styles = StyleSheet.create({
   apiKeyInput: { flex: 1, paddingVertical: 12, color: '#1E293B', fontSize: 15 },
   showHideButton: { padding: 8, marginLeft: 8 },
   settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8 },
+  dangerButton: { backgroundColor: '#FEE2E2', borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
+  dangerButtonText: { color: '#DC2626', fontSize: 15, fontWeight: '600' },
 });
 
 export default SettingsScreen;

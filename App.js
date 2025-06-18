@@ -101,6 +101,11 @@ export default function App() {
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, name } : t));
   const deleteThread = threadId =>
     setThreads(prev => prev.filter(t => t.id !== threadId));
+
+  const clearAllThreads = () => {
+    setThreads([]);
+    // AsyncStorage will be updated by the useEffect hook for `threads`
+  };
   const closeWelcome = () => {
     setShowWelcome(false);
     AsyncStorage.setItem('@seenWelcome', '1').catch(() => { });
@@ -115,7 +120,7 @@ export default function App() {
   return (
     <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, webSearchModelName, setWebSearchModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey }}>
       <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread }}>
-        <SafeAreaProvider>
+        <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread, clearAllThreads }}>
           <NavigationContainer>
             <Drawer.Navigator drawerContent={props => <CustomDrawerContent {...props} />} screenOptions={{ headerShown: false, drawerType: 'slide' }}>
               <Drawer.Screen name="Threads" component={ThreadsList} />
@@ -146,7 +151,7 @@ export default function App() {
               </View>
             </View>
           </Modal>
-        </SafeAreaProvider>
+        </ThreadsContext.Provider>
       </ThreadsContext.Provider>
     </SettingsContext.Provider>
   );

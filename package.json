@@ -16,6 +16,8 @@
     "@react-navigation/drawer": "^7.4.2",
     "@react-navigation/native": "^7.1.11",
     "expo": "~53.0.11",
+    "expo-clipboard": "~7.1.4",
+    "expo-image-picker": "~16.1.4",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-native": "0.79.3",
@@ -23,9 +25,7 @@
     "react-native-markdown-display": "^7.0.2",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
-    "react-native-screens": "~4.11.1",
-    "expo-image-picker": "~16.1.4",
-    "expo-clipboard": "~7.1.4"
+    "react-native-screens": "~4.11.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

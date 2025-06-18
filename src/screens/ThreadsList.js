@@ -98,24 +98,22 @@ function ThreadsList({ navigation }) {
           <Text style={styles.emptyText}>No chats yet. Tap + to start.</Text>
         </View>
       ) : (
-        <>
-          <FlatList
-            data={displayedThreads}
-            keyExtractor={i => i.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.threadsListContainer}
-          />
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => {
-              const id = createThread();
-              navigation.navigate('Chat', { threadId: id, name: 'New Chat' });
-            }}
-          >
-            <Ionicons name="add" size={28} color="#fff" />
-          </TouchableOpacity>
-        </>
+        <FlatList
+          data={displayedThreads}
+          keyExtractor={i => i.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.threadsListContainer}
+        />
       )}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          const id = createThread();
+          navigation.navigate('Chat', { threadId: id, name: 'New Chat' });
+        }}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
       <Modal transparent visible={actionModalVisible} animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setActionModalVisible(false)}>
           <View style={styles.actionModal}>

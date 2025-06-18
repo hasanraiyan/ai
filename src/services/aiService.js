@@ -25,41 +25,96 @@ export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
 };
 
 export const shouldPerformSearch = async (apiKey, modelName, query) => {
-  console.log("Checking if search is needed for query:", query);
   if (!apiKey) return { web_search: false, query: '' };
+  console.log("Performing search triage for query:", query);
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const prompt = `You are a triage agent. Analyze the following query and decide if it requires real-time information from the web to answer accurately. For example, queries about recent events, news, stock prices, or current affairs need a web search. Queries about general knowledge, creative writing, or personal history do not.
-
-    Query: "${query}"
     
-    Respond ONLY with a JSON object with two keys: "web_search" (boolean) and "query" (a search-engine-optimized string if web_search is true, otherwise an empty string).`;
+    // This is the improved, more stringent prompt for the triage model.
+    const prompt = `You are a highly efficient decision-making agent. Your primary goal is to determine if a user's query can be answered sufficiently with your existing knowledge, which has a cutoff in early 2023. You must decide whether to use an external web search tool. Your default behavior is to AVOID using the tool unless it's absolutely necessary.
+
+    CRITERIA FOR WEB SEARCH (web_search: true):
+    - The query asks for information about events, news, or developments that occurred AFTER early 2023.
+    - The query asks for real-time data that changes frequently (e.g., stock prices, weather, sports scores).
+    - The query asks about a very specific, niche, or non-famous entity that is unlikely to be in your training data.
+
+    CRITERIA TO AVOID WEB SEARCH (web_search: false):
+    - The query is about general knowledge, historical facts, or scientific concepts (e.g., "Who was Shakespeare?", "Explain black holes").
+    - The query is a creative request (e.g., "Write a story about a dragon").
+    - The query involves math, logic, or coding help.
+
+    Analyze the following user query based on these criteria.
+
+    User Query: "${query}"
+
+    Respond ONLY with a single, valid JSON object and nothing else.
+    If a search is needed, provide an optimized search query string.
+    If no search is needed, the query field must be an empty string.
+
+    Example 1:
+    User Query: "What were the main announcements at the last Apple event?"
+    Your Response: {"web_search": true, "query": "Apple event 2024 announcements summary"}
+
+    Example 2:
+    User Query: "What is the capital of France?"
+    Your Response: {"web_search": false, "query": ""}`;
 
     const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     console.log("Triage response:", responseText);
-    const match = responseText.match(/\{[^]*\}/);
-
+    // Use a more robust regex to find the JSON object
+    const match = responseText.match(/\{[\s\S]*\}/);
     if (match) {
-
-      return JSON.parse(match[0]);
+      try {
+        const parsedJson = JSON.parse(match[0]);
+        // Final validation to ensure the structure is correct
+        if (typeof parsedJson.web_search === 'boolean') {
+          return parsedJson;
+        }
+      } catch (e) {
+        console.error("Error parsing triage JSON:", e, "Raw response:", responseText);
+      }
     }
   } catch (error) {
     console.error("Error in search triage:", error);
   }
+  // Default to no search if anything fails
   return { web_search: false, query: '' };
 };
 
 export const performWebSearch = async (query) => {
-  // This is a dummy function. In a real app, you would use a search API.
-  console.log(`Simulating web search for: "${query}"`);
-  await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-  return `
-    - Result 1: The latest AI models show significant advancements in reasoning and tool use.
-    - Result 2: Tech analysts predict major breakthroughs in AI-driven automation for 2024.
-    - Result 3: A recent study highlights the performance of 'gemma-3-27b-it' on complex problem-solving tasks.
-  `;
+  console.log(`Performing web search for: "${query}"`);
+  try {
+    const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&pretty=1&no_html=1&skip_disambig=1`;
+    const response = await fetch(searchUrl);
+    if (!response.ok) {
+      throw new Error(`DuckDuckGo API request failed with status ${response.status}`);
+    }
+    const data = await response.json();
+
+    let results = [];
+    if (data.AbstractText) {
+      results.push(`- Summary: ${data.AbstractText}`);
+    }
+    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+      data.RelatedTopics.slice(0, 3).forEach(topic => { // Limit to 3 related topics
+        if (topic.Text) {
+          results.push(`- Related: ${topic.Text} (Source: ${topic.FirstURL || 'N/A'})`);
+        }
+      });
+    }
+
+    if (results.length === 0) {
+      return "No direct answer or related topics found on DuckDuckGo.";
+    }
+
+    console.log("Web search results:", results.join('\n'));
+    return results.join('\n');
+  } catch (error) {
+    console.error("Error performing web search:", error);
+    return "An error occurred while searching the web.";
+  }
 };
 
 export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText) => {
