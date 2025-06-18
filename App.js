@@ -18,7 +18,7 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  Modal,
+  Modal, Clipboard,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -159,27 +159,29 @@ function ChatThread({ navigation, route }) {
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
         renderItem={({ item }) =>
-          item.role === 'user' ? (
-            <View style={styles.userRow}>
-              <View style={styles.userBubble}>
-                <Text style={styles.userText}>{item.text}</Text>
-                <Text style={styles.time}>{item.ts}</Text>
+          <Pressable onLongPress={() => { Clipboard.setString(item.text); }}>
+            {item.role === 'user' ? (
+              <View style={styles.userRow}>
+                <View style={styles.userBubble}>
+                  <Text style={styles.userText}>{item.text}</Text>
+                  <Text style={styles.time}>{item.ts}</Text>
+                </View>
               </View>
-            </View>
-          ) : (
-            <View style={styles.aiRow}>
-              <View style={styles.avatar}>
-                <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
+            ) : (
+              <View style={styles.aiRow}>
+                <View style={styles.avatar}>
+                  <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
+                </View>
+                <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
+                  {item.error
+                    ? <Text style={styles.errorText}>{item.text}</Text>
+                    : <Markdown style={markdownStyles} onLinkPress={onLinkPress}>{item.text}</Markdown>
+                  }
+                  <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
+                </View>
               </View>
-              <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
-                {item.error
-                  ? <Text style={styles.errorText}>{item.text}</Text>
-                  : <Markdown style={markdownStyles} onLinkPress={onLinkPress}>{item.text}</Markdown>
-                }
-                <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
-              </View>
-            </View>
-          )
+            )}
+          </Pressable>
         }
         ListFooterComponent={loading && <TypingIndicator />}
         keyboardShouldPersistTaps="handled"
