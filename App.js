@@ -18,6 +18,7 @@ import {
   Pressable,
   ScrollView,
   Modal,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -213,6 +214,7 @@ function ThreadsList({ navigation }) {
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [selectedThread, setSelectedThread] = useState(null);
   const [renameInput, setRenameInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const renderItem = ({ item }) => {
     const last = item.messages[item.messages.length - 1];
     const snippet = last
@@ -253,6 +255,9 @@ function ThreadsList({ navigation }) {
     renameThread(selectedThread.id, renameInput.trim() || selectedThread.name);
     setRenameModalVisible(false);
   };
+  const displayedThreads = threads.filter(t =>
+    t.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -271,6 +276,15 @@ function ThreadsList({ navigation }) {
           <Ionicons name="add-circle" size={28} color="#6366F1" />
         </TouchableOpacity>
       </View>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search conversations…"
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
       {threads.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="chatbubble-ellipses-outline" size={48} color="#CBD5E1" />
@@ -278,7 +292,7 @@ function ThreadsList({ navigation }) {
         </View>
       ) : (
         <FlatList
-          data={threads}
+          data={displayedThreads}
           keyExtractor={i => i.id}
           renderItem={renderItem}
           contentContainerStyle={styles.threadsListContainer}
@@ -545,6 +559,8 @@ const styles = StyleSheet.create({
   sendDisabled: { backgroundColor: '#A5B4FC' },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#F1F5F9' },
   listTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  searchContainer: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#fff' },
+  searchInput: { backgroundColor: '#F1F5F9', borderRadius: 20, paddingHorizontal: 12, height: 40, fontSize: 16, color: '#1E293B' },
   threadsListContainer: { paddingVertical: 8 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { marginTop: 8, fontSize: 16, color: '#64748B' },
