@@ -102,13 +102,11 @@ function ChatThread({ navigation, route }) {
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.chatHeader}>
-        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={styles.headerIconButton}>
-          <Ionicons name="menu-outline" size={24} color="#475569" />
-        </TouchableOpacity>
-        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={24} color="#475569" />
         </TouchableOpacity>
+        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
+       
       </View>
       <FlatList
         ref={listRef}
