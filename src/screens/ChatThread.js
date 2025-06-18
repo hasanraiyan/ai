@@ -30,7 +30,7 @@ import { markdownStyles } from '../styles/markdownStyles';
 
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, systemPrompt, apiKey } = useContext(SettingsContext);
+  const { modelName, titleModelName, systemPrompt, apiKey } = useContext(SettingsContext); // Added titleModelName
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const [input, setInput] = useState('');
@@ -47,8 +47,7 @@ function ChatThread({ navigation, route }) {
 
   const handleGenerateTitle = async firstUserText => {
     try {
-      // Use the general modelName for title generation, or a specific one if desired
-      const title = await generateChatTitle(apiKey, modelName, firstUserText);
+      const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText); // Use specific titleModelName
       if (title) renameThread(threadId, title);
     } catch (e) { console.error("Title generation failed:", e); }
   };

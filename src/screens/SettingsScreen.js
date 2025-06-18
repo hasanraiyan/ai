@@ -16,9 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
-  const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); 
   const [showApiKey, setShowApiKey] = useState(false);
 
   return (
@@ -94,9 +93,6 @@ function SettingsScreen({ navigation }) {
               </Pressable>
             );
           })}
-          {/* You may need to handle storing this titleModelName separately, 
-               perhaps add setTitleModelName to your SettingsContext
-               and persist it with AsyncStorage like other settings. */}
         </View>        
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>

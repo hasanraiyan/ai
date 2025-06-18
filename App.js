@@ -29,6 +29,7 @@ const { width } = Dimensions.get('window');
 
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
+  const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); // Added for specific title generation model
   const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone—like a clever Gen Z friend who’s also secretly a professor. You’re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya.');
   const [threads, setThreads] = useState([]);
   const [apiKey, setApiKey] = useState('');
@@ -37,14 +38,16 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [m, s, t, ak, seen] = await Promise.all([
+        const [m, tm, s, t, ak, seen] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
+          AsyncStorage.getItem('@titleModelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@apiKey'),
           AsyncStorage.getItem('@seenWelcome'),
         ]);
         if (m) setModelName(m);
+        if (tm) setTitleModelName(tm);
         if (s) setSystemPrompt(s);
         if (t) setThreads(JSON.parse(t));
         if (ak) setApiKey(ak);
@@ -54,6 +57,7 @@ export default function App() {
     })();
   }, []);
   useEffect(() => { AsyncStorage.setItem('@modelName', modelName); }, [modelName]);
+  useEffect(() => { AsyncStorage.setItem('@titleModelName', titleModelName); }, [titleModelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
   useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)); }, [threads]);
   useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]);
@@ -102,7 +106,7 @@ export default function App() {
     );
   }
   return (
-    <SettingsContext.Provider value={{ modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey }}>
+    <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey }}>
       <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread }}>
         <SafeAreaProvider>
           <NavigationContainer>
