@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useContext, createContext } from 'react';
 import {
   StyleSheet,
@@ -17,7 +16,8 @@ import {
   Linking,
   ActivityIndicator,
   Pressable,
-  ScrollView
+  ScrollView,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +26,6 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 import Markdown from 'react-native-markdown-display';
 import { NavigationContainer, DrawerActions } from '@react-navigation/native';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
-
 const { width } = Dimensions.get('window');
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -34,10 +33,8 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
-
 const SettingsContext = createContext();
 const ThreadsContext = createContext();
-
 const TypingIndicator = () => {
   const dots = [useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current, useRef(new Animated.Value(0)).current];
   useEffect(() => {
@@ -65,7 +62,6 @@ const TypingIndicator = () => {
     </View>
   );
 };
-
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
   const { modelName, systemPrompt, apiKey } = useContext(SettingsContext);
@@ -77,13 +73,10 @@ function ChatThread({ navigation, route }) {
   const firstSent = useRef(false);
   const titled = useRef(false);
   const inputRef = useRef(null);
-
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
-
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
-
   const generateTitle = async firstUserText => {
     try {
       if (!apiKey) return;
@@ -101,7 +94,6 @@ function ChatThread({ navigation, route }) {
       }
     } catch {}
   };
-
   const sendAI = async text => {
     if (!apiKey) {
       Alert.alert("API Key Missing", "Please set your API Key in Settings to use the AI features.");
@@ -138,7 +130,6 @@ function ChatThread({ navigation, route }) {
       scrollToBottom();
     }
   };
-
   const onSend = () => {
     const t = input.trim();
     if (!t || loading) return;
@@ -146,12 +137,10 @@ function ChatThread({ navigation, route }) {
     Keyboard.dismiss();
     sendAI(t);
   };
-
   const onLinkPress = url => {
     Linking.openURL(url).catch(() => {});
     return false;
   };
-
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -218,9 +207,12 @@ function ChatThread({ navigation, route }) {
     </SafeAreaView>
   );
 }
-
 function ThreadsList({ navigation }) {
-  const { threads, createThread } = useContext(ThreadsContext);
+  const { threads, createThread, renameThread, deleteThread } = useContext(ThreadsContext);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [selectedThread, setSelectedThread] = useState(null);
+  const [renameInput, setRenameInput] = useState('');
   const renderItem = ({ item }) => {
     const last = item.messages[item.messages.length - 1];
     const snippet = last
@@ -230,6 +222,10 @@ function ThreadsList({ navigation }) {
       <TouchableOpacity
         style={styles.threadCard}
         onPress={() => navigation.navigate('Chat', { threadId: item.id, name: item.name })}
+        onLongPress={() => {
+          setSelectedThread(item);
+          setActionModalVisible(true);
+        }}
       >
         <View style={styles.threadCardContent}>
           <View style={styles.threadIcon}>
@@ -243,6 +239,19 @@ function ThreadsList({ navigation }) {
         </View>
       </TouchableOpacity>
     );
+  };
+  const handleDelete = () => {
+    deleteThread(selectedThread.id);
+    setActionModalVisible(false);
+  };
+  const handleRename = () => {
+    setRenameInput(selectedThread.name);
+    setActionModalVisible(false);
+    setRenameModalVisible(true);
+  };
+  const saveRename = () => {
+    renameThread(selectedThread.id, renameInput.trim() || selectedThread.name);
+    setRenameModalVisible(false);
   };
   return (
     <SafeAreaView style={styles.root}>
@@ -275,10 +284,40 @@ function ThreadsList({ navigation }) {
           contentContainerStyle={styles.threadsListContainer}
         />
       )}
+      <Modal transparent visible={actionModalVisible} animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setActionModalVisible(false)}>
+          <View style={styles.actionModal}>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleRename}>
+              <Text style={styles.actionText}>Rename</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleDelete}>
+              <Text style={[styles.actionText, { color: '#DC2626' }]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+      <Modal transparent visible={renameModalVisible} animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setRenameModalVisible(false)}>
+          <View style={styles.renameModal}>
+            <TextInput
+              style={styles.renameInput}
+              value={renameInput}
+              onChangeText={setRenameInput}
+            />
+            <View style={styles.renameBtns}>
+              <TouchableOpacity style={styles.renameBtn} onPress={() => setRenameModalVisible(false)}>
+                <Text style={styles.actionText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.renameBtn} onPress={saveRename}>
+                <Text style={styles.actionText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
-
 function SettingsScreen({ navigation }) {
   const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3-1b-it','gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
@@ -359,7 +398,6 @@ function SettingsScreen({ navigation }) {
     </SafeAreaView>
   );
 }
-
 function CustomDrawerContent(props) {
   const activeRouteName = props.state.routes[props.state.index].name;
   const navigateToScreen = screenName => {
@@ -409,16 +447,13 @@ function CustomDrawerContent(props) {
     </DrawerContentScrollView>
   );
 }
-
 const Drawer = createDrawerNavigator();
-
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant...');
   const [threads, setThreads] = useState([]);
   const [apiKey, setApiKey] = useState('');
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     (async () => {
       try {
@@ -436,12 +471,10 @@ export default function App() {
       setReady(true);
     })();
   }, []);
-
   useEffect(() => { AsyncStorage.setItem('@modelName', modelName); }, [modelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
   useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)); }, [threads]);
   useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]);
-
   const createThread = () => {
     const id = Date.now().toString();
     setThreads(prev => [...prev, { id, name: 'New Chat', messages: [] }]);
@@ -451,7 +484,8 @@ export default function App() {
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, messages } : t));
   const renameThread = (threadId, name) =>
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, name } : t));
-
+  const deleteThread = threadId =>
+    setThreads(prev => prev.filter(t => t.id !== threadId));
   if (!ready) {
     return (
       <SafeAreaView style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -459,10 +493,9 @@ export default function App() {
       </SafeAreaView>
     );
   }
-
   return (
     <SettingsContext.Provider value={{ modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey }}>
-      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread }}>
+      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread }}>
         <SafeAreaProvider>
           <NavigationContainer>
             <Drawer.Navigator drawerContent={props => <CustomDrawerContent {...props} />} screenOptions={{ headerShown: false, drawerType: 'slide' }}>
@@ -476,11 +509,9 @@ export default function App() {
     </SettingsContext.Provider>
   );
 }
-
 const markdownStyles = StyleSheet.create({
   body: { fontSize: 16, lineHeight: 24, color: '#334155' },
 });
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff' },
   chatHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderColor: '#F1F5F9' },
@@ -557,4 +588,12 @@ const styles = StyleSheet.create({
   drawerFooterIcon: { marginRight: 18, color: '#64748B' },
   drawerFooterText: { fontSize: 14, color: '#475569', fontWeight: 'normal' },
   appVersionText: { textAlign: 'center', color: '#94A3B8', fontSize: 12, paddingVertical: 15, marginTop: 'auto' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  actionModal: { width: width * 0.8, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
+  actionBtn: { paddingVertical: 12 },
+  actionText: { fontSize: 16, color: '#1E293B', textAlign: 'center' },
+  renameModal: { width: width * 0.8, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
+  renameInput: { borderBottomWidth: 1, borderColor: '#CBD5E1', paddingVertical: 8, fontSize: 16, color: '#1E293B' },
+  renameBtns: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 },
+  renameBtn: { marginLeft: 12 },
 });
