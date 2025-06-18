@@ -18,6 +18,7 @@ import { SettingsContext } from '../contexts/SettingsContext';
 function SettingsScreen({ navigation }) {
   const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
+  const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); 
   const [showApiKey, setShowApiKey] = useState(false);
 
   return (
@@ -70,6 +71,33 @@ function SettingsScreen({ navigation }) {
             );
           })}
         </View>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsCardHeader}>
+            <Ionicons name="document-text-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>Title Generation Model</Text>
+          </View>
+          {['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'].map(m => {
+            const isSelected = titleModelName === m;
+            return (
+              <Pressable
+                key={m}
+                style={({ pressed }) => [
+                  styles.modelOptionItem,
+                  isSelected && styles.modelOptionItemSelected,
+                  pressed && styles.modelOptionItemPressed,
+                ]}
+                onPress={() => setTitleModelName(m)}
+                android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
+              >
+                <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>
+                {isSelected && <Ionicons name="checkmark-circle" size={22} color="#6366F1" />}
+              </Pressable>
+            );
+          })}
+          {/* You may need to handle storing this titleModelName separately, 
+               perhaps add setTitleModelName to your SettingsContext
+               and persist it with AsyncStorage like other settings. */}
+        </View>        
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
             <Ionicons name="key-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />

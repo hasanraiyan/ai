@@ -47,7 +47,8 @@ function ChatThread({ navigation, route }) {
 
   const handleGenerateTitle = async firstUserText => {
     try {
-      const title = await generateChatTitle(apiKey, firstUserText);
+      // Use the general modelName for title generation, or a specific one if desired
+      const title = await generateChatTitle(apiKey, modelName, firstUserText);
       if (title) renameThread(threadId, title);
     } catch (e) { console.error("Title generation failed:", e); }
   };

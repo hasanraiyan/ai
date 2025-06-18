@@ -1,13 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
 
-export const generateChatTitle = async (apiKey, firstUserText) => {
+export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
   if (!apiKey) return null;
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const prompt = `Generate a short chat title summarizing: "${firstUserText}". Respond only in JSON with a "title" field.`;
     // Using a lightweight model for title generation
-    const model = genAI.getGenerativeModel({ model: 'gemma-3-1b-it', safetySettings });    
+    const model = genAI.getGenerativeModel({ model: modelNameForTitle, safetySettings });
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     const match = responseText.match(/\{[^]*\}/);
