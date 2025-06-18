@@ -10,6 +10,7 @@ import {
   StatusBar,
   Platform,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,124 +20,39 @@ import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey, enabledTools, setEnabledTools } = useContext(SettingsContext);
+  const {
+    modelName, setModelName,
+    titleModelName, setTitleModelName,
+    systemPrompt, setSystemPrompt,
+    apiKey, setApiKey,
+    enabledTools, setEnabledTools
+  } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
-  const models = gemmaModels;
-  const availableTools = getAvailableTools(); // Get tools for display
+  const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
+
+  const toggleTool = (toolId) => {
+    setEnabledTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
+  };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.settingsHeader}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerIconButton}>
-          <Ionicons name="menu-outline" size={26} color="#475569" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerButton}>
+          <Ionicons name="menu-outline" size={28} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.settingsTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>Settings</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.settingsScrollView}>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="chatbubble-ellipses-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Chat Instruction (Persona)</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+
+        {/* --- API Key Card --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="key-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>API Key</Text>
           </View>
-          <TextInput
-            style={styles.systemInstructionInput}
-            value={systemPrompt}
-            onChangeText={setSystemPrompt}
-            placeholder="Define the AI's persona and behavior..."
-            placeholderTextColor="#9CA3AF"
-            multiline
-            textAlignVertical="top"
-          />
-          <Text style={styles.settingsCharCount}>{systemPrompt.length} characters</Text>
-        </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="build-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Available Tools (Agent Mode)</Text>
-          </View>
-          <Text style={styles.settingsInfoTextSmall}>Enable or disable tools for the agent. The system prompt updates automatically.</Text>
-          {availableTools.map(tool => {
-            const isEnabled = !!enabledTools[tool.agent_id];
-            return (
-              <Pressable
-                key={tool.agent_id}
-                style={({ pressed }) => [
-                  styles.toolOptionItem,
-                  pressed && styles.modelOptionItemPressed,
-                ]}
-                onPress={() => setEnabledTools(prev => ({ ...prev, [tool.agent_id]: !prev[tool.agent_id] }))}
-                android_ripple={{ color: '#E0E7FF' }}
-              >
-                <View style={styles.toolOptionTextContainer}>
-                  <Text style={styles.toolName}>{tool.agent_id}</Text>
-                  <Text style={styles.toolDescription}>{tool.description}</Text>
-                </View>
-                <Ionicons
-                  name={isEnabled ? "toggle" : "toggle-outline"}
-                  size={32}
-                  color={isEnabled ? "#6366F1" : "#94A3B8"}
-                  style={{ marginLeft: 8 }}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="hardware-chip-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Language Model</Text>
-          </View>
-          {models.map(m => {
-            const isSelected = modelName === m;
-            return (
-              <Pressable
-                key={m}
-                style={({ pressed }) => [
-                  styles.modelOptionItem,
-                  isSelected && styles.modelOptionItemSelected,
-                  pressed && styles.modelOptionItemPressed,
-                ]}
-                onPress={() => setModelName(m)}
-                android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
-              >
-                <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>
-                {isSelected && <Ionicons name="checkmark-circle" size={22} color="#6366F1" />}
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="document-text-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>Title Generation Model</Text>
-          </View>
-          {gemmaModels.map(m => {
-            const isSelected = titleModelName === m;
-            return (
-              <Pressable
-                key={m}
-                style={({ pressed }) => [
-                  styles.modelOptionItem,
-                  isSelected && styles.modelOptionItemSelected,
-                  pressed && styles.modelOptionItemPressed,
-                ]}
-                onPress={() => setTitleModelName(m)}
-                android_ripple={{ color: styles.modelOptionItemSelected.backgroundColor || '#E0E0E0' }}
-              >
-                <Text style={[styles.modelOptionText, isSelected && styles.modelOptionTextSelected]}>{m}</Text>
-                {isSelected && <Ionicons name="checkmark-circle" size={22} color="#6366F1" />}
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="key-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>API Key</Text>
-          </View>
-          <View style={styles.apiKeyInputContainer}>
+          <View style={styles.apiKeyContainer}>
             <TextInput
               style={styles.apiKeyInput}
               value={apiKey}
@@ -147,79 +63,277 @@ function SettingsScreen({ navigation }) {
               autoCapitalize="none"
               autoCorrect={false}
             />
-            <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.showHideButton}>
+            <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.eyeIcon}>
               <Ionicons name={showApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.settingsInfoTextSmall}>Your API key is stored locally and never shared.</Text>
+          <Text style={styles.infoText}>Your API key is stored securely on your device.</Text>
         </View>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsCardHeader}>
-            <Ionicons name="trash-outline" size={22} color="#DC2626" style={styles.settingsCardIcon} />
-            <Text style={[styles.settingsCardTitle, { color: '#DC2626' }]}>Danger Zone</Text>
+
+        {/* --- Persona Card --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="person-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>AI Persona</Text>
+          </View>
+          <TextInput
+            style={styles.personaInput}
+            value={systemPrompt}
+            onChangeText={setSystemPrompt}
+            placeholder="Define the AI's persona, e.g., 'You are a helpful pirate assistant.'"
+            placeholderTextColor="#9CA3AF"
+            multiline
+          />
+        </View>
+        
+        {/* --- Model Configuration Card --- */}
+        <View style={styles.card}>
+           <View style={styles.cardHeader}>
+            <Ionicons name="hardware-chip-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Model Configuration</Text>
+          </View>
+          
+          <Text style={styles.cardSubTitle}>Main Chat Model</Text>
+          <View style={styles.optionGroup}>
+            {gemmaModels.map(m => (
+              <Pressable key={m} onPress={() => setModelName(m)} style={[styles.optionButton, modelName === m && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, modelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+              </Pressable>
+            ))}
+          </View>
+          
+          <View style={styles.separator} />
+          
+          <Text style={styles.cardSubTitle}>Title Generation Model</Text>
+          <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
+          <View style={styles.optionGroup}>
+            {gemmaModels.map(m => (
+              <Pressable key={`title-${m}`} onPress={() => setTitleModelName(m)} style={[styles.optionButton, titleModelName === m && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, titleModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* --- Agent Tools Card --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="build-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Agent Tools</Text>
+          </View>
+          <Text style={styles.infoText}>Enable or disable tools for the agent to use. This updates the agent's instructions automatically.</Text>
+          {availableTools.map((tool, index) => {
+            const isEnabled = !!enabledTools[tool.agent_id];
+            return (
+              <React.Fragment key={tool.agent_id}>
+                {index > 0 && <View style={styles.separator} />}
+                <View style={styles.toolRow}>
+                  <View style={styles.toolInfo}>
+                    <Text style={styles.toolName}>{tool.agent_id}</Text>
+                    <Text style={styles.toolDescription}>{tool.description}</Text>
+                  </View>
+                  <Switch
+                    trackColor={{ false: '#D1D5DB', true: '#A5B4FC' }}
+                    thumbColor={isEnabled ? '#6366F1' : '#f4f3f4'}
+                    ios_backgroundColor="#D1D5DB"
+                    onValueChange={() => toggleTool(tool.agent_id)}
+                    value={isEnabled}
+                  />
+                </View>
+              </React.Fragment>
+            );
+          })}
+        </View>
+
+        {/* --- Danger Zone Card --- */}
+        <View style={[styles.card, styles.dangerCard]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="warning-outline" size={20} color="#DC2626" style={styles.cardIcon} />
+            <Text style={[styles.cardTitle, { color: '#DC2626' }]}>Danger Zone</Text>
           </View>
           <TouchableOpacity
             style={styles.dangerButton}
             onPress={() => {
               Alert.alert(
                 "Clear All Chat History?",
-                "This will permanently delete all your conversations. This action cannot be undone.",
+                "This action is permanent and will delete all conversations. It cannot be undone.",
                 [
                   { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Clear History",
-                    style: "destructive",
-                    onPress: () => clearAllThreads(),
-                  },
+                  { text: "Clear History", style: "destructive", onPress: clearAllThreads },
                 ]
               );
             }}>
+            <Ionicons name="trash-outline" size={18} color="#991B1B" style={{marginRight: 8}} />
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
-  headerIconButton: { padding: 8 },
-  settingsHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#fff' },
-  settingsTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginLeft: 16 },
-  settingsScrollView: { paddingVertical: 16, paddingHorizontal: 16 },
-  settingsCard: { backgroundColor: '#fff', borderRadius: 8, padding: 16, marginBottom: 16, ...Platform.select({ android: { elevation: 2 }, ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 } }) },
-  settingsCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  settingsCardIcon: { marginRight: 10 },
-  settingsCardTitle: { fontSize: 17, fontWeight: '600', color: '#1E293B' },
-  systemInstructionInput: { backgroundColor: '#F1F5F9', borderRadius: 6, padding: 12, minHeight: 100, textAlignVertical: 'top', color: '#1E293B', fontSize: 15, lineHeight: 20 },
-  settingsCharCount: { textAlign: 'right', fontSize: 12, color: '#64748B', marginTop: 8 },
-  modelOptionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 8 },
-  modelOptionItemSelected: { backgroundColor: '#EEF2FF' },
-  modelOptionItemPressed: { backgroundColor: '#E0E7FF' },
-  modelOptionText: { fontSize: 15, color: '#334155' },
-  modelOptionTextSelected: { fontWeight: '600', color: '#1E293B' },
-  apiKeyInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 12 },
-  apiKeyInput: { flex: 1, paddingVertical: 12, color: '#1E293B', fontSize: 15 },
-  showHideButton: { padding: 8, marginLeft: 8 },
-  settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8, marginBottom: 8 },
-  dangerButton: { backgroundColor: '#FEE2E2', borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
-  dangerButtonText: { color: '#DC2626', fontSize: 15, fontWeight: '600' },
-  // Styles for Tool Info
-  toolOptionItem: {
+  root: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
     backgroundColor: '#F8FAFC',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 8,
   },
-  toolOptionTextContainer: {
+  headerButton: { padding: 4 },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginLeft: 16,
+  },
+  scrollContainer: {
+    padding: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardIcon: {
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  cardSubTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 16,
+  },
+  
+  // API Key Styles
+  apiKeyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  apiKeyInput: {
     flex: 1,
-    marginRight: 8,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+    color: '#1E293B',
+    fontSize: 15,
   },
-  toolName: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
-  toolDescription: { fontSize: 14, color: '#475569', marginTop: 4, lineHeight: 18 },
+  eyeIcon: {
+    padding: 8,
+  },
+  
+  // Persona Styles
+  personaInput: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    color: '#1E293B',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  
+  // Model Selection Styles
+  optionGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8
+  },
+  optionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  optionButtonSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1'
+  },
+  optionButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155'
+  },
+  optionButtonTextSelected: {
+    color: '#4338CA',
+    fontWeight: '600'
+  },
+  
+  // Tool Styles
+  toolRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  toolInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  toolName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  toolDescription: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+    lineHeight: 18,
+  },
+
+  // Danger Zone
+  dangerCard: {
+    borderColor: '#FCA5A5'
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dangerButtonText: {
+    color: '#B91C1C',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });
 
 export default SettingsScreen;
