@@ -287,11 +287,17 @@ function ThreadsList({ navigation }) {
       <Modal transparent visible={actionModalVisible} animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setActionModalVisible(false)}>
           <View style={styles.actionModal}>
+            <Text style={styles.modalTitle}>Thread Actions</Text>
             <TouchableOpacity style={styles.actionBtn} onPress={handleRename}>
+              <Ionicons name="pencil-outline" size={20} color="#1E293B" style={styles.actionIcon} />
               <Text style={styles.actionText}>Rename</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={handleDelete}>
-              <Text style={[styles.actionText, { color: '#DC2626' }]}>Delete</Text>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" style={styles.actionIcon} />
+              <Text style={[styles.actionText, styles.deleteActionText]}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.cancelActionBtn]} onPress={() => setActionModalVisible(false)}>
+              <Text style={styles.actionText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -299,17 +305,20 @@ function ThreadsList({ navigation }) {
       <Modal transparent visible={renameModalVisible} animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setRenameModalVisible(false)}>
           <View style={styles.renameModal}>
+            <Text style={styles.modalTitle}>Rename Chat</Text>
             <TextInput
               style={styles.renameInput}
               value={renameInput}
               onChangeText={setRenameInput}
+              placeholder="Enter new name"
+              placeholderTextColor="#9CA3AF"
             />
             <View style={styles.renameBtns}>
-              <TouchableOpacity style={styles.renameBtn} onPress={() => setRenameModalVisible(false)}>
-                <Text style={styles.actionText}>Cancel</Text>
+              <TouchableOpacity style={[styles.modalButton, styles.modalButtonSecondary]} onPress={() => setRenameModalVisible(false)}>
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.renameBtn} onPress={saveRename}>
-                <Text style={styles.actionText}>Save</Text>
+              <TouchableOpacity style={[styles.modalButton, styles.modalButtonPrimary]} onPress={saveRename}>
+                <Text style={styles.modalButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -589,11 +598,19 @@ const styles = StyleSheet.create({
   drawerFooterText: { fontSize: 14, color: '#475569', fontWeight: 'normal' },
   appVersionText: { textAlign: 'center', color: '#94A3B8', fontSize: 12, paddingVertical: 15, marginTop: 'auto' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  actionModal: { width: width * 0.8, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
-  actionBtn: { paddingVertical: 12 },
-  actionText: { fontSize: 16, color: '#1E293B', textAlign: 'center' },
-  renameModal: { width: width * 0.8, backgroundColor: '#fff', borderRadius: 8, padding: 16 },
-  renameInput: { borderBottomWidth: 1, borderColor: '#CBD5E1', paddingVertical: 8, fontSize: 16, color: '#1E293B' },
-  renameBtns: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 },
-  renameBtn: { marginLeft: 12 },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1E293B', marginBottom: 16, textAlign: 'center' },
+  actionModal: { width: width * 0.85, backgroundColor: '#fff', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 20 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, },
+  actionIcon: { marginRight: 12 },
+  actionText: { fontSize: 16, color: '#1E293B', },
+  deleteActionText: { color: '#DC2626' },
+  cancelActionBtn: { borderTopWidth: 1, borderColor: '#F1F5F9', marginTop: 8, paddingTop: 14 },
+  renameModal: { width: width * 0.85, backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+  renameInput: { backgroundColor: '#F1F5F9', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, color: '#1E293B', marginBottom: 20 },
+  renameBtns: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
+  modalButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6, marginLeft: 10, minWidth: 80, alignItems: 'center' },
+  modalButtonPrimary: { backgroundColor: '#6366F1' },
+  modalButtonSecondary: { backgroundColor: '#E2E8F0' },
+  modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
+  modalButtonTextSecondary: { color: '#334155' },
 });
