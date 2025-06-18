@@ -25,6 +25,7 @@ import {
   Keyboard,
   Linking,
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView // Add ScrollView
 } from 'react-native';
@@ -37,8 +38,6 @@ import { NavigationContainer, DrawerActions } from '@react-navigation/native';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 
 const { width } = Dimensions.get('window');
-const API_KEY = 'AIzaSyDer4H_KDzSsdPpxfXrs6uD6dIZa6UFETk';
-const genAI = new GoogleGenerativeAI(API_KEY);
 
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -86,7 +85,7 @@ const TypingIndicator = () => {
 
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, systemPrompt } = useContext(SettingsContext);
+  const { modelName, systemPrompt, apiKey } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
 
@@ -105,8 +104,13 @@ function ChatThread({ navigation, route }) {
 
   const generateTitle = async firstUserText => {
     try {
+      if (!apiKey) {
+        console.warn("API Key not set. Skipping title generation.");
+        return;
+      }
+      const genAIInstance = new GoogleGenerativeAI(apiKey);
       const prompt = `Generate a short chat title summarizing: "${firstUserText}". Respond only in JSON with a "title" field.`;
-      const chat = genAI
+      const chat = genAIInstance
         .getGenerativeModel({ model: 'gemma-3-1b-it', safetySettings })
         .startChat({ history: [{ role: 'user', parts: [{ text: prompt }] }] });
       const res = await chat.sendMessage(prompt);
@@ -122,6 +126,12 @@ function ChatThread({ navigation, route }) {
   };
 
   const sendAI = async text => {
+    if (!apiKey) {
+      Alert.alert("API Key Missing", "Please set your API Key in Settings to use the AI features.");
+      setLoading(false);
+      return;
+    }
+
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     updateThreadMessages(threadId, [...thread.messages, userMsg]);
@@ -138,7 +148,8 @@ function ChatThread({ navigation, route }) {
         firstSent.current = true;
       }
 
-      const chat = genAI.getGenerativeModel({ model: modelName, safetySettings }).startChat({ history });
+      const genAIInstance = new GoogleGenerativeAI(apiKey);
+      const chat = genAIInstance.getGenerativeModel({ model: modelName, safetySettings }).startChat({ history });
       const res = await chat.sendMessage(text);
       const reply = await (await res.response).text();
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
@@ -303,8 +314,9 @@ function ThreadsList({ navigation }) {
 }
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, systemPrompt, setSystemPrompt } = useContext(SettingsContext);
+  const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
+  const [showApiKey, setShowApiKey] = useState(false);
   // Consider fetching these or making them configurable
 
   return (
@@ -363,6 +375,29 @@ function SettingsScreen({ navigation }) {
               </Pressable>
             );
           })}
+        </View>
+
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsCardHeader}>
+            <Ionicons name="key-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>API Key</Text>
+          </View>
+          <View style={styles.apiKeyInputContainer}>
+            <TextInput
+              style={styles.apiKeyInput}
+              value={apiKey}
+              onChangeText={setApiKey}
+              placeholder="Enter your Google AI API Key"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showApiKey}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.showHideButton}>
+              <Ionicons name={showApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.settingsInfoTextSmall}>Your API key is stored locally and never shared.</Text>
         </View>
 
         {/* Example: Add more settings sections as needed */}
@@ -484,21 +519,24 @@ export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant...');
   const [threads, setThreads] = useState([]);
+  const [apiKey, setApiKey] = useState(''); // Initialize API key state
   const [ready, setReady] = useState(false);
 
   // Hydrate from AsyncStorage
   useEffect(() => {
     (async () => {
       try {
-        const [m, s, t] = await Promise.all([
+        const [m, s, t, ak] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@threads'),
+          AsyncStorage.getItem('@apiKey'), // Load API Key
         ]);
         if (m) setModelName(m);
         if (s) setSystemPrompt(s);
         if (t) setThreads(JSON.parse(t));
-      } catch {}
+        if (ak) setApiKey(ak); // Set API Key
+      } catch (e) { console.error("Failed to load data from storage", e); }
       setReady(true);
     })();
   }, []);
@@ -507,6 +545,7 @@ export default function App() {
   useEffect(() => { AsyncStorage.setItem('@modelName', modelName); }, [modelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
   useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)); }, [threads]);
+  useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]); // Persist API Key
 
   const createThread = () => {
     const id = Date.now().toString();
@@ -527,8 +566,8 @@ export default function App() {
   }
 
   return (
-    <SettingsContext.Provider value={{ modelName, setModelName, systemPrompt, setSystemPrompt }}>
-      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread }}>
+    <SettingsContext.Provider value={{ modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey }}>
+      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread}}>
         <SafeAreaProvider>
           <NavigationContainer>
             <Drawer.Navigator
@@ -730,6 +769,21 @@ const styles = StyleSheet.create({
   modelOptionItemPressed: { backgroundColor: '#E0E7FF' }, // Added pressed state
   modelOptionText: { fontSize: 15, color: '#334155' }, // Renamed and adjusted size
   modelOptionTextSelected: { fontWeight: '600', color: '#1E293B' }, // Renamed
+  apiKeyInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+  },
+  apiKeyInput: {
+    flex: 1,
+    paddingVertical: 12,
+    color: '#1E293B',
+    fontSize: 15,
+  },
+  showHideButton: { padding: 8, marginLeft: 8, },
+  settingsInfoTextSmall: { fontSize: 12, color: '#64748B', marginTop: 8, },
   settingsInfoText: { fontSize: 14, color: '#475569', marginBottom: 6},
 
   // Drawer
