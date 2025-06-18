@@ -93,7 +93,7 @@ function ChatThread({ navigation, route }) {
         const obj = JSON.parse(match[0]);
         if (obj.title) renameThread(threadId, obj.title.trim().slice(0, 30));
       }
-    } catch {}
+    } catch { }
   };
   const sendAI = async text => {
     if (!apiKey) {
@@ -101,34 +101,53 @@ function ChatThread({ navigation, route }) {
       setLoading(false);
       return;
     }
+
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
-    updateThreadMessages(threadId, [...thread.messages, userMsg]);
+
+    // Determine if this is the very first message in the thread
+    const isFirstMessage = thread.messages.length === 0;
+
+    // Immediately update the UI with the user's message
+    const messagesWithUser = [...thread.messages, userMsg];
+    updateThreadMessages(threadId, messagesWithUser);
     setLoading(true);
+
     try {
-      let history = [...thread.messages, userMsg].filter(m => !m.error).map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-      const firstUser = history.findIndex(m => m.role === 'user');
-      history = history.slice(firstUser === -1 ? 0 : firstUser);
-      if (!firstSent.current) {
-        history = [{ role: 'user', parts: [{ text: systemPrompt }] }, ...history];
-        firstSent.current = true;
+      // 1. Construct the history for the API call from the existing messages
+      let history = thread.messages
+        .filter(m => !m.error)
+        .map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+
+      // 2. If it's the first message, prepend the system instruction
+      if (isFirstMessage && systemPrompt) {
+        history.unshift({ role: 'user', parts: [{ text: systemPrompt }] });
       }
+
       const genAI = new GoogleGenerativeAI(apiKey);
       const chat = genAI.getGenerativeModel({ model: modelName, safetySettings }).startChat({ history });
+
       const res = await chat.sendMessage(text);
       const reply = await (await res.response).text();
+
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
-      updateThreadMessages(threadId, [...thread.messages, userMsg, aiMsg]);
-      if (!titled.current && thread.messages.length === 0) {
-        titled.current = true;
+      updateThreadMessages(threadId, [...messagesWithUser, aiMsg]);
+
+      // Use the same flag to generate the title
+      if (isFirstMessage) {
         generateTitle(text);
+        // We don't need titled.current anymore, but it doesn't hurt to keep it if you have other plans for it.
+        titled.current = true;
       }
-    } catch {
-      const errMsg = { id: `e${Date.now()}`, text: 'Error occurred', role: 'model', error: true, ts };
-      updateThreadMessages(threadId, [...thread.messages, userMsg, errMsg]);
+
+    } catch (e) {
+      console.error("AI Error:", e); // It's good practice to log the actual error
+      const errMsg = { id: `e${Date.now()}`, text: 'An error occurred while fetching the response.', role: 'model', error: true, ts };
+      updateThreadMessages(threadId, [...messagesWithUser, errMsg]);
     } finally {
       setLoading(false);
-      scrollToBottom();
+      // A small delay ensures the list has time to re-render before scrolling
+      setTimeout(() => scrollToBottom(), 100);
     }
   };
   const onSend = () => {
@@ -139,7 +158,7 @@ function ChatThread({ navigation, route }) {
     sendAI(t);
   };
   const onLinkPress = url => {
-    Linking.openURL(url).catch(() => {});
+    Linking.openURL(url).catch(() => { });
     return false;
   };
   return (
@@ -343,7 +362,7 @@ function ThreadsList({ navigation }) {
 }
 function SettingsScreen({ navigation }) {
   const { modelName, setModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
-  const models = ['gemma-3-1b-it','gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
+  const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
   const [showApiKey, setShowApiKey] = useState(false);
   return (
     <SafeAreaView style={styles.root}>
@@ -493,7 +512,7 @@ export default function App() {
         if (t) setThreads(JSON.parse(t));
         if (ak) setApiKey(ak);
         if (!seen) setShowWelcome(true);
-      } catch {}
+      } catch { }
       setReady(true);
     })();
   }, []);
@@ -514,7 +533,7 @@ export default function App() {
     setThreads(prev => prev.filter(t => t.id !== threadId));
   const closeWelcome = () => {
     setShowWelcome(false);
-    AsyncStorage.setItem('@seenWelcome', '1').catch(() => {});
+    AsyncStorage.setItem('@seenWelcome', '1').catch(() => { });
   };
   if (!ready) {
     return (
@@ -544,7 +563,7 @@ export default function App() {
                 </Text>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.modalButtonPrimary, { alignSelf: 'stretch', marginTop: 16 }]}
-                  onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => {})}
+                  onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => { })}
                 >
                   <Text style={styles.modalButtonText}>Get API Key</Text>
                 </TouchableOpacity>
