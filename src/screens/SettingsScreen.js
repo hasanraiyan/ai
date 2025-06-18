@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
   const models = ['gemma-3-1b-it', 'gemma-3n-e4b-it', 'gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it'];
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -32,8 +32,8 @@ function SettingsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.settingsScrollView}>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
-            <Ionicons name="options-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
-            <Text style={styles.settingsCardTitle}>System Instruction</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>Chat Instruction</Text>
           </View>
           <TextInput
             style={styles.systemInstructionInput}
@@ -45,6 +45,22 @@ function SettingsScreen({ navigation }) {
             textAlignVertical="top"
           />
           <Text style={styles.settingsCharCount}>{systemPrompt.length} characters</Text>
+        </View>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsCardHeader}>
+            <Ionicons name="construct-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
+            <Text style={styles.settingsCardTitle}>Agent Instruction</Text>
+          </View>
+          <TextInput
+            style={styles.systemInstructionInput}
+            value={agentSystemPrompt}
+            onChangeText={setAgentSystemPrompt}
+            placeholder="Define the Agent's persona and behavior..."
+            placeholderTextColor="#9CA3AF"
+            multiline
+            textAlignVertical="top"
+          />
+          <Text style={styles.settingsCharCount}>{agentSystemPrompt.length} characters</Text>
         </View>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>

@@ -30,11 +30,12 @@ import { markdownStyles } from '../styles/markdownStyles';
 
 function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, titleModelName, systemPrompt, apiKey } = useContext(SettingsContext); // Added titleModelName
+  const { modelName, titleModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('chat');
   const listRef = useRef(null);
   const titled = useRef(false);
   const inputRef = useRef(null);
@@ -47,7 +48,7 @@ function ChatThread({ navigation, route }) {
 
   const handleGenerateTitle = async firstUserText => {
     try {
-      const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText); // Use specific titleModelName
+      const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText);
       if (title) renameThread(threadId, title);
     } catch (e) { console.error("Title generation failed:", e); }
   };
@@ -64,8 +65,16 @@ function ChatThread({ navigation, route }) {
     const updatedMessages = [...thread.messages, userMsg];
     updateThreadMessages(threadId, updatedMessages);
     setLoading(true);
+
+    const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
+    const historyForAPI = thread.messages.map(m => ({ ...m }));
+    const systemMessageIndex = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
+    if (systemMessageIndex > -1) {
+        historyForAPI[systemMessageIndex].text = currentSystemPrompt;
+    }
+    
     try {
-      const reply = await sendMessageToAI(apiKey, modelName, thread.messages, text);
+      const reply = await sendMessageToAI(apiKey, modelName, historyForAPI, text);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
       if (isFirstRealMessage && !titled.current) {
@@ -107,6 +116,20 @@ function ChatThread({ navigation, route }) {
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
        
       </View>
+      <View style={styles.modeSelectorContainer}>
+        <TouchableOpacity
+            style={[styles.modeButton, mode === 'chat' && styles.modeButtonActive]}
+            onPress={() => setMode('chat')}
+        >
+            <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+            style={[styles.modeButton, mode === 'agent' && styles.modeButtonActive]}
+            onPress={() => setMode('agent')}
+        >
+            <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>Agent</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         ref={listRef}
         data={displayMessages}
@@ -147,7 +170,7 @@ function ChatThread({ navigation, route }) {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Type a message…"
+            placeholder="Type a message..."
             multiline
             editable={!loading}
           />
@@ -184,9 +207,30 @@ const styles = StyleSheet.create({
   input: { flex: 1, padding: 12, backgroundColor: '#F1F5F9', borderRadius: 20, marginRight: 8, maxHeight: 100 },
   sendBtn: { backgroundColor: '#6366F1', padding: 12, borderRadius: 20, justifyContent: 'center' },
   sendDisabled: { backgroundColor: '#A5B4FC' },
-  // Styles for TypingIndicator are in its own file if it's a separate component
-  // typingBubble: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: 60, height: 40 },
-  // typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#94A3B8', margin: 3 },
+  modeSelectorContainer: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 4,
+    marginVertical: 10,
+  },
+  modeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+  },
+  modeButtonActive: {
+    backgroundColor: '#6366F1',
+  },
+  modeButtonText: {
+    fontWeight: '600',
+    color: '#334155',
+    fontSize: 15,
+  },
+  modeButtonTextActive: {
+    color: '#FFFFFF',
+  },
 });
 
 export default ChatThread;
