@@ -19,7 +19,7 @@ import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
 
 function SettingsScreen({ navigation }) {
-  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey } = useContext(SettingsContext);
+  const { modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, apiKey, setApiKey, enabledTools, setEnabledTools } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const models = gemmaModels;
   const availableTools = getAvailableTools(); // Get tools for display
@@ -56,13 +56,32 @@ function SettingsScreen({ navigation }) {
             <Ionicons name="build-outline" size={22} color="#6366F1" style={styles.settingsCardIcon} />
             <Text style={styles.settingsCardTitle}>Available Tools (Agent Mode)</Text>
           </View>
-          <Text style={styles.settingsInfoTextSmall}>The agent can use these tools. The prompt is auto-generated.</Text>
-          {availableTools.map(tool => (
-            <View key={tool.agent_id} style={styles.toolInfoItem}>
-              <Text style={styles.toolName}>{tool.agent_id}</Text>
-              <Text style={styles.toolDescription}>{tool.description}</Text>
-            </View>
-          ))}
+          <Text style={styles.settingsInfoTextSmall}>Enable or disable tools for the agent. The system prompt updates automatically.</Text>
+          {availableTools.map(tool => {
+            const isEnabled = !!enabledTools[tool.agent_id];
+            return (
+              <Pressable
+                key={tool.agent_id}
+                style={({ pressed }) => [
+                  styles.toolOptionItem,
+                  pressed && styles.modelOptionItemPressed,
+                ]}
+                onPress={() => setEnabledTools(prev => ({ ...prev, [tool.agent_id]: !prev[tool.agent_id] }))}
+                android_ripple={{ color: '#E0E7FF' }}
+              >
+                <View style={styles.toolOptionTextContainer}>
+                  <Text style={styles.toolName}>{tool.agent_id}</Text>
+                  <Text style={styles.toolDescription}>{tool.description}</Text>
+                </View>
+                <Ionicons
+                  name={isEnabled ? "toggle" : "toggle-outline"}
+                  size={32}
+                  color={isEnabled ? "#6366F1" : "#94A3B8"}
+                  style={{ marginLeft: 8 }}
+                />
+              </Pressable>
+            );
+          })}
         </View>
         <View style={styles.settingsCard}>
           <View style={styles.settingsCardHeader}>
@@ -187,7 +206,18 @@ const styles = StyleSheet.create({
   dangerButton: { backgroundColor: '#FEE2E2', borderRadius: 6, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
   dangerButtonText: { color: '#DC2626', fontSize: 15, fontWeight: '600' },
   // Styles for Tool Info
-  toolInfoItem: { backgroundColor: '#F8FAFC', borderRadius: 6, padding: 12, marginBottom: 8 },
+  toolOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 8,
+  },
+  toolOptionTextContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
   toolName: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
   toolDescription: { fontSize: 14, color: '#475569', marginTop: 4, lineHeight: 18 },
 });

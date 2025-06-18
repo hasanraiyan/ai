@@ -22,13 +22,21 @@ import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
-import { getAvailableTools } from './src/services/tools';
+import { getAvailableTools, toolMetadata } from './src/services/tools';
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
 
-const generateAgentPrompt = () => {
-  const tools = getAvailableTools();
+const generateAgentPrompt = (enabledTools) => {
+  const allTools = getAvailableTools();
+  // Filter the tools based on the enabledTools map
+  const tools = allTools.filter(t => enabledTools[t.agent_id]);
+
+  // Handle case where no tools are enabled
+  if (tools.length === 0) {
+    return 'You are a helpful and intelligent agent. You have no tools available. Respond as a standard conversational AI.';
+  }
+
   const toolDescriptions = tools.map(t => `- ${t.agent_id}: ${t.description} Input: ${JSON.stringify(t.input_format)}`).join('\n');
 
   return `You are a helpful and intelligent agent. Your primary goal is to assist users by breaking down their requests into tasks that can be executed by available tools.
@@ -59,30 +67,44 @@ Here is how you must operate:
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); // Added for specific title generation model
-  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone—like a clever Gen Z friend who’s also secretly a professor. You’re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya.');
-  const [agentSystemPrompt, setAgentSystemPrompt] = useState(generateAgentPrompt());
+  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable toneâ€”like a clever Gen Z friend whoâ€™s also secretly a professor. Youâ€™re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya.');
+
+  const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
+  const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
+  const [agentSystemPrompt, setAgentSystemPrompt] = useState('');
+
   const [threads, setThreads] = useState([]);
   const [apiKey, setApiKey] = useState('');
   const [ready, setReady] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    setAgentSystemPrompt(generateAgentPrompt(enabledTools));
+  }, [enabledTools]);
+
   useEffect(() => {
     (async () => {
       try {
-        const [m, tm, s, t, ak, seen] = await Promise.all([
+        const [m, tm, s, t, ak, seen, et] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@titleModelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@apiKey'),
           AsyncStorage.getItem('@seenWelcome'),
+          AsyncStorage.getItem('@enabledTools'),
         ]);
         if (m) setModelName(m);
         if (tm) setTitleModelName(tm);
         if (s) setSystemPrompt(s);
         // Agent prompt is now generated dynamically, so we don't load/save it.
-        // if (asp) setAgentSystemPrompt(asp);
         if (t) setThreads(JSON.parse(t));
         if (ak) setApiKey(ak);
+        if (et) {
+            const savedTools = JSON.parse(et);
+            // Merge saved settings with defaults, in case new tools were added
+            setEnabledTools(prev => ({...prev, ...savedTools}));
+        }
         if (!seen) setShowWelcome(true);
       } catch { }
       setReady(true);
@@ -92,7 +114,7 @@ export default function App() {
   useEffect(() => { AsyncStorage.setItem('@titleModelName', titleModelName); }, [titleModelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
   // We no longer save agentSystemPrompt as it's generated
-  // useEffect(() => { AsyncStorage.setItem('@agentSystemPrompt', agentSystemPrompt); }, [agentSystemPrompt]);
+  useEffect(() => { AsyncStorage.setItem('@enabledTools', JSON.stringify(enabledTools)); }, [enabledTools]);
   useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)); }, [threads]);
   useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey); }, [apiKey]);
   const createThread = () => {
@@ -117,13 +139,22 @@ export default function App() {
     setThreads(prev => [newThread, ...prev]);
     return id;
   };
+
+  // --- FIX START: Added a safety check to prevent crashing on updating a non-existent thread ---
   const updateThreadMessages = (threadId, messages) =>
     setThreads(prev => {
-      const updatedThread = { ...prev.find(t => t.id === threadId), messages };
+      const threadToUpdate = prev.find(t => t.id === threadId);
+      // If thread is not found, do nothing. This prevents a crash.
+      if (!threadToUpdate) {
+        return prev;
+      }
+      const updatedThread = { ...threadToUpdate, messages };
       const otherThreads = prev.filter(t => t.id !== threadId);
       // Move updated thread to the beginning
       return [updatedThread, ...otherThreads];
     });
+  // --- FIX END ---
+
   const renameThread = (threadId, name) =>
     setThreads(prev => prev.map(t => t.id === threadId ? { ...t, name } : t));
   const deleteThread = threadId =>
@@ -145,41 +176,41 @@ export default function App() {
     );
   }
   return (
-    <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, setAgentSystemPrompt, apiKey, setApiKey }}>
-      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread }}>
-        <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread, clearAllThreads }}>
-          <NavigationContainer>
-            <Drawer.Navigator drawerContent={props => <CustomDrawerContent {...props} />} screenOptions={{ headerShown: false, drawerType: 'slide' }}>
-              <Drawer.Screen name="Threads" component={ThreadsList} />
-              <Drawer.Screen name="Chat" component={ChatThread} />
-              <Drawer.Screen name="Settings" component={SettingsScreen} />
-            </Drawer.Navigator>
-          </NavigationContainer>
-          <Modal transparent visible={showWelcome} animationType="fade">
-            <View style={styles.modalOverlay}>
-              <View style={styles.welcomeModal}>
-                <Ionicons name="sparkles-sharp" size={36} color="#6366F1" style={{ alignSelf: 'center', marginBottom: 12 }} />
-                <Text style={styles.welcomeTitle}>Welcome to AI Assistant</Text>
-                <Text style={styles.welcomeText}>
-                  To get started, you'll need a Google AI API Key. This key lets the app communicate with the Gemma language model.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonPrimary, { alignSelf: 'stretch', marginTop: 16 }]}
-                  onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => { })}
-                >
-                  <Text style={styles.modalButtonText}>Get API Key</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.modalButtonSecondary, { alignSelf: 'stretch', marginTop: 12 }]}
-                  onPress={closeWelcome}
-                >
-                  <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>Maybe Later</Text>
-                </TouchableOpacity>
-              </View>
+    <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, enabledTools, setEnabledTools, apiKey, setApiKey }}>
+      {/* --- FIX START: Removed redundant nested provider --- */}
+      <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread, clearAllThreads }}>
+        <NavigationContainer>
+          <Drawer.Navigator drawerContent={props => <CustomDrawerContent {...props} />} screenOptions={{ headerShown: false, drawerType: 'slide' }}>
+            <Drawer.Screen name="Threads" component={ThreadsList} />
+            <Drawer.Screen name="Chat" component={ChatThread} />
+            <Drawer.Screen name="Settings" component={SettingsScreen} />
+          </Drawer.Navigator>
+        </NavigationContainer>
+        <Modal transparent visible={showWelcome} animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.welcomeModal}>
+              <Ionicons name="sparkles-sharp" size={36} color="#6366F1" style={{ alignSelf: 'center', marginBottom: 12 }} />
+              <Text style={styles.welcomeTitle}>Welcome to AI Assistant</Text>
+              <Text style={styles.welcomeText}>
+                To get started, you'll need a Google AI API Key. This key lets the app communicate with the Gemma language model.
+              </Text>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary, { alignSelf: 'stretch', marginTop: 16 }]}
+                onPress={() => Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => { })}
+              >
+                <Text style={styles.modalButtonText}>Get API Key</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary, { alignSelf: 'stretch', marginTop: 12 }]}
+                onPress={closeWelcome}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>Maybe Later</Text>
+              </TouchableOpacity>
             </View>
-          </Modal>
-        </ThreadsContext.Provider>
+          </View>
+        </Modal>
       </ThreadsContext.Provider>
+      {/* --- FIX END --- */}
     </SettingsContext.Provider>
   );
 }
