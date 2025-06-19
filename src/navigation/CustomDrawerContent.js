@@ -16,7 +16,9 @@ function CustomDrawerContent(props) {
   };
   const menuItems = [
     { name: 'Threads', label: 'Threads', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles', action: () => navigateToScreen('Threads') },
+    { name: 'Gallery', label: 'Gallery', icon: 'images-outline', activeIcon: 'images', action: () => navigateToScreen('Gallery') },
     { name: 'Settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings', action: () => navigateToScreen('Settings') },
+
   ];
   const footerItems = [{ name: 'Help', label: 'Help & Feedback', icon: 'help-circle-outline', action: () => { props.navigation.closeDrawer(); } }];
   const renderDrawerItem = (item, index, isFooter = false) => {
