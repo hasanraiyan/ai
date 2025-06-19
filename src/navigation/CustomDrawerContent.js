@@ -19,6 +19,7 @@ function CustomDrawerContent(props) {
     { name: 'Threads', label: 'Threads', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles', action: () => navigateToScreen('Threads') },
     // Add the new menu item here
     { name: 'ImageGeneration', label: 'Generate Image', icon: 'image-outline', activeIcon: 'image', action: () => navigateToScreen('ImageGeneration') },
+    { name: 'LanguageTutor', label: 'Language Tutor', icon: 'language-outline', activeIcon: 'language', action: () => navigateToScreen('LanguageTutor') },
     { name: 'Gallery', label: 'Gallery', icon: 'images-outline', activeIcon: 'images', action: () => navigateToScreen('Gallery') },
     { name: 'Settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings', action: () => navigateToScreen('Settings') },
   ];
@@ -30,9 +31,9 @@ function CustomDrawerContent(props) {
       <Pressable
         key={item.name || index}
         style={({ pressed }) => [
-            styles.drawerItem,
-            isActive && styles.drawerItemActive, // Handle active state
-            pressed && styles.drawerItemPressed
+          styles.drawerItem,
+          isActive && styles.drawerItemActive, // Handle active state
+          pressed && styles.drawerItemPressed
         ]}
         onPress={item.action}
         android_ripple={{ color: styles.drawerItemActive.backgroundColor || '#E0E0E0' }}

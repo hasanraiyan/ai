@@ -25,6 +25,7 @@ import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import GalleryScreen from './src/screens/GalleryScreen';
+import LanguageTutorScreen from './src/screens/LanguageTutorScreen'; // << ADD THIS IMPORT
 import ImageGenerationScreen from './src/screens/ImageGenerationScreen'; // Import the new screen
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
 import { toolMetadata } from './src/services/tools';
@@ -212,7 +213,7 @@ export default function App() {
 
   const closeWelcome = () => {
     setShowWelcome(false);
-    AsyncStorage.setItem('@seenWelcome', '1').catch(() => {});
+    AsyncStorage.setItem('@seenWelcome', '1').catch(() => { });
   };
 
   if (!ready) {
@@ -263,6 +264,8 @@ export default function App() {
               <Drawer.Screen name="Threads" component={ThreadsList} />
               <Drawer.Screen name="Chat" component={ChatThread} />
               <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
+              <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
+
               <Drawer.Screen name="Gallery" component={GalleryScreen} />
               <Drawer.Screen name="Settings" component={SettingsScreen} />
             </Drawer.Navigator>
@@ -284,7 +287,7 @@ export default function App() {
                 <TouchableOpacity
                   style={[styles.modalButton, styles.modalButtonPrimary, { alignSelf: 'stretch', marginTop: 16 }]}
                   onPress={() =>
-                    Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => {})
+                    Linking.openURL('https://aistudio.google.com/app/apikey').catch(() => { })
                   }
                 >
                   <Text style={styles.modalButtonText}>Get API Key</Text>
