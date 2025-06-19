@@ -14,10 +14,10 @@ import {
   Pressable,
   Clipboard,
   Alert,
-  Animated,
   Image,
   ToastAndroid,
   ActivityIndicator,
+  Animated, // Kept for ImageWithLoader skeleton
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -26,6 +26,7 @@ import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { generateChatTitle, sendMessageToAI } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
+import ModeToggle from '../components/ModeToggle'; // Import the new component
 import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
 
@@ -55,21 +56,6 @@ export default function ChatThread({ navigation, route }) {
   // Check if selected agent model supports tools
   const selectedAgentModel = models.find(m => m.id === agentModelName);
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
-
-  // Animated toggle underline
-  const toggleWidth = 160; // fixed width for the toggle container
-  const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: mode === 'chat' ? 0 : 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [mode]);
-  const translateX = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, toggleWidth / 2],
-  });
 
   // Auto-focus the input on mount
   useEffect(() => {
@@ -283,45 +269,11 @@ export default function ChatThread({ navigation, route }) {
           {thread.name}
         </Text>
 
-        {/* Inline Chat/Agent Toggle */}
-        <View style={styles.modeSelectorContainer}>
-          <Animated.View
-            style={[
-              styles.selectorIndicator,
-              {
-                width: toggleWidth / 2,
-                transform: [{ translateX }],
-              },
-            ]}
-          />
-          <TouchableOpacity
-            style={styles.modeButton}
-            onPress={() => onToggleMode('chat')}
-          >
-            <Text
-              style={[
-                styles.modeButtonText,
-                mode === 'chat' && styles.modeButtonTextActive,
-              ]}
-            >
-              Chat
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]}
-            onPress={() => onToggleMode('agent')}
-          >
-            <Text
-              style={[
-                styles.modeButtonText,
-                mode === 'agent' && styles.modeButtonTextActive,
-                !isAgentModeSupported && styles.modeButtonTextDisabled,
-              ]}
-            >
-              Agent
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ModeToggle
+          mode={mode}
+          onToggle={onToggleMode}
+          isAgentModeSupported={isAgentModeSupported}
+        />
       </View>
 
       {/* Message List */}
@@ -373,7 +325,8 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFF',
@@ -391,35 +344,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     flex: 1,
   },
-  modeSelectorContainer: {
-    width: 160,
-    flexDirection: 'row',
-    backgroundColor: '#E5E7EB',
-    borderRadius: 20,
-    padding: 4,
-    overflow: 'hidden',
-  },
-  selectorIndicator: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    backgroundColor: '#4F46E5',
-    borderRadius: 16,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  modeButtonDisabled: { opacity: 0.6 },
-  modeButtonText: {
-    fontWeight: '600',
-    color: '#374151',
-    fontSize: 15,
-  },
-  modeButtonTextActive: { color: '#FFF' },
-  modeButtonTextDisabled: { color: '#6B7280' },
-
   chatContent: { padding: 12, paddingBottom: 80, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: {
