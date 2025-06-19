@@ -103,44 +103,49 @@ export default function ChatThread({ navigation, route }) {
     }
   };
 
-  // Send a user message to the AI
   const sendAI = async text => {
     if (!apiKey) {
       Alert.alert(
         'API Key Missing',
         'Please set your API Key in Settings to use the AI features.'
       );
-      setLoading(false);
       return;
     }
 
-    const ts = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.length === 2;
-    let updatedMessages = [...thread.messages, userMsg];
-    updateThreadMessages(threadId, updatedMessages);
+
+    let newMessages = [...thread.messages, userMsg];
+    updateThreadMessages(threadId, newMessages);
     setLoading(true);
 
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
-    const currentSystemPrompt =
-      mode === 'agent' ? agentSystemPrompt : systemPrompt;
+    const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
 
-    let historyForAPI = thread.messages.map(m => ({ ...m }));
+    let historyForAPI = newMessages.map(m => ({ ...m }));
     const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
 
-    const handleToolResult = toolResultText => {
-      const toolMsg = {
-        id: `t${Date.now()}`,
-        text: toolResultText,
-        role: 'tool-result',
-        ts
+    // --- FIX: Keep track of the temporary thinking message ID ---
+    let thinkingMessageId = null;
+
+    const handleToolCall = (toolCall) => {
+      const toolNames = Object.keys(toolCall).filter(key => key !== 'tools-required');
+      if (toolNames.length === 0) return;
+
+      const friendlyText = `Using tool(s): ${toolNames.map(name => `\`${name}\``).join(', ')}`;
+      const actionTs = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      thinkingMessageId = `thinking-${Date.now()}`; // Store the ID
+      const agentActionMsg = {
+        id: thinkingMessageId,
+        role: 'agent-thinking',
+        text: friendlyText,
+        ts: actionTs,
       };
-      updatedMessages = [...updatedMessages, toolMsg];
-      updateThreadMessages(threadId, updatedMessages);
+
+      newMessages = [...newMessages, agentActionMsg];
+      updateThreadMessages(threadId, newMessages);
     };
 
     try {
@@ -150,10 +155,17 @@ export default function ChatThread({ navigation, route }) {
         historyForAPI,
         text,
         mode === 'agent',
-        handleToolResult
+        handleToolCall // Pass the new callback here
       );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
-      updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
+
+      // --- FIX: Remove the 'thinking' message before adding the final AI response ---
+      if (thinkingMessageId) {
+        newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
+      }
+      
+      newMessages = [...newMessages, aiMsg];
+      updateThreadMessages(threadId, newMessages);
 
       if (isFirstRealMessage && !titled.current) {
         handleGenerateTitle(text);
@@ -170,7 +182,13 @@ export default function ChatThread({ navigation, route }) {
         error: true,
         ts
       };
-      updateThreadMessages(threadId, [...updatedMessages, errMsg]);
+      
+      // --- FIX: Ensure 'thinking' message is removed even on error ---
+      if (thinkingMessageId) {
+        newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
+      }
+      newMessages = [...newMessages, errMsg];
+      updateThreadMessages(threadId, newMessages);
     } finally {
       setLoading(false);
       setTimeout(scrollToBottom, 100);
@@ -221,22 +239,21 @@ export default function ChatThread({ navigation, route }) {
       );
     }
 
-    if (item.role === 'tool-result') {
+    if (item.role === 'agent-thinking') {
       return (
-        <View style={styles.toolRow}>
-          <View style={styles.toolIconContainer}>
-            <Ionicons name="build-outline" size={16} color="#0F766E" />
+        <View style={styles.aiRow}>
+          <View style={styles.avatar}>
+            <Ionicons name="build-outline" size={20} color="#6366F1" />
           </View>
-          <View style={styles.toolBubble}>
-            <Text style={styles.toolTitle}>Tool Results</Text>
-            <Markdown style={markdownStyles} rules={imageRule}>
-              {`\`\`\`json\n${item.text}\n\`\`\``}
-            </Markdown>
+          <View style={styles.agentThinkingBubble}>
+            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 10 }}/>
+            <Markdown style={{ body: styles.agentThinkingText }}>{item.text}</Markdown>
           </View>
         </View>
       );
     }
 
+    // This handles both 'model' and 'error' roles
     return (
       <View style={styles.aiRow}>
         <View style={styles.avatar}>
@@ -263,11 +280,15 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const displayMessages = thread.messages.filter((m, idx) => idx > 1 && !m.isHidden);
+  
+  const lastMessage = displayMessages[displayMessages.length - 1];
+  const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
+
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      {/* — Header */}
+      {/* â€” Header */}
       <View style={styles.chatHeader}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -280,7 +301,7 @@ export default function ChatThread({ navigation, route }) {
         </Text>
       </View>
 
-      {/* — Mode Selector */}
+      {/* â€” Mode Selector */}
       <View
         style={styles.modeSelectorContainer}
         onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
@@ -303,7 +324,7 @@ export default function ChatThread({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      {/* — Messages */}
+      {/* â€” Messages */}
       <FlatList
         ref={listRef}
         data={displayMessages}
@@ -314,11 +335,11 @@ export default function ChatThread({ navigation, route }) {
             {renderMessageItem({ item })}
           </Pressable>
         )}
-        ListFooterComponent={loading && <TypingIndicator />}
+        ListFooterComponent={showTypingIndicator && <TypingIndicator />}
         keyboardShouldPersistTaps="handled"
       />
 
-      {/* — Input */}
+      {/* â€” Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inputRow}>
           <TextInput
@@ -432,35 +453,26 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     maxWidth: '80%'
   },
+  agentThinkingBubble: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxWidth: '80%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  agentThinkingText: {
+    color: '#475569',
+    fontStyle: 'italic',
+    fontSize: 15,
+  },
   errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
   errorText: { color: '#B91C1C', fontSize: 16 },
   time: { fontSize: 10, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
   errorTime: { color: '#FCA5A5' },
-  toolRow: {
-    flexDirection: 'row',
-    marginHorizontal: 8,
-    marginVertical: 12,
-    alignItems: 'flex-start'
-  },
-  toolIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#CCFBF1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    marginTop: 4
-  },
-  toolBubble: {
-    backgroundColor: '#F0FDFA',
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#5EEAD4',
-    flex: 1
-  },
-  toolTitle: { fontWeight: 'bold', color: '#115E59', marginBottom: 4 },
   inputRow: {
     flexDirection: 'row',
     padding: 8,

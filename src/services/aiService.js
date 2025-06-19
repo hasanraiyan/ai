@@ -38,7 +38,7 @@ const extractJson = (text) => {
   }
 };
 
-export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolResult) => {
+export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolCall) => {
   if (!apiKey) {
     throw new Error("API Key Missing. Please set your API Key in Settings.");
   }
@@ -47,7 +47,7 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
   const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
 
   const chatHistory = historyMessages
-    .filter(m => !m.error && m.role !== 'tool-result') // Exclude errors and previous tool results from history
+    .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking') // --- FIX: Exclude new 'agent-thinking' role
     .map(m => ({
       role: m.role,
       parts: [{ text: m.text }],
@@ -61,13 +61,14 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
     const toolCall = extractJson(responseText);
     if (toolCall && toolCall['tools-required']) {
       // It's a tool call, execute it
+      
+      // --- FIX: Callback to display agent's intended action in the UI ---
+      if (onToolCall) {
+        onToolCall(toolCall);
+      }
+      
       const toolResults = await toolDispatcher(toolCall);
       const toolResultText = `Context from tool calls:\n${JSON.stringify(toolResults, null, 2)}`;
-      
-      // Callback to display intermediate tool results in the UI
-      if (onToolResult) {
-        onToolResult(toolResultText);
-      }
       
       // Add the tool result to the history and send it back to the AI for a final response
       const finalResult = await chat.sendMessage(toolResultText);
