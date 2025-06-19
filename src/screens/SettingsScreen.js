@@ -24,7 +24,7 @@ function SettingsScreen({ navigation }) {
     modelName, setModelName,
     titleModelName, setTitleModelName,
     systemPrompt, setSystemPrompt,
-    agentSystemPrompt, // <-- Get the agent prompt from context
+    agentSystemPrompt,
     apiKey, setApiKey,
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
