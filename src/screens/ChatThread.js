@@ -17,10 +17,11 @@ import {
   Alert,
   Animated,
   Image,
+  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
+import { Ionicons } from '@expo/vector-icons'; // still needed for header/back icon
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { generateChatTitle, sendMessageToAI } from '../services/aiService';
@@ -37,14 +38,13 @@ export default function ChatThread({ navigation, route }) {
     agentModelName,
     systemPrompt,
     agentSystemPrompt,
-    apiKey
+    apiKey,
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
   const thread =
     threads.find(t => t.id === threadId) ||
     { id: threadId, name: name || 'Chat', messages: [] };
 
-  // state & refs
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('chat');
@@ -52,31 +52,28 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
-  // Check if selected agent model supports agent mode
   const selectedAgentModel = models.find(m => m.id === agentModelName);
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
-  // Animated mode selector
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
   const [selectorWidth, setSelectorWidth] = useState(0);
   useEffect(() => {
     Animated.timing(animatedValue, {
       toValue: mode === 'chat' ? 0 : 1,
       duration: 200,
-      useNativeDriver: true
+      useNativeDriver: true,
     }).start();
   }, [mode]);
   const translateX = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, selectorWidth / 2]
+    outputRange: [0, selectorWidth / 2],
   });
 
-  // Focus the input after mount
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
-  const onToggleMode = (newMode) => {
+  const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
       Alert.alert(
         'Agent Mode Not Supported',
@@ -86,10 +83,9 @@ export default function ChatThread({ navigation, route }) {
     }
     setMode(newMode);
   };
-  
+
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
-  // Generate thread title on first real message
   const handleGenerateTitle = async firstUserText => {
     try {
       const title = await generateChatTitle(
@@ -127,25 +123,24 @@ export default function ChatThread({ navigation, route }) {
     const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
 
-    // --- FIX: Keep track of the temporary thinking message ID ---
     let thinkingMessageId = null;
-
-    const handleToolCall = (toolCall) => {
+    const handleToolCall = toolCall => {
       const toolNames = Object.keys(toolCall).filter(key => key !== 'tools-required');
       if (toolNames.length === 0) return;
-
-      const friendlyText = `Using tool(s): ${toolNames.map(name => `\`${name}\``).join(', ')}`;
+      const friendlyText = `Using tool(s): ${toolNames
+        .map(name => `\`${name}\``)
+        .join(', ')}`;
       const actionTs = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      thinkingMessageId = `thinking-${Date.now()}`; // Store the ID
+      thinkingMessageId = `thinking-${Date.now()}`;
       const agentActionMsg = {
         id: thinkingMessageId,
         role: 'agent-thinking',
         text: friendlyText,
         ts: actionTs,
       };
-
       newMessages = [...newMessages, agentActionMsg];
       updateThreadMessages(threadId, newMessages);
+      scrollToBottom();
     };
 
     try {
@@ -155,15 +150,14 @@ export default function ChatThread({ navigation, route }) {
         historyForAPI,
         text,
         mode === 'agent',
-        handleToolCall // Pass the new callback here
+        handleToolCall
       );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
 
-      // --- FIX: Remove the 'thinking' message before adding the final AI response ---
       if (thinkingMessageId) {
         newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       }
-      
+
       newMessages = [...newMessages, aiMsg];
       updateThreadMessages(threadId, newMessages);
 
@@ -180,10 +174,8 @@ export default function ChatThread({ navigation, route }) {
         text: errMsgText,
         role: 'model',
         error: true,
-        ts
+        ts,
       };
-      
-      // --- FIX: Ensure 'thinking' message is removed even on error ---
       if (thinkingMessageId) {
         newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       }
@@ -219,11 +211,20 @@ export default function ChatThread({ navigation, route }) {
             width: '100%',
             height: 200,
             resizeMode: 'contain',
-            marginVertical: 8
+            marginVertical: 8,
           }}
           accessibilityLabel={alt || title}
         />
       );
+    },
+  };
+
+  const handleLongPress = text => {
+    Clipboard.setString(text);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
+    } else {
+      Alert.alert('', 'Copied to clipboard');
     }
   };
 
@@ -242,58 +243,40 @@ export default function ChatThread({ navigation, route }) {
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
-          <View style={styles.avatar}>
-            <Ionicons name="build-outline" size={20} color="#6366F1" />
-          </View>
           <View style={styles.agentThinkingBubble}>
-            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 10 }}/>
+            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 10 }} />
             <Markdown style={{ body: styles.agentThinkingText }}>{item.text}</Markdown>
           </View>
         </View>
       );
     }
 
-    // This handles both 'model' and 'error' roles
+    // model or error
     return (
       <View style={styles.aiRow}>
-        <View style={styles.avatar}>
-          <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
-        </View>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? (
             <Text style={styles.errorText}>{item.text}</Text>
           ) : (
-            <Markdown
-              style={markdownStyles}
-              onLinkPress={onLinkPress}
-              rules={imageRule}
-            >
+            <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={imageRule}>
               {item.text}
             </Markdown>
           )}
-          <Text style={[styles.time, item.error && styles.errorTime]}>
-            {item.ts}
-          </Text>
+          <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
         </View>
       </View>
     );
   };
 
   const displayMessages = thread.messages.filter((m, idx) => idx > 1 && !m.isHidden);
-  
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
-
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      {/* â€” Header */}
       <View style={styles.chatHeader}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerIconButton}
-        >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={24} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.chatTitle} numberOfLines={1}>
@@ -301,37 +284,41 @@ export default function ChatThread({ navigation, route }) {
         </Text>
       </View>
 
-      {/* â€” Mode Selector */}
       <View
         style={styles.modeSelectorContainer}
         onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
       >
         <Animated.View
-          style={[
-            styles.selectorIndicator,
-            { width: selectorWidth / 2, transform: [{ translateX }] }
-          ]}
+          style={[styles.selectorIndicator, { width: selectorWidth / 2, transform: [{ translateX }] }]}
         />
         <TouchableOpacity style={styles.modeButton} onPress={() => onToggleMode('chat')}>
           <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>
             Chat
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]} onPress={() => onToggleMode('agent')}>
-          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive, !isAgentModeSupported && styles.modeButtonTextDisabled]}>
+        <TouchableOpacity
+          style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]}
+          onPress={() => onToggleMode('agent')}
+        >
+          <Text
+            style={[
+              styles.modeButtonText,
+              mode === 'agent' && styles.modeButtonTextActive,
+              !isAgentModeSupported && styles.modeButtonTextDisabled,
+            ]}
+          >
             Agent
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* â€” Messages */}
       <FlatList
         ref={listRef}
         data={displayMessages}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
         renderItem={({ item }) => (
-          <Pressable onLongPress={() => Clipboard.setString(item.text)}>
+          <Pressable onLongPress={() => handleLongPress(item.text)}>
             {renderMessageItem({ item })}
           </Pressable>
         )}
@@ -339,7 +326,6 @@ export default function ChatThread({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
       />
 
-      {/* â€” Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inputRow}>
           <TextInput
@@ -356,11 +342,7 @@ export default function ChatThread({ navigation, route }) {
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]}
             disabled={!input.trim() || loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Ionicons name="send" size={20} color="#fff" />
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -369,130 +351,150 @@ export default function ChatThread({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+  root: { flex: 1, backgroundColor: '#F9FAFB' },
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderColor: '#F1F5F9'
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   headerIconButton: { padding: 8 },
   chatTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#1F2937',
     marginHorizontal: 12,
-    flex: 1
+    flex: 1,
   },
   modeSelectorContainer: {
-    position: 'absolute',
-    top: 60,
-    flexDirection: 'row',
     alignSelf: 'center',
-    backgroundColor: '#E2E8F0',
+    flexDirection: 'row',
+    backgroundColor: '#E5E7EB',
     borderRadius: 20,
     padding: 4,
-    width: '40%',
-    marginVertical: 10,
-    zIndex: 10,
-    overflow: 'hidden'
+    width: '50%',
+    marginVertical: 8,
+    overflow: 'hidden',
   },
   selectorIndicator: {
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: '#6366F1',
-    borderRadius: 16
+    backgroundColor: '#4F46E5',
+    borderRadius: 16,
   },
   modeButton: {
     flex: 1,
     paddingVertical: 6,
-    alignItems: 'center'
-
+    alignItems: 'center',
   },
   modeButtonDisabled: {
-    opacity: 0.6
+    opacity: 0.6,
   },
   modeButtonText: {
     fontWeight: '600',
-    color: '#334155',
-    fontSize: 15
+    color: '#374151',
+    fontSize: 15,
   },
   modeButtonTextActive: {
-    color: '#FFFFFF'
+    color: '#FFFFFF',
   },
   modeButtonTextDisabled: {
-    color: '#475569'
+    color: '#6B7280',
   },
   chatContent: {
     padding: 12,
-    paddingBottom: 60,
-    marginTop: 25,
-    marginBottom: 10
+    paddingBottom: 80,
+    marginTop: 4,
   },
-  userRow: { flexDirection: 'row', justifyContent: 'flex-end', margin: 8 },
-  userBubble: { backgroundColor: '#6366F1', padding: 12, borderRadius: 16, maxWidth: '80%' },
-  userText: { color: '#fff', fontSize: 16 },
-  aiRow: { flexDirection: 'row', margin: 8, alignItems: 'flex-end' },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8
-  },
-  aiBubble: {
-    backgroundColor: '#fff',
+  userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
+  userBubble: {
+    backgroundColor: '#4F46E5',
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 20,
+    maxWidth: '80%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  userText: { color: '#FFFFFF', fontSize: 16 },
+  aiRow: { flexDirection: 'row', marginVertical: 4 },
+  aiBubble: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    maxWidth: '80%'
+    borderColor: '#E5E7EB',
+    maxWidth: '80%',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 1,
   },
   agentThinkingBubble: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     maxWidth: '80%',
     flexDirection: 'row',
     alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 1,
   },
   agentThinkingText: {
-    color: '#475569',
+    color: '#4B5563',
     fontStyle: 'italic',
     fontSize: 15,
   },
-  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
+  errorBubble: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
   errorText: { color: '#B91C1C', fontSize: 16 },
-  time: { fontSize: 10, color: '#94A3B8', marginTop: 4, alignSelf: 'flex-end' },
+  time: { fontSize: 10, color: '#9CA3AF', marginTop: 4, alignSelf: 'flex-end' },
   errorTime: { color: '#FCA5A5' },
   inputRow: {
     flexDirection: 'row',
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: '#E2E8F0'
+    borderColor: '#E5E7EB',
   },
   input: {
     flex: 1,
     padding: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     borderRadius: 20,
     marginRight: 8,
-    maxHeight: 100
+    maxHeight: 100,
   },
   sendBtn: {
-    backgroundColor: '#6366F1',
+    backgroundColor: '#4F46E5',
     padding: 12,
     borderRadius: 20,
-    justifyContent: 'center'
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
-  sendDisabled: { backgroundColor: '#A5B4FC' }
+  sendDisabled: { backgroundColor: '#A5B4FC' },
 });
