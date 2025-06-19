@@ -21,161 +21,37 @@ import Toast from 'react-native-toast-message';
 
 import { SettingsContext } from './src/contexts/SettingsContext';
 import { ThreadsContext } from './src/contexts/ThreadsContext';
+import { useSettings } from './src/hooks/useSettings';
+import { useThreads } from './src/hooks/useThreads';
+
 import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import GalleryScreen from './src/screens/GalleryScreen';
 import LanguageTutorScreen from './src/screens/LanguageTutorScreen';
 import ImageGenerationScreen from './src/screens/ImageGenerationScreen';
-import AllThreadsScreen from './src/screens/AllThreadsScreen'; // << ADD THIS IMPORT
+import AllThreadsScreen from './src/screens/AllThreadsScreen';
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
-import { toolMetadata } from './src/services/tools';
-import { generateAgentPrompt } from './src/prompts/agentPrompt';
-import { models } from './src/constants/models';
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
 
 export default function App() {
-  const [modelName, setModelName] = useState('gemma-3-27b-it');
-  const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
-  const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
-  const [systemPrompt, setSystemPrompt] = useState(
-    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya."
-  );
+  const settingsValue = useSettings();
+  const threadsValue = useThreads(settingsValue.systemPrompt);
 
-  const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
-  const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
-  const [agentSystemPrompt, setAgentSystemPrompt] = useState('');
-
-  const [threads, setThreads] = useState([]);
-  const [pinnedMessages, setPinnedMessages] = useState([]); // << NEW STATE
-  const [apiKey, setApiKey] = useState('');
-  const [ready, setReady] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
-
-  useEffect(() => {
-    setAgentSystemPrompt(generateAgentPrompt(enabledTools, agentModelName));
-  }, [enabledTools, agentModelName]);
+  const ready = settingsValue.settingsReady && threadsValue.threadsReady;
 
   useEffect(() => {
     (async () => {
-      try {
-        const [
-          loadedModel,
-          loadedTitleModel,
-          loadedAgentModel,
-          loadedSystemPrompt,
-          loadedThreads,
-          loadedApiKey,
-          seenWelcome,
-          loadedEnabledTools,
-          loadedPinnedMessages, // << NEW
-        ] = await Promise.all([
-          AsyncStorage.getItem('@modelName'),
-          AsyncStorage.getItem('@titleModelName'),
-          AsyncStorage.getItem('@agentModelName'),
-          AsyncStorage.getItem('@systemPrompt'),
-          AsyncStorage.getItem('@threads'),
-          AsyncStorage.getItem('@apiKey'),
-          AsyncStorage.getItem('@seenWelcome'),
-          AsyncStorage.getItem('@enabledTools'),
-          AsyncStorage.getItem('@pinnedMessages'), // << NEW
-        ]);
-
-        let validAgentModelId = loadedAgentModel || 'gemma-3-27b-it';
-        const agentModelData = models.find(model => model.id === validAgentModelId);
-        if (!agentModelData || !agentModelData.isAgentModel) {
-          validAgentModelId = 'gemma-3-27b-it';
-        }
-        setAgentModelName(validAgentModelId);
-
-        let validChatModelId = loadedModel || 'gemma-3-27b-it';
-        if (!models.some(m => m.id === validChatModelId && m.isChatModel)) {
-          validChatModelId = 'gemma-3-27b-it';
-        }
-        setModelName(validChatModelId);
-
-        let validTitleModelId = loadedTitleModel || 'gemma-3-1b-it';
-        if (!models.some(m => m.id === validTitleModelId && m.isTitleModel)) {
-          validTitleModelId = 'gemma-3-1b-it';
-        }
-        setTitleModelName(validTitleModelId);
-
-        if (loadedEnabledTools !== null) {
-          const savedTools = JSON.parse(loadedEnabledTools);
-          const finalAgentModel = models.find(model => model.id === validAgentModelId);
-          const supportedTools = finalAgentModel?.supported_tools || [];
-          const validEnabledTools = Object.keys(savedTools).reduce((acc, toolId) => {
-            if (supportedTools.includes(toolId) && savedTools[toolId]) {
-              acc[toolId] = true;
-            }
-            return acc;
-          }, {});
-          setEnabledTools(prev => ({ ...prev, ...validEnabledTools }));
-        }
-
-        if (loadedSystemPrompt !== null) setSystemPrompt(loadedSystemPrompt);
-        if (loadedThreads !== null) setThreads(JSON.parse(loadedThreads));
-        if (loadedApiKey !== null) setApiKey(loadedApiKey);
-        if (loadedPinnedMessages !== null) setPinnedMessages(JSON.parse(loadedPinnedMessages)); // << NEW
-        if (!seenWelcome) setShowWelcome(true);
-      } catch (e) {
-        console.warn('Error loading AsyncStorage:', e);
+      const seenWelcome = await AsyncStorage.getItem('@seenWelcome');
+      if (!seenWelcome) {
+        setShowWelcome(true);
       }
-      setReady(true);
     })();
   }, []);
 
-  // --- Start: Effects to save state ---
-  useEffect(() => { AsyncStorage.setItem('@modelName', modelName) }, [modelName]);
-  useEffect(() => { AsyncStorage.setItem('@titleModelName', titleModelName) }, [titleModelName]);
-  useEffect(() => { AsyncStorage.setItem('@agentModelName', agentModelName) }, [agentModelName]);
-  useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt) }, [systemPrompt]);
-  useEffect(() => { AsyncStorage.setItem('@enabledTools', JSON.stringify(enabledTools)) }, [enabledTools]);
-  useEffect(() => { AsyncStorage.setItem('@threads', JSON.stringify(threads)) }, [threads]);
-  useEffect(() => { AsyncStorage.setItem('@apiKey', apiKey) }, [apiKey]);
-  useEffect(() => { AsyncStorage.setItem('@pinnedMessages', JSON.stringify(pinnedMessages)) }, [pinnedMessages]); // << NEW
-  // --- End: Effects to save state ---
-
-  // --- Start: Context Functions ---
-  const createThread = () => {
-    const id = Date.now().toString();
-    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const initialMessages = [
-      { id: `u-system-${id}`, text: systemPrompt, role: 'user', ts },
-      { id: `a-system-${id}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', ts },
-    ];
-    const newThread = { id, name: 'New Chat', messages: initialMessages };
-    setThreads(prev => [newThread, ...prev]);
-    return id;
-  };
-
-  const updateThreadMessages = (threadId, messages) =>
-    setThreads(prev => {
-      const threadToUpdate = prev.find(t => t.id === threadId);
-      if (!threadToUpdate) return prev;
-      const updatedThread = { ...threadToUpdate, messages };
-      const otherThreads = prev.filter(t => t.id !== threadId);
-      return [updatedThread, ...otherThreads];
-    });
-
-  const renameThread = (threadId, name) => setThreads(prev => prev.map(t => (t.id === threadId ? { ...t, name } : t)));
-  const deleteThread = threadId => setThreads(prev => prev.filter(t => t.id !== threadId));
-  const clearAllThreads = () => { setThreads([]); setPinnedMessages([]); }; // Also clear pins
-
-  const pinMessage = (threadId, message) => {
-    setPinnedMessages(prev => {
-      if (prev.some(p => p.message.id === message.id)) return prev; // Avoid duplicates
-      const threadName = threads.find(t => t.id === threadId)?.name || 'Chat';
-      return [{ threadId, threadName, message }, ...prev];
-    });
-  };
-
-  const unpinMessage = (messageId) => {
-    setPinnedMessages(prev => prev.filter(p => p.message.id !== messageId));
-  };
-  // --- End: Context Functions ---
 
   const closeWelcome = () => {
     setShowWelcome(false);
@@ -194,20 +70,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SettingsContext.Provider
-        value={{
-          modelName, setModelName, titleModelName, setTitleModelName,
-          agentModelName, setAgentModelName, systemPrompt, setSystemPrompt,
-          agentSystemPrompt, enabledTools, setEnabledTools, apiKey, setApiKey,
-        }}
-      >
-        <ThreadsContext.Provider
-          value={{
-            threads, createThread, updateThreadMessages, renameThread,
-            deleteThread, clearAllThreads,
-            pinnedMessages, pinMessage, unpinMessage, // << NEW
-          }}
-        >
+      <SettingsContext.Provider value={settingsValue}>
+        <ThreadsContext.Provider value={threadsValue}>
           <StatusBar barStyle="dark-content" />
           <NavigationContainer>
             <Drawer.Navigator
@@ -220,7 +84,6 @@ export default function App() {
               <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
               <Drawer.Screen name="Gallery" component={GalleryScreen} />
               <Drawer.Screen name="Settings" component={SettingsScreen} />
-              {/* This screen is for navigation but not shown in the drawer menu */}
               <Drawer.Screen name="AllThreads" component={AllThreadsScreen} options={{ drawerItemStyle: { height: 0 } }} />
             </Drawer.Navigator>
           </NavigationContainer>
