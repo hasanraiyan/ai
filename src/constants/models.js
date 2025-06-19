@@ -1,3 +1,5 @@
+// src/constants/models.js
+
 export const models = [
     {
         id: 'gemma-3n-e4b-it',
@@ -60,7 +62,8 @@ export const models = [
         isChatModel: true,
         isTitleModel: true,
         isAgentModel: true,
-        supported_tools: ['search_web', 'calculator']
+        // FIX: The model name implies image generation, so the tool should be supported.
+        supported_tools: ['search_web', 'calculator', 'image_generator']
     },
     {
         id: 'gemini-2.0-flash-lite',

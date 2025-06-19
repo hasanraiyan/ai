@@ -1,7 +1,9 @@
+// src/services/aiService.js
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
-import { toolDispatcher } from './tools'; // toolDispatcher already exists
-import  {extractJson}  from '../utils/extractJson'; // Assuming you have a utility to extract JSON from text
+import { toolDispatcher } from './tools';
+import  {extractJson}  from '../utils/extractJson';
 
 export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolCall) => {
   if (!apiKey) {
@@ -49,31 +51,6 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
   return responseText;
 };
 
-// --- NEW HELPER FUNCTION FOR IMAGE TOOL ---
-export const callImageTool = async (apiKey, prompt, url=true) => {
-    if (!apiKey) {
-        throw new Error("API Key Missing. Please set your API Key in Settings.");
-    }
-
-    // Construct the specific tool call payload for image_generator
-    // Note: This bypasses the agent model's reasoning and directly invokes the tool dispatcher.
-    // This is suitable for a dedicated "Generate Image" screen.
-    const toolCallPayload = {
-        "tools-required": true, // Indicate tools are required
-        "image_generator": { // Specify the tool
-            "prompt": prompt,
-            "url": true 
-        }
-    };
-
-    console.log("Attempting to dispatch image_generator tool:", toolCallPayload);
-
-    // Directly call the tool dispatcher
-    const toolResults = await toolDispatcher(toolCallPayload);
-
-    // Return the specific result from the image_generator tool
-    // toolResults will be an object like { image_generator: { image_generated: ..., message: ... } }
-    return toolResults?.image_generator;
-};
-// --- END NEW HELPER FUNCTION ---
-
+// --- REMOVED REDUNDANT HELPER FUNCTION ---
+// The callImageTool helper function has been removed from this file.
+// Image generation is handled by aiImageAgent.js which now calls the tool directly.

@@ -18,6 +18,7 @@ import {
     Image as RNImage,
     Modal,
     Dimensions,
+    Alert, // Import Alert
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -25,7 +26,8 @@ import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import { SettingsContext } from '../contexts/SettingsContext'
 import { generateImage, improvePrompt } from '../agents/aiImageAgent'
-import { imageCategories } from '../constants/imageCategories' // Import categories
+import { imageCategories } from '../constants/imageCategories'
+import { models } from '../constants/models'; // Import models for validation
 
 const { width: screenWidth } = Dimensions.get('window')
 const DEFAULT_NUM_IMAGES = 4
@@ -120,7 +122,7 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
 
     if (!visible) return null
     return (
-        <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalContainer}>
                 <ScrollView
                     ref={scrollRef}
@@ -181,11 +183,22 @@ export default function ImageGenerationScreen({ navigation }) {
             return
         }
 
+        // --- START: CRITICAL VALIDATION LOGIC ---
+        const selectedModelData = models.find(m => m.id === modelToUse);
+        if (!selectedModelData?.supported_tools.includes('image_generator')) {
+            Alert.alert(
+                "Model Not Capable",
+                `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation. Please select a different model in Settings.`,
+                [{ text: "OK" }]
+            );
+            return;
+        }
+        // --- END: CRITICAL VALIDATION LOGIC ---
+
         setLoading(true)
         setUrls([])
         doLayoutAnim()
 
-        // Prepend category description to the user's prompt
         const finalPrompt = selectedCategory.description
             ? `${selectedCategory.description}, ${prompt.trim()}`
             : prompt.trim()
@@ -286,7 +299,7 @@ export default function ImageGenerationScreen({ navigation }) {
                         <View style={styles.inputWrapper}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="A futuristic city skyline at sunset..."
+                                placeholder="A futuristic city skyline at sunset…"
                                 placeholderTextColor="#9CA3AF"
                                 multiline
                                 value={prompt}
@@ -309,7 +322,6 @@ export default function ImageGenerationScreen({ navigation }) {
                         </View>
                     </View>
 
-                    {/* Category Selector */}
                     <View style={styles.card}>
                         <Text style={styles.label}>Category</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
@@ -441,7 +453,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    // --- NEW STYLES for Category Selector ---
     categoryScroll: { paddingBottom: 4 },
     categoryCard: {
         width: 100,
@@ -477,7 +488,6 @@ const styles = StyleSheet.create({
     categoryTextSelected: {
         fontWeight: '700',
     },
-    // --- END NEW STYLES ---
     optionRow: { flexDirection: 'row', flexWrap: 'wrap' },
     optionBtn: {
         paddingVertical: 8,
@@ -544,9 +554,6 @@ const styles = StyleSheet.create({
         bottom: 0,
         width: '100%',
         padding: 16,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderColor: '#E2E8F0',
     },
     generateBtn: {
         backgroundColor: '#4F46E5',

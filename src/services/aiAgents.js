@@ -1,5 +1,8 @@
+// src/services/aiAgents.js
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
+import { extractJson } from '../utils/extractJson'; // Use the single source of truth
 
 export class AIAgent {
   constructor(apiKey, modelName = 'gemma-3-27b-it') {
@@ -13,16 +16,9 @@ export class AIAgent {
     });
   }
 
+  // Use the static method to call the centralized utility
   static extractJson(text) {
-    const match = text.match(/```json\n([\s\S]*?)\n```|({[\s\S]*})/);
-    if (!match) return null;
-    const jsonString = match[1] || match[2];
-    try {
-      return JSON.parse(jsonString);
-    } catch (err) {
-      console.error("Failed to parse JSON:", err);
-      return null;
-    }
+    return extractJson(text);
   }
 
   async runPrompt({
@@ -43,7 +39,8 @@ export class AIAgent {
       const responseText = await result.response.text();
 
       if (expectJson) {
-        const parsed = AIAgent.extractJson(responseText);
+        // Use the imported utility function here
+        const parsed = extractJson(responseText);
         return parsed ?? { raw: responseText };
       }
 

@@ -1,3 +1,5 @@
+// src/App.js
+
 import React, { useState, useEffect } from 'react';
 import {
   Text, // Keep Text import just in case, although it's mostly used in children
@@ -27,6 +29,7 @@ import ImageGenerationScreen from './src/screens/ImageGenerationScreen'; // Impo
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
 import { toolMetadata } from './src/services/tools';
 import { generateAgentPrompt } from './src/prompts/agentPrompt';
+import { models } from './src/constants/models'; // Import models for validation
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
@@ -37,7 +40,7 @@ export default function App() {
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
   const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya."
+    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya."
   );
 
   const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
@@ -60,14 +63,14 @@ export default function App() {
     (async () => {
       try {
         const [
-          m,
-          tm,
-          am,
-          s,
-          t,
-          ak,
-          seen,
-          et,
+          loadedModel,
+          loadedTitleModel,
+          loadedAgentModel,
+          loadedSystemPrompt,
+          loadedThreads,
+          loadedApiKey,
+          seenWelcome,
+          loadedEnabledTools,
         ] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@titleModelName'),
@@ -78,20 +81,57 @@ export default function App() {
           AsyncStorage.getItem('@seenWelcome'),
           AsyncStorage.getItem('@enabledTools'),
         ]);
-        // Update state only if loaded value is not null
-        if (m !== null) setModelName(m);
-        if (tm !== null) setTitleModelName(tm);
-        if (am !== null) setAgentModelName(am);
-        if (s !== null) setSystemPrompt(s);
-        if (t !== null) setThreads(JSON.parse(t));
-        if (ak !== null) setApiKey(ak);
-        if (et !== null) {
-          const savedTools = JSON.parse(et);
-          // Merge saved tools with initial defaults, prioritizing saved
-          setEnabledTools(prev => ({ ...prev, ...savedTools }));
+
+        // --- START: NEW VALIDATION LOGIC ---
+
+        // 1. Validate Agent Model
+        let validAgentModelId = loadedAgentModel || 'gemma-3-27b-it';
+        const agentModelData = models.find(model => model.id === validAgentModelId);
+        if (!agentModelData || !agentModelData.isAgentModel) {
+          console.warn(`Saved agent model "${validAgentModelId}" is invalid. Resetting to default.`);
+          validAgentModelId = 'gemma-3-27b-it'; // Your default agent model
         }
-        // Only show welcome if it hasn't been seen before
-        if (!seen) setShowWelcome(true);
+        setAgentModelName(validAgentModelId);
+
+        // 2. Validate Chat Model
+        let validChatModelId = loadedModel || 'gemma-3-27b-it';
+        if (!models.some(m => m.id === validChatModelId && m.isChatModel)) {
+          console.warn(`Saved chat model "${validChatModelId}" is invalid. Resetting to default.`);
+          validChatModelId = 'gemma-3-27b-it';
+        }
+        setModelName(validChatModelId);
+
+        // 3. Validate Title Model
+        let validTitleModelId = loadedTitleModel || 'gemma-3-1b-it';
+        if (!models.some(m => m.id === validTitleModelId && m.isTitleModel)) {
+          console.warn(`Saved title model "${validTitleModelId}" is invalid. Resetting to default.`);
+          validTitleModelId = 'gemma-3-1b-it';
+        }
+        setTitleModelName(validTitleModelId);
+
+        // 4. Validate Enabled Tools against the now-validated Agent Model
+        if (loadedEnabledTools !== null) {
+          const savedTools = JSON.parse(loadedEnabledTools);
+          const finalAgentModel = models.find(model => model.id === validAgentModelId);
+          const supportedTools = finalAgentModel?.supported_tools || [];
+
+          const validEnabledTools = Object.keys(savedTools).reduce((acc, toolId) => {
+            if (supportedTools.includes(toolId) && savedTools[toolId]) {
+              acc[toolId] = true;
+            }
+            return acc;
+          }, {});
+          setEnabledTools(prev => ({ ...prev, ...validEnabledTools }));
+        }
+
+        // Set remaining state from storage
+        if (loadedSystemPrompt !== null) setSystemPrompt(loadedSystemPrompt);
+        if (loadedThreads !== null) setThreads(JSON.parse(loadedThreads));
+        if (loadedApiKey !== null) setApiKey(loadedApiKey);
+        if (!seenWelcome) setShowWelcome(true);
+
+        // --- END: NEW VALIDATION LOGIC ---
+
       } catch (e) {
         console.warn('Error loading AsyncStorage:', e);
       }
@@ -133,13 +173,14 @@ export default function App() {
     const initialMessages = [
       {
         id: `u-system-${id}`,
-        text: systemPrompt,
+        text: systemPrompt, // Use the dynamic systemPrompt from state
         role: 'user',
         ts,
       },
       {
         id: `a-system-${id}`,
-        text: "Understood. I'm ready to assist you as Arya. How can I help you today?",
+        // Use a more generic response that is not tied to a specific persona name
+        text: "Understood. I'm ready to assist. How can I help you today?",
         role: 'model',
         ts,
       },

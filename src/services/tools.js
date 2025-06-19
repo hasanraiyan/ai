@@ -1,3 +1,5 @@
+// src/services/tools.js
+
 import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
 import { encode as btoa } from 'base-64';
@@ -26,7 +28,7 @@ export const toolMetadata = [
     description: "Generates an image based on a descriptive prompt and saves it to the device's local storage.",
     capabilities: ["prompt"],
     input_format: { prompt: "string" },
-    output_format: { image_generated: "boolean", message: "string" }
+    output_format: { image_generated: "boolean", message: "string", imageUrl: "string", localUri: "string" }
   }
 ];
 
@@ -58,10 +60,7 @@ const tools = {
     }
   },
 
-  // --- MODIFICATION: Save prompt metadata alongside the image ---
-  // A unique ID is used for both the image and a new .json file.
-  // The .json file stores the prompt, allowing the gallery to display it.
-  image_generator: async ({ prompt, url = false }) => {
+  image_generator: async ({ prompt }) => {
     console.log(`TOOL: Generating image for "${prompt}"`);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
@@ -74,7 +73,6 @@ const tools = {
     const encodedPrompt = encodeURIComponent(prompt);
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=512&height=512`;
 
-    // Use a unique ID for the image and its metadata file
     const uniqueId = Date.now().toString();
     const imageFilename = `${uniqueId}.png`;
     const metadataFilename = `${uniqueId}.json`;
@@ -82,36 +80,37 @@ const tools = {
     const metadataUri = `${IMAGE_DIR}${metadataFilename}`;
 
     try {
-      // Download and save the image
       const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
 
       if (downloadResult.status !== 200) {
         throw new Error('Image download failed');
       }
 
-      // Save the prompt in a corresponding JSON file
       const metadata = { prompt };
       await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(metadata));
 
       console.log('Image saved to:', downloadResult.uri);
       console.log('Metadata saved to:', metadataUri);
-      if (url) {
-        return { image_generated: true, imageUrl: imageUrl ,message: 'Image generated successfully. You can view it in the gallery.' };
+      
+      // ALWAYS return the URL and local URI on success
+      return {
+        image_generated: true,
+        imageUrl: imageUrl,
+        localUri: downloadResult.uri,
+        message: 'Image generated successfully. You can view it in the gallery.'
+      };
 
-      } else {
-        return { image_generated: true, message: 'Image generated successfully. You can view it in the gallery.' };
-
-      }
     } catch (err) {
       console.error('Image generation failed:', err.message);
-      // Clean up partial files on failure
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
       await FileSystem.deleteAsync(metadataUri, { idempotent: true });
-      return { error: 'Failed to fetch or save image' };
+      return { image_generated: false, error: 'Failed to fetch or save image' };
     }
   }
 };
 
+// Export implementations for direct use
+export const toolImplementations = tools;
 
 /**
  * Tool Dispatcher: Executes tools based on a toolCall object.

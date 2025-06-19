@@ -1,18 +1,8 @@
+// src/agents/aiImageAgent.js
+
 import { AIAgent } from "../services/aiAgents";
-import { toolDispatcher } from "../services/tools";
-
-const callImageTool = async (prompt, url = true) => {
-    const toolCallPayload = {
-        "tools-required": true,
-        "image_generator": {
-            "prompt": prompt,
-            "url": url
-        }
-    };
-
-    const toolResults = await toolDispatcher(toolCallPayload);
-    return toolResults?.image_generator;
-};
+// Import the actual tool implementation, not the dispatcher
+import { toolImplementations } from "../services/tools";
 
 export const generateImage = async (apikey, modelName, inputText, n = 1) => {
     if (!apikey || !modelName || !inputText) {
@@ -38,23 +28,7 @@ Input: "dragon in a forest", n: 3
 
 **2. BEHAVIOR SPECIFICATION:**
 
-Step A — NSFW and Unsafe Content Detection:
-- If the user input contains sexual, violent, hateful, or unsafe themes:
-  → Return:
-  {
-    "generate": false,
-    "reason": "unsafe content"
-  }
-
-Step B — Visual Intent Detection:
-- If the input does *not* imply any kind of visual scene or image-worthy concept:
-  → Return:
-  {
-    "generate": false,
-    "reason": "no image intent"
-  }
-
-Step C — Valid Visual Prompt Detected:
+Step A — Valid Visual Prompt Detected:
 - Generate exactly 'n' high-quality image prompts using:
   - vivid **adjectives**
   - specific **nouns**
@@ -78,12 +52,7 @@ Output:
   ]
 }
 
-Input: "naked woman", n: 3  
-Output:
-{
-  "generate": false,
-  "reason": "NSFW content"
-}
+
 
 Input: "how do I fix a 404 error?", n: 3  
 Output:
@@ -133,7 +102,8 @@ Only respond with JSON. No extra commentary or text.
     const imageResults = await Promise.all(
         promptArray.map(async (prompt) => {
             try {
-                return await callImageTool(prompt);
+                // Call the tool directly
+                return await toolImplementations.image_generator({ prompt });
             } catch (e) {
                 console.error("Image generation failed for prompt:", prompt, e);
                 return null;

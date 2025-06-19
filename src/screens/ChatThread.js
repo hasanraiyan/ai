@@ -1,3 +1,5 @@
+// src/screens/ChatThread.js
+
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
@@ -17,7 +19,7 @@ import {
   Image,
   ToastAndroid,
   ActivityIndicator,
-  Animated, // Kept for ImageWithLoader skeleton
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -27,9 +29,11 @@ import { ThreadsContext } from '../contexts/ThreadsContext';
 import { sendMessageToAI } from '../services/aiService';
 import { generateChatTitle } from '../agents/chatTitleAgent'
 import TypingIndicator from '../components/TypingIndicator';
-import ModeToggle from '../components/ModeToggle'; // Import the new component
+import ModeToggle from '../components/ModeToggle';
 import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
+// IMPORT the shared component instead of defining it locally
+import { ImageWithLoader } from '../components/imageSkeleton';
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
@@ -54,11 +58,9 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
-  // Check if selected agent model supports tools
   const selectedAgentModel = models.find(m => m.id === agentModelName);
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
-  // Auto-focus the input on mount
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
@@ -77,7 +79,6 @@ export default function ChatThread({ navigation, route }) {
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
-  // Generate a title on first user message
   const handleGenerateTitle = async firstUserText => {
     try {
       const title = await generateChatTitle(
@@ -177,7 +178,7 @@ export default function ChatThread({ navigation, route }) {
     return false;
   };
 
-  // Custom markdown image renderer
+  // Custom markdown image renderer using the imported component
   const markdownImageRules = {
     image: node => {
       const src = node.attributes.src || node.attributes.href;
@@ -423,92 +424,3 @@ const styles = StyleSheet.create({
   sendDisabled: { backgroundColor: '#A5B4FC' },
 });
 
-// Pulsing skeleton placeholder
-function SkeletonPlaceholder({ width, height }) {
-  const opacityAnim = useRef(new Animated.Value(0.5)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(opacityAnim, { toValue: 0.5, duration: 600, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return (
-    <Animated.View
-      style={{
-        width,
-        height,
-        backgroundColor: '#E5E7EB',
-        opacity: opacityAnim,
-        borderRadius: 8,
-      }}
-    />
-  );
-}
-
-// Image loader with skeleton + error fallback
-function ImageWithLoader({ uri, alt, style }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [containerWidth, setContainerWidth] = useState(null);
-
-  return (
-    <View
-      style={[
-        {
-          width: style.width || '100%',
-          height: style.height || 200,
-          justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'hidden',
-        },
-      ]}
-      onLayout={e => {
-        const w = e.nativeEvent.layout.width;
-        if (w && w !== containerWidth) setContainerWidth(w);
-      }}
-    >
-      {loading && containerWidth != null && (
-        <SkeletonPlaceholder width={containerWidth} height={style.height || 200} />
-      )}
-      {!error && (
-        <Image
-          source={{ uri }}
-          style={[
-            style,
-            {
-              position: 'absolute',
-              width: containerWidth || style.width || '100%',
-            },
-            loading && { display: 'none' },
-          ]}
-          accessibilityLabel={alt}
-          onLoadStart={() => {
-            setLoading(true);
-            setError(false);
-          }}
-          onLoadEnd={() => setLoading(false)}
-          onError={() => {
-            setLoading(false);
-            setError(true);
-          }}
-        />
-      )}
-      {error && (
-        <View
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: '#F3F4F6',
-            },
-          ]}
-        >
-          <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Failed to load image</Text>
-        </View>
-      )}
-    </View>
-  );
-}
