@@ -17,7 +17,7 @@ import {
   Animated,
   Image,
   ToastAndroid,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -40,6 +40,7 @@ export default function ChatThread({ navigation, route }) {
     apiKey,
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
+
   const thread =
     threads.find(t => t.id === threadId) ||
     { id: threadId, name: name || 'Chat', messages: [] };
@@ -51,9 +52,11 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
+  // Check if selected agent model supports tools
   const selectedAgentModel = models.find(m => m.id === agentModelName);
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
+  // Animated toggle underline
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
   const [selectorWidth, setSelectorWidth] = useState(0);
   useEffect(() => {
@@ -68,6 +71,7 @@ export default function ChatThread({ navigation, route }) {
     outputRange: [0, selectorWidth / 2],
   });
 
+  // Auto-focus
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
@@ -76,7 +80,8 @@ export default function ChatThread({ navigation, route }) {
     if (newMode === 'agent' && !isAgentModeSupported) {
       Alert.alert(
         'Agent Mode Not Supported',
-        `The current agent model (${selectedAgentModel?.name || agentModelName}) does not support tools. Please select a different model in Settings.`
+        `The current agent model (${selectedAgentModel?.name ||
+          agentModelName}) does not support tools.`
       );
       return;
     }
@@ -85,6 +90,7 @@ export default function ChatThread({ navigation, route }) {
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
+  // Title generation on first user message
   const handleGenerateTitle = async firstUserText => {
     try {
       const title = await generateChatTitle(
@@ -100,10 +106,7 @@ export default function ChatThread({ navigation, route }) {
 
   const sendAI = async text => {
     if (!apiKey) {
-      Alert.alert(
-        'API Key Missing',
-        'Please set your API Key in Settings to use the AI features.'
-      );
+      Alert.alert('API Key Missing', 'Please set your API Key in Settings.');
       return;
     }
 
@@ -115,27 +118,26 @@ export default function ChatThread({ navigation, route }) {
     updateThreadMessages(threadId, newMessages);
     setLoading(true);
 
+    // Select prompts/models based on mode
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
     const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
 
+    // Build history payload
     let historyForAPI = newMessages.map(m => ({ ...m }));
     const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
 
+    // Tool-call placeholder
     let thinkingMessageId = null;
     const handleToolCall = toolCall => {
-      const toolNames = Object.keys(toolCall).filter(key => key !== 'tools-required');
-      if (toolNames.length === 0) return;
-      const friendlyText = `Using tool(s): ${toolNames
-        .map(name => `\`${name}\``)
-        .join(', ')}`;
-      const actionTs = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const toolNames = Object.keys(toolCall).filter(k => k !== 'tools-required');
+      if (!toolNames.length) return;
       thinkingMessageId = `thinking-${Date.now()}`;
       const agentActionMsg = {
         id: thinkingMessageId,
         role: 'agent-thinking',
-        text: friendlyText,
-        ts: actionTs,
+        text: `Using tool(s): ${toolNames.map(n => `\`${n}\``).join(', ')}`,
+        ts,
       };
       newMessages = [...newMessages, agentActionMsg];
       updateThreadMessages(threadId, newMessages);
@@ -153,32 +155,26 @@ export default function ChatThread({ navigation, route }) {
       );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
 
+      // Remove thinking placeholder if any
       if (thinkingMessageId) {
         newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       }
-
-      newMessages = [...newMessages, aiMsg];
+      newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
 
+      // Generate title once
       if (isFirstRealMessage && !titled.current) {
         handleGenerateTitle(text);
         titled.current = true;
       }
     } catch (e) {
-      const errMsgText = e.message.includes('API Key Missing')
+      const errorText = e.message.includes('API Key Missing')
         ? e.message
         : 'An error occurred while fetching the response.';
-      const errMsg = {
-        id: `e${Date.now()}`,
-        text: errMsgText,
-        role: 'model',
-        error: true,
-        ts,
-      };
       if (thinkingMessageId) {
         newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       }
-      newMessages = [...newMessages, errMsg];
+      newMessages.push({ id: `e${Date.now()}`, text: errorText, role: 'model', error: true, ts });
       updateThreadMessages(threadId, newMessages);
     } finally {
       setLoading(false);
@@ -187,11 +183,11 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const onSend = () => {
-    const t = input.trim();
-    if (!t || loading) return;
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
     setInput('');
     Keyboard.dismiss();
-    sendAI(t);
+    sendAI(trimmed);
   };
 
   const onLinkPress = url => {
@@ -199,21 +195,17 @@ export default function ChatThread({ navigation, route }) {
     return false;
   };
 
-  const imageRule = {
-    image: node => {
-      const { src, alt, title } = node.attributes;
+  // Custom Markdown image rule
+  const markdownImageRules = {
+    image: (node) => {
+      const src = node.attributes.src || node.attributes.href;
+      if (!src) return null;
       return (
         <ImageWithLoader
           key={node.key}
           uri={src}
-          alt={alt || title}
-          style={{
-            width: '100%',
-            height: 200,
-            resizeMode: 'contain',
-            marginTop: 16,
-            marginBottom: 4,
-          }}
+          alt={node.attributes.alt || node.attributes.title || ''}
+          style={{ width: '100%', height: 200, resizeMode: 'contain', marginVertical: 8 }}
         />
       );
     },
@@ -229,6 +221,7 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const renderMessageItem = ({ item }) => {
+    // User message
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
@@ -239,29 +232,42 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
-
+    // Agent thinking
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
           <View style={styles.agentThinkingBubble}>
-            {/* You may keep or remove ActivityIndicator here; it's separate from image skeleton */}
-            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 10 }} />
-            <Markdown style={{ body: styles.agentThinkingText }}>{item.text}</Markdown>
+            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 8 }} />
+            <Text style={styles.agentThinkingText}>{item.text}</Text>
           </View>
         </View>
       );
     }
-
+    // AI or error
     return (
       <View style={styles.aiRow}>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? (
             <Text style={styles.errorText}>{item.text}</Text>
-          ) : (
-            <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={imageRule}>
-              {item.text}
-            </Markdown>
-          )}
+          ) : (() => {
+            // FIX: This regex finds markdown links to local image files 
+            // (e.g., [alt text](file://.../image.png)) and converts them 
+            // into markdown image tags (e.g., ![alt text](file://.../image.png))
+            // so that our custom 'image' rule can render them.
+            const processedText = item.text.replace(
+              /\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi,
+              '![$1]($2)'
+            );
+            return (
+              <Markdown
+                style={markdownStyles}
+                onLinkPress={onLinkPress}
+                rules={markdownImageRules}
+              >
+                {processedText}
+              </Markdown>
+            );
+          })()}
           <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
         </View>
       </View>
@@ -275,6 +281,8 @@ export default function ChatThread({ navigation, route }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
       <View style={styles.chatHeader}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
           <Ionicons name="arrow-back" size={24} color="#475569" />
@@ -284,13 +292,16 @@ export default function ChatThread({ navigation, route }) {
         </Text>
       </View>
 
-      {/* Floating Mode Selector */}
+      {/* Mode Toggle */}
       <View
         style={styles.modeSelectorContainer}
         onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
       >
         <Animated.View
-          style={[styles.selectorIndicator, { width: selectorWidth / 2, transform: [{ translateX }] }]}
+          style={[
+            styles.selectorIndicator,
+            { width: selectorWidth / 2, transform: [{ translateX }] },
+          ]}
         />
         <TouchableOpacity style={styles.modeButton} onPress={() => onToggleMode('chat')}>
           <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>
@@ -313,6 +324,7 @@ export default function ChatThread({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
+      {/* Message List */}
       <FlatList
         ref={listRef}
         data={displayMessages}
@@ -327,6 +339,7 @@ export default function ChatThread({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
       />
 
+      {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inputRow}>
           <TextInput
@@ -343,7 +356,11 @@ export default function ChatThread({ navigation, route }) {
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]}
             disabled={!input.trim() || loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Ionicons name="send" size={20} color="#fff" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -359,7 +376,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.05,
@@ -368,13 +385,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   headerIconButton: { padding: 8 },
-  chatTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginHorizontal: 12,
-    flex: 1,
-  },
+  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
   modeSelectorContainer: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 70,
@@ -395,30 +406,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#4F46E5',
     borderRadius: 16,
   },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  modeButtonDisabled: {
-    opacity: 0.6,
-  },
-  modeButtonText: {
-    fontWeight: '600',
-    color: '#374151',
-    fontSize: 15,
-  },
-  modeButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  modeButtonTextDisabled: {
-    color: '#6B7280',
-  },
-  chatContent: {
-    padding: 12,
-    paddingBottom: 80,
-    paddingTop: 90,
-  },
+  modeButton: { flex: 1, paddingVertical: 6, alignItems: 'center' },
+  modeButtonDisabled: { opacity: 0.6 },
+  modeButtonText: { fontWeight: '600', color: '#374151', fontSize: 15 },
+  modeButtonTextActive: { color: '#FFF' },
+  modeButtonTextDisabled: { color: '#6B7280' },
+  chatContent: { padding: 12, paddingBottom: 80, paddingTop: 90 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: {
     backgroundColor: '#4F46E5',
@@ -431,10 +424,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
   },
-  userText: { color: '#FFFFFF', fontSize: 16 },
+  userText: { color: '#FFF', fontSize: 16 },
   aiRow: { flexDirection: 'row', marginVertical: 4 },
   aiBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
     padding: 12,
     borderRadius: 20,
     borderWidth: 1,
@@ -462,22 +455,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 1,
   },
-  agentThinkingText: {
-    color: '#4B5563',
-    fontStyle: 'italic',
-    fontSize: 15,
-  },
-  errorBubble: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-  },
+  agentThinkingText: { color: '#4B5563', fontStyle: 'italic', fontSize: 15 },
+  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
   errorText: { color: '#B91C1C', fontSize: 16 },
   time: { fontSize: 10, color: '#9CA3AF', marginTop: 4, alignSelf: 'flex-end' },
   errorTime: { color: '#FCA5A5' },
   inputRow: {
     flexDirection: 'row',
     padding: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
     borderTopWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -503,41 +489,23 @@ const styles = StyleSheet.create({
   sendDisabled: { backgroundColor: '#A5B4FC' },
 });
 
-// Skeleton loader: pulsating placeholder
+// Pulsing skeleton placeholder
 function SkeletonPlaceholder({ width, height }) {
   const opacityAnim = useRef(new Animated.Value(0.5)).current;
-
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0.5,
-          duration: 600,
-          useNativeDriver: true,
-        }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 0.5, duration: 600, useNativeDriver: true }),
       ])
     ).start();
-  }, [opacityAnim]);
-
+  }, []);
   return (
-    <Animated.View
-      style={{
-        width,
-        height,
-        backgroundColor: '#E5E7EB',
-        opacity: opacityAnim,
-        borderRadius: 8,
-      }}
-    />
+    <Animated.View style={{ width, height, backgroundColor: '#E5E7EB', opacity: opacityAnim, borderRadius: 8 }} />
   );
 }
 
-// ImageWithLoader using only skeleton for loading and error fallback
+// Image loader with skeleton + error fallback
 function ImageWithLoader({ uri, alt, style }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -549,8 +517,6 @@ function ImageWithLoader({ uri, alt, style }) {
         {
           width: style.width || '100%',
           height: style.height || 200,
-          marginTop: style.marginTop != null ? style.marginTop : 0,
-          marginBottom: style.marginBottom != null ? style.marginBottom : 0,
           justifyContent: 'center',
           alignItems: 'center',
           overflow: 'hidden',
@@ -558,9 +524,7 @@ function ImageWithLoader({ uri, alt, style }) {
       ]}
       onLayout={e => {
         const w = e.nativeEvent.layout.width;
-        if (w && w !== containerWidth) {
-          setContainerWidth(w);
-        }
+        if (w && w !== containerWidth) setContainerWidth(w);
       }}
     >
       {loading && containerWidth != null && (
@@ -572,7 +536,7 @@ function ImageWithLoader({ uri, alt, style }) {
           style={[
             style,
             { position: 'absolute', width: containerWidth || style.width || '100%' },
-            loading ? { display: 'none' } : { display: 'flex' },
+            loading && { display: 'none' },
           ]}
           accessibilityLabel={alt}
           onLoadStart={() => {
@@ -587,12 +551,7 @@ function ImageWithLoader({ uri, alt, style }) {
         />
       )}
       {error && (
-        <View
-          style={[
-            StyleSheet.absoluteFillObject,
-            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
-          ]}
-        >
+        <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' }]}>
           <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Failed to load image</Text>
         </View>
       )}
