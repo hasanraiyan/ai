@@ -26,12 +26,12 @@ import { BlurView } from 'expo-blur';
 import ImageViewing from 'react-native-image-viewing';
 
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const numColumns = 2;
-const padding = 16;
-const spacing = 12;
-const cardWidth = (width - padding * 2 - spacing) / numColumns;
-const listImageHeight = 200;
+const PADDING = 16;
+const SPACING = 12;
+const CARD_SIZE = (width - PADDING * 2 - SPACING) / numColumns;
+const LIST_IMG_HEIGHT = 200;
 
 async function ensureDirExists() {
   const info = await FileSystem.getInfoAsync(IMAGE_DIR);
@@ -45,11 +45,10 @@ export default function GalleryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('grid'); // or 'list'
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [mediaPerm, requestPerm] = MediaLibrary.usePermissions();
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   const loadImages = useCallback(async () => {
     setError(null);
@@ -60,28 +59,30 @@ export default function GalleryScreen({ navigation }) {
       const files = await FileSystem.readDirectoryAsync(IMAGE_DIR);
       const imageFiles = files.filter(f => /\.(jpe?g|png)$/i.test(f));
 
-      const details = await Promise.all(
+      const data = await Promise.all(
         imageFiles.map(async fn => {
           const uri = IMAGE_DIR + fn;
-          const id = fn.split('.')[0];
-          const metaUri = `${IMAGE_DIR}${id}.json`;
+          const base = fn.split('.')[0];
+          const metaUri = `${IMAGE_DIR}${base}.json`;
           let prompt = 'Untitled';
           let time = 0;
 
           const info = await FileSystem.getInfoAsync(uri, { size: false });
           time = info.modificationTime || 0;
 
-          const metaInfo = await FileSystem.getInfoAsync(metaUri);
-          if (metaInfo.exists) {
+          const mInfo = await FileSystem.getInfoAsync(metaUri);
+          if (mInfo.exists) {
             const txt = await FileSystem.readAsStringAsync(metaUri);
             const md = JSON.parse(txt);
             prompt = md.prompt || prompt;
           }
+
           return { id: fn, uri, prompt, time };
         })
       );
-      details.sort((a, b) => b.time - a.time);
-      setImages(details);
+
+      data.sort((a, b) => b.time - a.time);
+      setImages(data);
     } catch (e) {
       console.error(e);
       setError('Couldn’t load images');
@@ -135,7 +136,7 @@ export default function GalleryScreen({ navigation }) {
 
   function onDelete(item) {
     setLightboxVisible(false);
-    Alert.alert('Delete image?', 'This cannot be undone.', [
+    Alert.alert('Delete?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -165,12 +166,13 @@ export default function GalleryScreen({ navigation }) {
     const isGrid = viewMode === 'grid';
     return (
       <TouchableOpacity
-        activeOpacity={0.8}
         onPress={() => openLightbox(index)}
+        activeOpacity={0.8}
         style={[
           styles.card,
-          isGrid ? { width: cardWidth, height: cardWidth } : { width: '100%', height: listImageHeight },
-          { marginLeft: isGrid ? spacing / 2 : 0, marginRight: isGrid ? spacing / 2 : 0, marginBottom: spacing }
+          isGrid
+            ? { width: CARD_SIZE, height: CARD_SIZE, margin: SPACING / 2 }
+            : { width: '100%', height: LIST_IMG_HEIGHT, marginBottom: SPACING }
         ]}
       >
         <BlurView intensity={20} tint="light" style={styles.blur}>
@@ -193,18 +195,21 @@ export default function GalleryScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+
       {/* Header */}
-      <Animated.View style={[styles.header]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={navigation.openDrawer}>
           <Ionicons name="menu-outline" size={28} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.title}>AI Gallery</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
-            <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={24} color="#475569" />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+        <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
+          <Ionicons
+            name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
+            size={24}
+            color="#475569"
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Content */}
       {loading && !refreshing ? (
@@ -228,11 +233,11 @@ export default function GalleryScreen({ navigation }) {
         </View>
       ) : (
         <FlatList
+          key={viewMode}                 // ← Force remount when toggling columns
           data={images}
           renderItem={renderItem}
           keyExtractor={i => i.id}
           numColumns={viewMode === 'grid' ? numColumns : 1}
-          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -243,19 +248,20 @@ export default function GalleryScreen({ navigation }) {
               tintColor="#6366F1"
             />
           }
-          contentContainerStyle={{ padding: spacing }}
+          contentContainerStyle={{ padding: SPACING }}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* Floating Action Button */}
-      <Animated.View style={styles.fabContainer}>
+      {/* FAB */}
+      <View style={styles.fabContainer}>
         <TouchableOpacity
           style={styles.fab}
           onPress={() => navigation.navigate('ImageGeneration')}
         >
           <AntDesign name="plus" size={24} color="#fff" />
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       {/* Lightbox */}
       <ImageViewing
@@ -293,7 +299,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
     flexDirection: 'row',
-    padding: padding,
+    padding: PADDING,
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#FFF',
@@ -308,8 +314,7 @@ const styles = StyleSheet.create({
     })
   },
   title: { fontSize: 20, fontWeight: '600', color: '#1E293B' },
-  headerIcons: { flexDirection: 'row', width: 40, justifyContent: 'space-between' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: padding },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: PADDING },
   status: { marginTop: 12, fontSize: 16, color: '#475569' },
   btnPrimary: {
     marginTop: 16,
@@ -332,14 +337,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(240,240,240,0.6)'
   },
-  gridImage: {
-    width: '100%',
-    height: '100%'
-  },
-  listImage: {
-    width: '100%',
-    height: listImageHeight
-  },
+  gridImage: { width: '100%', height: '100%' },
+  listImage: { width: '100%', height: LIST_IMG_HEIGHT },
   heart: {
     position: 'absolute',
     top: 8,
