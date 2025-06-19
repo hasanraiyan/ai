@@ -23,16 +23,20 @@ import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
 import { getAvailableTools, toolMetadata } from './src/services/tools';
+import { models } from './src/constants/models';
 
 const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
 
-const generateAgentPrompt = (enabledTools) => {
-  const allTools = getAvailableTools();
-  // Filter the tools based on the enabledTools map
-  const tools = allTools.filter(t => enabledTools[t.agent_id]);
+const generateAgentPrompt = (enabledTools, agentModelId) => {
+  const agentModel = models.find(m => m.id === agentModelId);
+  const supportedTools = agentModel?.supported_tools || [];
+  
+  const allAvailableTools = getAvailableTools();
+  // Filter tools that are BOTH enabled by the user AND supported by the selected model.
+  const tools = allAvailableTools.filter(t => enabledTools[t.agent_id] && supportedTools.includes(t.agent_id));
 
-  // Handle case where no tools are enabled
+  // Handle case where no tools are enabled or supported
   if (tools.length === 0) {
     return 'You are a helpful and intelligent agent. You have no tools available. Respond as a standard conversational AI.';
   }
@@ -68,7 +72,7 @@ export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); // Added for specific title generation model
   const [agentModelName, setAgentModelName] = useState('gemini-2.5-pro'); // Added for agent mode
-  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable toneâ—like a clever Gen Z friend whoâ€™s also secretly a professor. Youâ€™re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya.');
+  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone—like a clever Gen Z friend who’s also secretly a professor. You’re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya.');
 
   const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
   const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
@@ -80,8 +84,8 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    setAgentSystemPrompt(generateAgentPrompt(enabledTools));
-  }, [enabledTools]);
+    setAgentSystemPrompt(generateAgentPrompt(enabledTools, agentModelName));
+  }, [enabledTools, agentModelName]);
 
   useEffect(() => {
     (async () => {

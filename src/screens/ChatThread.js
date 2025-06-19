@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
@@ -17,7 +16,7 @@ import {
   Clipboard,
   Alert,
   Animated,
-  Image,              // ← import Image
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +27,7 @@ import { generateChatTitle, sendMessageToAI } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
 import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
+import { models } from '../constants/models';
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
@@ -52,6 +52,10 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
+  // Check if selected agent model supports agent mode
+  const selectedAgentModel = models.find(m => m.id === agentModelName);
+  const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
+
   // Animated mode selector
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
   const [selectorWidth, setSelectorWidth] = useState(0);
@@ -72,6 +76,17 @@ export default function ChatThread({ navigation, route }) {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
+  const onToggleMode = (newMode) => {
+    if (newMode === 'agent' && !isAgentModeSupported) {
+      Alert.alert(
+        'Agent Mode Not Supported',
+        `The current agent model (${selectedAgentModel?.name || agentModelName}) does not support tools. Please select a different model in Settings.`
+      );
+      return;
+    }
+    setMode(newMode);
+  };
+  
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
   // Generate thread title on first real message
@@ -175,8 +190,6 @@ export default function ChatThread({ navigation, route }) {
     return false;
   };
 
-  // ───────────────────────────────────────
-  // 1) CUSTOM IMAGE RULE — strips out 'key' from the props spread
   const imageRule = {
     image: (node, children, parent, styles) => {
       const { src, alt, title } = node.attributes;
@@ -196,10 +209,7 @@ export default function ChatThread({ navigation, route }) {
     }
   };
 
-  // ───────────────────────────────────────
-  // RENDERING EACH MESSAGE
   const renderMessageItem = ({ item }) => {
-    // 1) user
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
@@ -211,7 +221,6 @@ export default function ChatThread({ navigation, route }) {
       );
     }
 
-    // 2) tool-result
     if (item.role === 'tool-result') {
       return (
         <View style={styles.toolRow}>
@@ -228,7 +237,6 @@ export default function ChatThread({ navigation, route }) {
       );
     }
 
-    // 3) AI / errors
     return (
       <View style={styles.aiRow}>
         <View style={styles.avatar}>
@@ -283,13 +291,13 @@ export default function ChatThread({ navigation, route }) {
             { width: selectorWidth / 2, transform: [{ translateX }] }
           ]}
         />
-        <TouchableOpacity style={styles.modeButton} onPress={() => setMode('chat')}>
+        <TouchableOpacity style={styles.modeButton} onPress={() => onToggleMode('chat')}>
           <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>
             Chat
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.modeButton} onPress={() => setMode('agent')}>
-          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>
+        <TouchableOpacity style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]} onPress={() => onToggleMode('agent')}>
+          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive, !isAgentModeSupported && styles.modeButtonTextDisabled]}>
             Agent
           </Text>
         </TouchableOpacity>
@@ -383,6 +391,9 @@ const styles = StyleSheet.create({
     alignItems: 'center'
 
   },
+  modeButtonDisabled: {
+    opacity: 0.6
+  },
   modeButtonText: {
     fontWeight: '600',
     color: '#334155',
@@ -390,6 +401,9 @@ const styles = StyleSheet.create({
   },
   modeButtonTextActive: {
     color: '#FFFFFF'
+  },
+  modeButtonTextDisabled: {
+    color: '#475569'
   },
   chatContent: {
     padding: 12,

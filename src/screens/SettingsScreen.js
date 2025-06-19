@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { gemmaModels, titleModels } from '../constants/models';
+import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
@@ -25,13 +25,16 @@ function SettingsScreen({ navigation }) {
     titleModelName, setTitleModelName,
     agentModelName, setAgentModelName,
     systemPrompt, setSystemPrompt,
-    agentSystemPrompt, // <-- Get the agent prompt from context
+    agentSystemPrompt,
     apiKey, setApiKey,
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
+
+  // Get the full object for the currently selected agent model
+  const selectedAgentModel = models.find(m => m.id === agentModelName);
 
   const toggleTool = (toolId) => {
     setEnabledTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
@@ -97,9 +100,9 @@ function SettingsScreen({ navigation }) {
           
           <Text style={styles.cardSubTitle}>Main Chat Model</Text>
           <View style={styles.optionGroup}>
-            {gemmaModels.map(m => (
-              <Pressable key={m} onPress={() => setModelName(m)} style={[styles.optionButton, modelName === m && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, modelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+            {models.filter(m => m.isChatModel).map(m => (
+              <Pressable key={m.id} onPress={() => setModelName(m.id)} style={[styles.optionButton, modelName === m.id && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, modelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
               </Pressable>
             ))}
           </View>
@@ -109,9 +112,9 @@ function SettingsScreen({ navigation }) {
           <Text style={styles.cardSubTitle}>Title Generation Model</Text>
           <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
           <View style={styles.optionGroup}>
-            {titleModels.map(m => (
-              <Pressable key={`title-${m}`} onPress={() => setTitleModelName(m)} style={[styles.optionButton, titleModelName === m && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, titleModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+            {models.filter(m => m.isTitleModel).map(m => (
+              <Pressable key={`title-${m.id}`} onPress={() => setTitleModelName(m.id)} style={[styles.optionButton, titleModelName === m.id && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, titleModelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
               </Pressable>
             ))}
           </View>
@@ -119,11 +122,11 @@ function SettingsScreen({ navigation }) {
           <View style={styles.separator} />
           
           <Text style={styles.cardSubTitle}>Agent Model</Text>
-          <Text style={styles.infoText}>A more powerful model can be better at reasoning and using tools correctly.</Text>
+          <Text style={styles.infoText}>Select a model capable of using tools.</Text>
           <View style={styles.optionGroup}>
-            {gemmaModels.map(m => (
-              <Pressable key={`agent-${m}`} onPress={() => setAgentModelName(m)} style={[styles.optionButton, agentModelName === m && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, agentModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+            {models.filter(m => m.isAgentModel).map(m => (
+              <Pressable key={`agent-${m.id}`} onPress={() => setAgentModelName(m.id)} style={[styles.optionButton, agentModelName === m.id && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, agentModelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
               </Pressable>
             ))}
           </View>
@@ -135,31 +138,41 @@ function SettingsScreen({ navigation }) {
             <Ionicons name="build-outline" size={20} color="#475569" style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Agent Tools</Text>
           </View>
-          <Text style={styles.infoText}>Enable or disable tools for the agent to use. This updates the agent's instructions automatically.</Text>
-          {availableTools.map((tool, index) => {
-            const isEnabled = !!enabledTools[tool.agent_id];
-            return (
-              <React.Fragment key={tool.agent_id}>
-                {index > 0 && <View style={styles.separator} />}
-                <View style={styles.toolRow}>
-                  <View style={styles.toolInfo}>
-                    <Text style={styles.toolName}>{tool.agent_id}</Text>
-                    <Text style={styles.toolDescription}>{tool.description}</Text>
-                  </View>
-                  <Switch
-                    trackColor={{ false: '#D1D5DB', true: '#A5B4FC' }}
-                    thumbColor={isEnabled ? '#6366F1' : '#f4f3f4'}
-                    ios_backgroundColor="#D1D5DB"
-                    onValueChange={() => toggleTool(tool.agent_id)}
-                    value={isEnabled}
-                  />
-                </View>
-              </React.Fragment>
-            );
-          })}
+          { !selectedAgentModel?.isAgentModel ? (
+              <Text style={styles.infoText}>The selected agent model ({selectedAgentModel?.name || agentModelName}) does not support tools. Select a different agent model to enable tools.</Text>
+          ) : (
+            <>
+              <Text style={styles.infoText}>Enable tools for the agent. Availability depends on the selected Agent Model.</Text>
+              {availableTools.map((tool, index) => {
+                const isUserEnabled = !!enabledTools[tool.agent_id];
+                const isModelSupported = selectedAgentModel?.supported_tools.includes(tool.agent_id);
+
+                return (
+                  <React.Fragment key={tool.agent_id}>
+                    {index > 0 && <View style={styles.separator} />}
+                    <View style={[styles.toolRow, !isModelSupported && styles.toolRowDisabled]}>
+                      <View style={styles.toolInfo}>
+                        <Text style={styles.toolName}>{tool.agent_id}</Text>
+                        <Text style={styles.toolDescription}>{tool.description}</Text>
+                        {!isModelSupported && <Text style={styles.toolSupportText}>Not supported by {selectedAgentModel.name}</Text>}
+                      </View>
+                      <Switch
+                        trackColor={{ false: '#D1D5DB', true: '#A5B4FC' }}
+                        thumbColor={isUserEnabled && isModelSupported ? '#6366F1' : '#f4f3f4'}
+                        ios_backgroundColor="#D1D5DB"
+                        onValueChange={() => toggleTool(tool.agent_id)}
+                        value={isUserEnabled}
+                        disabled={!isModelSupported}
+                      />
+                    </View>
+                  </React.Fragment>
+                );
+              })}
+            </>
+          )}
         </View>
 
-        {/* --- NEW: Agent Prompt Card --- */}
+        {/* --- Agent Prompt Card --- */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="document-text-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -195,7 +208,6 @@ function SettingsScreen({ navigation }) {
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
           </TouchableOpacity>
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -329,6 +341,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
+  toolRowDisabled: {
+    opacity: 0.5,
+  },
   toolInfo: {
     flex: 1,
     marginRight: 16,
@@ -344,8 +359,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 18,
   },
+  toolSupportText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
   
-  // NEW: Prompt Display Styles
+  // Prompt Display Styles
   promptDisplayContainer: {
     backgroundColor: '#F1F5F9',
     borderRadius: 8,
