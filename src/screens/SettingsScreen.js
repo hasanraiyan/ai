@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { gemmaModels } from '../constants/models';
+import { gemmaModels, titleModels } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
@@ -108,7 +108,7 @@ function SettingsScreen({ navigation }) {
           <Text style={styles.cardSubTitle}>Title Generation Model</Text>
           <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
           <View style={styles.optionGroup}>
-            {gemmaModels.map(m => (
+            {titleModels.map(m => (
               <Pressable key={`title-${m}`} onPress={() => setTitleModelName(m)} style={[styles.optionButton, titleModelName === m && styles.optionButtonSelected]}>
                 <Text style={[styles.optionButtonText, titleModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
               </Pressable>

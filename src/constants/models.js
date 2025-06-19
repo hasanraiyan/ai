@@ -15,9 +15,9 @@ export const gemmaModels = [
 ]
 
 export const titleModels = [
-    "gemma-3n-e4b-it",
-    "gemma-3-1b-it",
-    "gemma-3-4b-it",
-    "gemma-3-12b-it",
-    "gemma-3-27b-it"
+  "gemma-3n-e4b-it",
+  "gemma-3-1b-it",
+  "gemma-3-4b-it",
+  "gemma-3-12b-it",
+  "gemma-3-27b-it",
 ];
