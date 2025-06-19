@@ -1,5 +1,3 @@
-
-import { ImageWithLoader, SkeletonPlaceholder } from '../components/imageSkeleton';
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
@@ -19,6 +17,7 @@ import {
   Animated,
   Image,
   ToastAndroid,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -201,7 +200,7 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const imageRule = {
-    image: (node) => {
+    image: node => {
       const { src, alt, title } = node.attributes;
       return (
         <ImageWithLoader
@@ -245,6 +244,7 @@ export default function ChatThread({ navigation, route }) {
       return (
         <View style={styles.aiRow}>
           <View style={styles.agentThinkingBubble}>
+            {/* You may keep or remove ActivityIndicator here; it's separate from image skeleton */}
             <ActivityIndicator size="small" color="#475569" style={{ marginRight: 10 }} />
             <Markdown style={{ body: styles.agentThinkingText }}>{item.text}</Markdown>
           </View>
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 4,
     width: '50%',
-    zIndex: 20,
+    zIndex: 10,
     overflow: 'hidden',
   },
   selectorIndicator: {
@@ -502,3 +502,100 @@ const styles = StyleSheet.create({
   },
   sendDisabled: { backgroundColor: '#A5B4FC' },
 });
+
+// Skeleton loader: pulsating placeholder
+function SkeletonPlaceholder({ width, height }) {
+  const opacityAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0.5,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [opacityAnim]);
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        height,
+        backgroundColor: '#E5E7EB',
+        opacity: opacityAnim,
+        borderRadius: 8,
+      }}
+    />
+  );
+}
+
+// ImageWithLoader using only skeleton for loading and error fallback
+function ImageWithLoader({ uri, alt, style }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(null);
+
+  return (
+    <View
+      style={[
+        {
+          width: style.width || '100%',
+          height: style.height || 200,
+          marginTop: style.marginTop != null ? style.marginTop : 0,
+          marginBottom: style.marginBottom != null ? style.marginBottom : 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+          overflow: 'hidden',
+        },
+      ]}
+      onLayout={e => {
+        const w = e.nativeEvent.layout.width;
+        if (w && w !== containerWidth) {
+          setContainerWidth(w);
+        }
+      }}
+    >
+      {loading && containerWidth != null && (
+        <SkeletonPlaceholder width={containerWidth} height={style.height || 200} />
+      )}
+      {!error && (
+        <Image
+          source={{ uri }}
+          style={[
+            style,
+            { position: 'absolute', width: containerWidth || style.width || '100%' },
+            loading ? { display: 'none' } : { display: 'flex' },
+          ]}
+          accessibilityLabel={alt}
+          onLoadStart={() => {
+            setLoading(true);
+            setError(false);
+          }}
+          onLoadEnd={() => setLoading(false)}
+          onError={() => {
+            setLoading(false);
+            setError(true);
+          }}
+        />
+      )}
+      {error && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
+          ]}
+        >
+          <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Failed to load image</Text>
+        </View>
+      )}
+    </View>
+  );
+}

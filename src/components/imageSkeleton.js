@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Image, Animated } from 'react-native';
+import { View, Image, Animated, ActivityIndicator } from 'react-native';
 function SkeletonPlaceholder({ width, height }) {
   const opacityAnim = useRef(new Animated.Value(0.3)).current;
 
