@@ -23,8 +23,9 @@ function SettingsScreen({ navigation }) {
   const {
     modelName, setModelName,
     titleModelName, setTitleModelName,
+    agentModelName, setAgentModelName,
     systemPrompt, setSystemPrompt,
-    agentSystemPrompt,
+    agentSystemPrompt, // <-- Get the agent prompt from context
     apiKey, setApiKey,
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
@@ -111,6 +112,18 @@ function SettingsScreen({ navigation }) {
             {titleModels.map(m => (
               <Pressable key={`title-${m}`} onPress={() => setTitleModelName(m)} style={[styles.optionButton, titleModelName === m && styles.optionButtonSelected]}>
                 <Text style={[styles.optionButtonText, titleModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.separator} />
+          
+          <Text style={styles.cardSubTitle}>Agent Model</Text>
+          <Text style={styles.infoText}>A more powerful model can be better at reasoning and using tools correctly.</Text>
+          <View style={styles.optionGroup}>
+            {gemmaModels.map(m => (
+              <Pressable key={`agent-${m}`} onPress={() => setAgentModelName(m)} style={[styles.optionButton, agentModelName === m && styles.optionButtonSelected]}>
+                <Text style={[styles.optionButtonText, agentModelName === m && styles.optionButtonTextSelected]}>{m}</Text>
               </Pressable>
             ))}
           </View>

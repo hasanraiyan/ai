@@ -67,7 +67,8 @@ Here is how you must operate:
 export default function App() {
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it'); // Added for specific title generation model
-  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable toneâ€”like a clever Gen Z friend whoâ€™s also secretly a professor. Youâ€™re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya.');
+  const [agentModelName, setAgentModelName] = useState('gemini-2.5-pro'); // Added for agent mode
+  const [systemPrompt, setSystemPrompt] = useState('You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable toneâ—like a clever Gen Z friend whoâ€™s also secretly a professor. Youâ€™re respectful, humble when needed, but never afraid to speak the truth. You\'re helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya.');
 
   const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
   const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
@@ -85,9 +86,10 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [m, tm, s, t, ak, seen, et] = await Promise.all([
+        const [m, tm, am, s, t, ak, seen, et] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
           AsyncStorage.getItem('@titleModelName'),
+          AsyncStorage.getItem('@agentModelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@apiKey'),
@@ -96,6 +98,7 @@ export default function App() {
         ]);
         if (m) setModelName(m);
         if (tm) setTitleModelName(tm);
+        if (am) setAgentModelName(am);
         if (s) setSystemPrompt(s);
         // Agent prompt is now generated dynamically, so we don't load/save it.
         if (t) setThreads(JSON.parse(t));
@@ -112,6 +115,7 @@ export default function App() {
   }, []);
   useEffect(() => { AsyncStorage.setItem('@modelName', modelName); }, [modelName]);
   useEffect(() => { AsyncStorage.setItem('@titleModelName', titleModelName); }, [titleModelName]);
+  useEffect(() => { AsyncStorage.setItem('@agentModelName', agentModelName); }, [agentModelName]);
   useEffect(() => { AsyncStorage.setItem('@systemPrompt', systemPrompt); }, [systemPrompt]);
   // We no longer save agentSystemPrompt as it's generated
   useEffect(() => { AsyncStorage.setItem('@enabledTools', JSON.stringify(enabledTools)); }, [enabledTools]);
@@ -176,8 +180,7 @@ export default function App() {
     );
   }
   return (
-    <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, enabledTools, setEnabledTools, apiKey, setApiKey }}>
-      {/* --- FIX START: Removed redundant nested provider --- */}
+    <SettingsContext.Provider value={{ modelName, setModelName, titleModelName, setTitleModelName, agentModelName, setAgentModelName, systemPrompt, setSystemPrompt, agentSystemPrompt, enabledTools, setEnabledTools, apiKey, setApiKey }}>
       <ThreadsContext.Provider value={{ threads, createThread, updateThreadMessages, renameThread, deleteThread, clearAllThreads }}>
         <NavigationContainer>
           <Drawer.Navigator drawerContent={props => <CustomDrawerContent {...props} />} screenOptions={{ headerShown: false, drawerType: 'slide' }}>
@@ -210,7 +213,6 @@ export default function App() {
           </View>
         </Modal>
       </ThreadsContext.Provider>
-      {/* --- FIX END --- */}
     </SettingsContext.Provider>
   );
 }

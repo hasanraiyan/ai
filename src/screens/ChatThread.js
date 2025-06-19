@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
@@ -15,7 +16,8 @@ import {
   Pressable,
   Clipboard,
   Alert,
-  Animated
+  Animated,
+  Image,              // ← import Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,9 +31,20 @@ import { markdownStyles } from '../styles/markdownStyles';
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, titleModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
+  const {
+    modelName,
+    titleModelName,
+    agentModelName,
+    systemPrompt,
+    agentSystemPrompt,
+    apiKey
+  } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
-  const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
+  const thread =
+    threads.find(t => t.id === threadId) ||
+    { id: threadId, name: name || 'Chat', messages: [] };
+
+  // state & refs
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('chat');
@@ -39,7 +52,7 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
-  // Animation for mode selector
+  // Animated mode selector
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
   const [selectorWidth, setSelectorWidth] = useState(0);
   useEffect(() => {
@@ -54,41 +67,63 @@ export default function ChatThread({ navigation, route }) {
     outputRange: [0, selectorWidth / 2]
   });
 
+  // Focus the input after mount
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
+  // Generate thread title on first real message
   const handleGenerateTitle = async firstUserText => {
     try {
-      const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText);
+      const title = await generateChatTitle(
+        apiKey,
+        titleModelName || 'gemma-3-1b-it',
+        firstUserText
+      );
       if (title) renameThread(threadId, title);
-    } catch (e) { console.error("Title generation failed:", e); }
+    } catch (e) {
+      console.error('Title generation failed:', e);
+    }
   };
 
+  // Send a user message to the AI
   const sendAI = async text => {
     if (!apiKey) {
-      Alert.alert("API Key Missing", "Please set your API Key in Settings to use the AI features.");
+      Alert.alert(
+        'API Key Missing',
+        'Please set your API Key in Settings to use the AI features.'
+      );
       setLoading(false);
       return;
     }
-    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const ts = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.length === 2;
     let updatedMessages = [...thread.messages, userMsg];
     updateThreadMessages(threadId, updatedMessages);
     setLoading(true);
 
-    const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
+    const modelForRequest = mode === 'agent' ? agentModelName : modelName;
+    const currentSystemPrompt =
+      mode === 'agent' ? agentSystemPrompt : systemPrompt;
+
     let historyForAPI = thread.messages.map(m => ({ ...m }));
-    const systemMessageIndex = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
-    if (systemMessageIndex > -1) {
-      historyForAPI[systemMessageIndex].text = currentSystemPrompt;
-    }
+    const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
+    if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
 
     const handleToolResult = toolResultText => {
-      const toolMsg = { id: `t${Date.now()}`, text: toolResultText, role: 'tool-result', ts };
+      const toolMsg = {
+        id: `t${Date.now()}`,
+        text: toolResultText,
+        role: 'tool-result',
+        ts
+      };
       updatedMessages = [...updatedMessages, toolMsg];
       updateThreadMessages(threadId, updatedMessages);
     };
@@ -96,7 +131,7 @@ export default function ChatThread({ navigation, route }) {
     try {
       const reply = await sendMessageToAI(
         apiKey,
-        modelName,
+        modelForRequest,
         historyForAPI,
         text,
         mode === 'agent',
@@ -104,17 +139,26 @@ export default function ChatThread({ navigation, route }) {
       );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
       updateThreadMessages(threadId, [...updatedMessages, aiMsg]);
+
       if (isFirstRealMessage && !titled.current) {
         handleGenerateTitle(text);
         titled.current = true;
       }
     } catch (e) {
-      const errMsgText = e.message.includes("API Key Missing") ? e.message : 'An error occurred while fetching the response.';
-      const errMsg = { id: `e${Date.now()}`, text: errMsgText, role: 'model', error: true, ts };
+      const errMsgText = e.message.includes('API Key Missing')
+        ? e.message
+        : 'An error occurred while fetching the response.';
+      const errMsg = {
+        id: `e${Date.now()}`,
+        text: errMsgText,
+        role: 'model',
+        error: true,
+        ts
+      };
       updateThreadMessages(threadId, [...updatedMessages, errMsg]);
     } finally {
       setLoading(false);
-      setTimeout(() => scrollToBottom(), 100);
+      setTimeout(scrollToBottom, 100);
     }
   };
 
@@ -127,11 +171,35 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const onLinkPress = url => {
-    Linking.openURL(url).catch(() => { });
+    Linking.openURL(url).catch(() => {});
     return false;
   };
 
+  // ───────────────────────────────────────
+  // 1) CUSTOM IMAGE RULE — strips out 'key' from the props spread
+  const imageRule = {
+    image: (node, children, parent, styles) => {
+      const { src, alt, title } = node.attributes;
+      return (
+        <Image
+          key={node.key}
+          source={{ uri: src }}
+          style={{
+            width: '100%',
+            height: 200,
+            resizeMode: 'contain',
+            marginVertical: 8
+          }}
+          accessibilityLabel={alt || title}
+        />
+      );
+    }
+  };
+
+  // ───────────────────────────────────────
+  // RENDERING EACH MESSAGE
   const renderMessageItem = ({ item }) => {
+    // 1) user
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
@@ -143,6 +211,7 @@ export default function ChatThread({ navigation, route }) {
       );
     }
 
+    // 2) tool-result
     if (item.role === 'tool-result') {
       return (
         <View style={styles.toolRow}>
@@ -151,23 +220,35 @@ export default function ChatThread({ navigation, route }) {
           </View>
           <View style={styles.toolBubble}>
             <Text style={styles.toolTitle}>Tool Results</Text>
-            <Markdown style={markdownStyles}>{`\`\`\`json\n${item.text}\n\`\`\``}</Markdown>
+            <Markdown style={markdownStyles} rules={imageRule}>
+              {`\`\`\`json\n${item.text}\n\`\`\``}
+            </Markdown>
           </View>
         </View>
       );
     }
 
+    // 3) AI / errors
     return (
       <View style={styles.aiRow}>
         <View style={styles.avatar}>
           <Ionicons name="sparkles-outline" size={20} color="#6366F1" />
         </View>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
-          {item.error
-            ? <Text style={styles.errorText}>{item.text}</Text>
-            : <Markdown style={markdownStyles} onLinkPress={onLinkPress}>{item.text}</Markdown>
-          }
-          <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
+          {item.error ? (
+            <Text style={styles.errorText}>{item.text}</Text>
+          ) : (
+            <Markdown
+              style={markdownStyles}
+              onLinkPress={onLinkPress}
+              rules={imageRule}
+            >
+              {item.text}
+            </Markdown>
+          )}
+          <Text style={[styles.time, item.error && styles.errorTime]}>
+            {item.ts}
+          </Text>
         </View>
       </View>
     );
@@ -178,12 +259,20 @@ export default function ChatThread({ navigation, route }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      {/* — Header */}
       <View style={styles.chatHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerIconButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
+        <Text style={styles.chatTitle} numberOfLines={1}>
+          {thread.name}
+        </Text>
       </View>
+
+      {/* — Mode Selector */}
       <View
         style={styles.modeSelectorContainer}
         onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
@@ -191,38 +280,37 @@ export default function ChatThread({ navigation, route }) {
         <Animated.View
           style={[
             styles.selectorIndicator,
-            {
-              width: selectorWidth / 2,
-              transform: [{ translateX }]
-            }
+            { width: selectorWidth / 2, transform: [{ translateX }] }
           ]}
         />
-        <TouchableOpacity
-          style={styles.modeButton}
-          onPress={() => setMode('chat')}
-        >
-          <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>Chat</Text>
+        <TouchableOpacity style={styles.modeButton} onPress={() => setMode('chat')}>
+          <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>
+            Chat
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.modeButton}
-          onPress={() => setMode('agent')}
-        >
-          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>Agent</Text>
+        <TouchableOpacity style={styles.modeButton} onPress={() => setMode('agent')}>
+          <Text style={[styles.modeButtonText, mode === 'agent' && styles.modeButtonTextActive]}>
+            Agent
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* — Messages */}
       <FlatList
         ref={listRef}
         data={displayMessages}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
-        renderItem={({ item }) =>
-          <Pressable onLongPress={() => { Clipboard.setString(item.text); }}>
+        renderItem={({ item }) => (
+          <Pressable onLongPress={() => Clipboard.setString(item.text)}>
             {renderMessageItem({ item })}
           </Pressable>
-        }
+        )}
         ListFooterComponent={loading && <TypingIndicator />}
         keyboardShouldPersistTaps="handled"
       />
+
+      {/* — Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inputRow}>
           <TextInput
@@ -239,7 +327,11 @@ export default function ChatThread({ navigation, route }) {
             style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]}
             disabled={!input.trim() || loading}
           >
-            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Ionicons name="send" size={20} color="#fff" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
