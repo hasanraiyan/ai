@@ -35,7 +35,7 @@ export default function App() {
   // These are default states, the actual values are loaded from AsyncStorage
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
-  const [agentModelName, setAgentModelName] = useState('gemini-2.5-pro');
+  const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState(
     "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya."
   );
@@ -221,7 +221,6 @@ export default function App() {
             >
               <Drawer.Screen name="Threads" component={ThreadsList} />
               <Drawer.Screen name="Chat" component={ChatThread} />
-              {/* Add the new screen here */}
               <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
               <Drawer.Screen name="Gallery" component={GalleryScreen} />
               <Drawer.Screen name="Settings" component={SettingsScreen} />

@@ -24,7 +24,8 @@ import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
-import { generateChatTitle, sendMessageToAI } from '../services/aiService';
+import { sendMessageToAI } from '../services/aiService';
+import { generateChatTitle } from '../agents/chatTitleAgent'
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle'; // Import the new component
 import { markdownStyles } from '../styles/markdownStyles';
@@ -67,7 +68,7 @@ export default function ChatThread({ navigation, route }) {
       Alert.alert(
         'Agent Mode Not Supported',
         `The current agent model (${selectedAgentModel?.name ||
-          agentModelName}) does not support tools.`
+        agentModelName}) does not support tools.`
       );
       return;
     }
@@ -172,7 +173,7 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const onLinkPress = url => {
-    Linking.openURL(url).catch(() => {});
+    Linking.openURL(url).catch(() => { });
     return false;
   };
 
@@ -365,7 +366,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    maxWidth: '80%',
+    maxWidth: '100%',
     elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,

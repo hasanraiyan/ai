@@ -1,41 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
 import { toolDispatcher } from './tools'; // toolDispatcher already exists
-
-export const generateChatTitle = async (apiKey, modelName, firstUserText) => {
-  if (!apiKey) return null;
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const prompt = `Generate a short chat title summarizing: "${firstUserText}". Respond only in JSON with a "title" field.`;
-    // Using a lightweight model for title generation
-    const model = genAI.getGenerativeModel({ model:modelName , safetySettings });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const match = responseText.match(/\{[^]*\}/);
-    if (match) {
-      const obj = JSON.parse(match[0]);
-      if (obj.title) {
-        return obj.title.trim().slice(0, 30);
-      }
-    }
-  } catch (error) {
-    console.error("Error generating title:", error);
-    // Silently fail or handle error as needed
-  }
-  return null;
-};
-
-const extractJson = (text) => {
-  const match = text.match(/```json\n([\s\S]*?)\n```|({[\s\S]*})/);
-  if (!match) return null;
-  const jsonString = match[1] || match[2];
-  try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    console.error("Failed to parse JSON:", e);
-    return null;
-  }
-};
+import  {extractJson}  from '../utils/extractJson'; // Assuming you have a utility to extract JSON from text
 
 export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolCall) => {
   if (!apiKey) {
@@ -110,3 +76,4 @@ export const callImageTool = async (apiKey, prompt, url=true) => {
     return toolResults?.image_generator;
 };
 // --- END NEW HELPER FUNCTION ---
+
