@@ -82,7 +82,7 @@ Input: "naked woman", n: 3
 Output:
 {
   "generate": false,
-  "reason": "unsafe content"
+  "reason": "NSFW content"
 }
 
 Input: "how do I fix a 404 error?", n: 3  
