@@ -80,7 +80,7 @@ function ThreadsList({ navigation }) {
         <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerIconButton}>
           <Ionicons name="menu-outline" size={24} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.listTitle}>Conversations</Text>
+        <Text style={styles.listTitle}>Arya</Text>
         <View style={{ width: 24 + 8 * 2 }} />{/* Placeholder for balance */}
       </View>
       <View style={styles.searchContainer}>
@@ -161,7 +161,7 @@ function ThreadsList({ navigation }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff' },
   headerIconButton: { padding: 8 },
-  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderColor: '#F1F5F9' },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 8, borderBottomWidth: 1, borderColor: '#F1F5F9' },
   listTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
   searchContainer: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#fff' },
   searchInput: { backgroundColor: '#F1F5F9', borderRadius: 20, paddingHorizontal: 12, height: 40, fontSize: 16, color: '#1E293B' },
