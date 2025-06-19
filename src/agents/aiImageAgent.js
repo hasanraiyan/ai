@@ -118,6 +118,7 @@ Only respond with JSON. No extra commentary or text.
         systemInstruction,
         expectJson: true,
     });
+
     console.log("Prompt generation result:", result);
 
     if (!result?.generate || !Array.isArray(result.prompts)) {
@@ -128,22 +129,30 @@ Only respond with JSON. No extra commentary or text.
     }
 
     const promptArray = result.prompts;
-    const imageUrls = [];
 
-    for (const prompt of promptArray) {
-        const imageResult = await callImageTool(prompt);
-        if (imageResult?.image_generated && imageResult?.imageUrl) {
-            imageUrls.push(imageResult.imageUrl);
-        }
-    }
+    const imageResults = await Promise.all(
+        promptArray.map(async (prompt) => {
+            try {
+                return await callImageTool(prompt);
+            } catch (e) {
+                console.error("Image generation failed for prompt:", prompt, e);
+                return null;
+            }
+        })
+    );
+
+    const imageUrls = imageResults
+        .filter(res => res?.image_generated && res?.imageUrl)
+        .map(res => res.imageUrl);
+
     console.log("Generated image URLs:", imageUrls);
+
     return {
         success: true,
         prompts: promptArray,
         imageUrls
     };
 };
-
 
 export const improvePrompt = async (apikey, modelName, inputText) => {
     if (!apikey || !modelName || !inputText) {
