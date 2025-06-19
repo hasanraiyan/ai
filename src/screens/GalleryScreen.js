@@ -233,7 +233,7 @@ export default function GalleryScreen({ navigation }) {
         </View>
       ) : (
         <FlatList
-          key={viewMode}                 // ← Force remount when toggling columns
+          key={viewMode}
           data={images}
           renderItem={renderItem}
           keyExtractor={i => i.id}
@@ -271,7 +271,8 @@ export default function GalleryScreen({ navigation }) {
         onRequestClose={() => setLightboxVisible(false)}
         FooterComponent={({ imageIndex }) => (
           <View style={styles.lightboxFooter}>
-            <Text style={styles.prompt}>{images[imageIndex].prompt}</Text>
+            <Text numberOfLines={1}
+              ellipsizeMode="tail" style={styles.prompt}>{images[imageIndex].prompt}</Text>
             <Text style={styles.date}>
               {new Date(images[imageIndex].time * 1000).toLocaleString()}
             </Text>
