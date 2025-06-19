@@ -18,15 +18,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { SettingsContext } from '../contexts/SettingsContext';
-import { callImageTool } from '../services/aiService';
+// Remove the direct import of callImageTool from aiService
+// import { callImageTool } from '../services/aiService'; // <-- REMOVE THIS
+import { generateImage } from '../agents/aiImageAgent'; // <-- Keep this one
 
 const PROMPT_MAX_LENGTH = 500;
+const NUM_IMAGES_TO_GENERATE = 4; // Specify how many images to generate
+const DEFAULT_MODEL_NAME = 'your-chosen-model'; // <-- Replace with your desired model name (e.g., 'gemini-1.5-pro-latest', 'claude-3-sonnet-20240229', etc.)
 
 const ASPECT_RATIOS = [
   { label: '1:1', value: '1:1', disabled: false },
-  { label: '9:16', value: '9:16', disabled: true },
-  { label: '16:9', value: '16:9', disabled: true },
-  // add more if you want
+  { label: '9:16', value: '9:16', disabled: true }, // Assuming these are still disabled for now
+  { label: '16:9', value: '16:9', disabled: true }, // Assuming these are still disabled for now
 ];
 
 const STYLES = [
@@ -37,15 +40,25 @@ const STYLES = [
   { name: 'Retro', value: 'retro' },
 ];
 
+// Simple Skeleton Loader Component
+const SkeletonImagePlaceholder = () => (
+  <View style={styles.skeletonPlaceholder}>
+    <View style={styles.skeletonShimmer} />
+  </View>
+);
+
 export default function ImageGenerationScreen({ navigation }) {
-  const { apiKey } = useContext(SettingsContext);
+  const { apiKey, modelName: settingsModelName } = useContext(SettingsContext);
   const [prompt, setPrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [styleOpt, setStyleOpt] = useState('');
+  const [aspectRatio, setAspectRatio] = useState('1:1'); // Note: Aspect Ratio and Style are currently not passed to generateImage/callImageTool based on the provided aiImageAgent code. You might need to modify aiImageAgent or the tool dispatcher to support these if required.
+  const [styleOpt, setStyleOpt] = useState(''); // Same as above
   const [loading, setLoading] = useState(false);
-  const [generatedUri, setGeneratedUri] = useState(null);
+  const [generatedImageUrls, setGeneratedImageUrls] = useState([]); // State for multiple image URLs
   const [resultMessage, setResultMessage] = useState('');
   const promptRef = useRef(null);
+
+  // Use modelName from settings if available, otherwise use default
+  const currentModelName = settingsModelName || DEFAULT_MODEL_NAME;
 
   const handleGenerate = async () => {
     Keyboard.dismiss();
@@ -55,6 +68,13 @@ export default function ImageGenerationScreen({ navigation }) {
         text1: 'API Key Missing',
         text2: 'Please set your API key in Settings.',
       });
+    }
+    if (!currentModelName || currentModelName === DEFAULT_MODEL_NAME) { // Add check for model name
+       return Toast.show({
+         type: 'error',
+         text1: 'Model Name Missing',
+         text2: `Please configure the model name in Settings or update DEFAULT_MODEL_NAME.`,
+       });
     }
     if (!prompt.trim()) {
       return Toast.show({
@@ -66,32 +86,41 @@ export default function ImageGenerationScreen({ navigation }) {
 
     setLoading(true);
     setResultMessage('');
-    setGeneratedUri(null);
+    setGeneratedImageUrls([]); // Clear previous images
 
     try {
-      const response = await callImageTool(
+      // Use the generateImage agent function
+      const response = await generateImage(
         apiKey,
+        currentModelName,
         prompt.trim(),
-        url=true,
+        NUM_IMAGES_TO_GENERATE // Pass the number of images to generate
       );
 
-      if (response.imageUrl) {
-        setGeneratedUri(response.imageUrl);
-        setResultMessage('Image generated successfully!');
+      if (response.success && Array.isArray(response.imageUrls) && response.imageUrls.length > 0) {
+        setGeneratedImageUrls(response.imageUrls);
+        setResultMessage(`Generated ${response.imageUrls.length} images.`);
         Toast.show({
           type: 'success',
           text1: 'Success',
-          text2: 'Your image is ready.',
+          text2: `Generated ${response.imageUrls.length} images.`,
         });
       } else {
-        throw new Error(response.error || 'Generation failed.');
+        // Handle cases where success is false or no images were generated
+        const reason = response.reason || 'Generation failed to produce images.';
+        setResultMessage(`Generation failed: ${reason}`);
+         Toast.show({
+          type: 'error',
+          text1: 'Generation Failed',
+          text2: reason,
+        });
       }
     } catch (err) {
-      setResultMessage(err.message);
+      setResultMessage(`Error during generation: ${err.message}`);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: err.message,
+        text2: `Error during generation: ${err.message}`,
       });
     } finally {
       setLoading(false);
@@ -196,9 +225,10 @@ export default function ImageGenerationScreen({ navigation }) {
           <View style={styles.card}>
             <Text style={styles.label}>Aspect Ratio</Text>
             <View style={styles.aspectRow}>{renderAspectButtons()}</View>
-            {ASPECT_RATIOS.find((r) => r.value === aspectRatio).disabled && (
+             {/* Add conditional hint */}
+            {ASPECT_RATIOS.find((r) => r.value === aspectRatio)?.disabled && (
               <Text style={styles.hint}>
-                * This ratio isn't supported yet.
+                 * Note: Aspect ratio & style options are not currently sent to the AI agent or image tool.
               </Text>
             )}
           </View>
@@ -215,31 +245,58 @@ export default function ImageGenerationScreen({ navigation }) {
             >
               {renderStyleOptions()}
             </ScrollView>
+             {/* Add conditional hint */}
+            {styleOpt !== '' && (
+               <Text style={styles.hint}>
+                 * Note: Aspect ratio & style options are not currently sent to the AI agent or image tool.
+               </Text>
+            )}
           </View>
 
-          {/* Preview */}
-          {generatedUri && (
+          {/* Image Generation Output / Skeleton */}
+          {loading || generatedImageUrls.length > 0 || !!resultMessage ? ( // Show this section if loading, images exist, or message exists
             <View style={styles.previewCard}>
-              <Text style={styles.label}>Preview</Text>
-              <Image
-                source={{ uri: generatedUri }}
-                style={styles.previewImage}
-                resizeMode="cover"
-              />
-            </View>
-          )}
+               {loading ? (
+                 <>
+                   <Text style={styles.label}>Generating Images...</Text>
+                   <View style={styles.imageGrid}>
+                      {/* Render 4 skeleton placeholders */}
+                      {Array(NUM_IMAGES_TO_GENERATE).fill(0).map((_, index) => (
+                        <SkeletonImagePlaceholder key={index} />
+                      ))}
+                   </View>
+                 </>
+               ) : generatedImageUrls.length > 0 ? (
+                 <>
+                   <Text style={styles.label}>Generated Images</Text>
+                   <View style={styles.imageGrid}>
+                     {/* Render generated images */}
+                     {generatedImageUrls.map((url, index) => (
+                       <Image
+                         key={index}
+                         source={{ uri: url }}
+                         style={styles.gridImage}
+                         resizeMode="cover"
+                       />
+                     ))}
+                   </View>
+                 </>
+               ) : null /* No images, not loading, won't show image grid */}
 
-          {/* Result Message */}
-          {!!resultMessage && (
-            <View style={styles.resultCard}>
-              <Ionicons
-                name={generatedUri ? 'checkmark-circle' : 'alert-circle'}
-                size={48}
-                color={generatedUri ? '#22C55E' : '#EF4444'}
-              />
-              <Text style={styles.resultText}>{resultMessage}</Text>
+               {/* Result Message Card (separate within the same section) */}
+               {!!resultMessage && !loading && ( // Show message only after loading stops
+                 <View style={styles.resultCard}>
+                   <Ionicons
+                     name={generatedImageUrls.length > 0 ? 'checkmark-circle' : 'alert-circle'}
+                     size={48}
+                     color={generatedImageUrls.length > 0 ? '#22C55E' : '#EF4444'}
+                   />
+                   <Text style={styles.resultText}>{resultMessage}</Text>
+                 </View>
+               )}
             </View>
-          )}
+          ) : null /* Hide the whole section if nothing to show */}
+
         </ScrollView>
 
         {/* Generate Button */}
@@ -255,7 +312,7 @@ export default function ImageGenerationScreen({ navigation }) {
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.generateText}>Generate</Text>
+              <Text style={styles.generateText}>Generate {NUM_IMAGES_TO_GENERATE}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -324,7 +381,7 @@ const styles = StyleSheet.create({
   aspectText: { fontSize: 14, color: '#334155' },
   aspectTextActive: { color: '#4F46E5', fontWeight: '600' },
   aspectTextDisabled: { color: '#94A3B8' },
-  hint: { marginTop: 6, fontStyle: 'italic', color: '#94A3B8' },
+  hint: { marginTop: 6, fontStyle: 'italic', color: '#94A3B8', fontSize: 12, color: '#64748B' },
   styleRow: { marginTop: 8 },
   styleBtn: {
     paddingVertical: 8,
@@ -341,19 +398,47 @@ const styles = StyleSheet.create({
   },
   styleText: { fontSize: 14, color: '#475569' },
   styleTextActive: { color: '#4F46E5', fontWeight: '600' },
+
+  // --- New/Modified Styles for Grid and Skeleton ---
   previewCard: {
     backgroundColor: '#FFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    alignItems: 'center',
+    // alignItems: 'center', // Removed as grid handles alignment
   },
-  previewImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between', // Distribute images evenly
     marginTop: 12,
   },
+  gridImage: {
+    width: '48%', // Roughly half, with space for margin
+    aspectRatio: 1, // Keep square (for 1:1)
+    borderRadius: 8,
+    marginBottom: 10, // Space between rows
+    backgroundColor: '#E2E8F0', // Placeholder color while loading/before image loads
+  },
+  skeletonPlaceholder: {
+    width: '48%', // Match gridImage width
+    aspectRatio: 1, // Match gridImage aspect ratio
+    borderRadius: 8,
+    marginBottom: 10,
+    backgroundColor: '#E2E8F0', // Gray background for skeleton
+    overflow: 'hidden', // Hide shimmer outside
+  },
+  skeletonShimmer: { // Simple shimmer effect (optional, requires animation logic not included here)
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(255,255,255,0.2)', // Light overlay
+      // You would typically animate the position of a gradient layer for a true shimmer
+  },
+  // --- End New/Modified Styles ---
+
   resultCard: {
     alignItems: 'center',
     padding: 24,
@@ -361,6 +446,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginTop: 16, // Add margin if it's below images
   },
   resultText: {
     marginTop: 12,
