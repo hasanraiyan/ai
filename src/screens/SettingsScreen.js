@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,8 @@ import {
   Platform,
   Alert,
   Switch,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,86 @@ import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
+
+// A reusable selector component with search and modal for large lists
+function ModelSelector({
+  label,
+  items,
+  selectedId,
+  onSelect,
+  placeholder = 'Search...',
+}) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!searchText) return items;
+    const lower = searchText.toLowerCase();
+    return items.filter(i => i.name.toLowerCase().includes(lower) || i.id.toLowerCase().includes(lower));
+  }, [searchText, items]);
+
+  const selectedItem = useMemo(() => items.find(i => i.id === selectedId), [items, selectedId]);
+
+  return (
+    <View style={styles.selectorContainer}>
+      <Text style={styles.cardSubTitle}>{label}</Text>
+      <TouchableOpacity
+        style={styles.selectorButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={styles.selectorButtonText} numberOfLines={1}>
+          {selectedItem ? selectedItem.name : `Select ${label}`}
+        </Text>
+        <Ionicons name="chevron-down-outline" size={20} color="#475569" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalRoot}>
+          <View style={styles.modalHeader}>
+            <TextInput
+              style={styles.modalSearchInput}
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder={placeholder}
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
+              <Ionicons name="close-outline" size={28} color="#475569" />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={filtered}
+            keyExtractor={item => item.id}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const selected = item.id === selectedId;
+              return (
+                <Pressable
+                  onPress={() => {
+                    onSelect(item.id);
+                    setModalVisible(false);
+                    setSearchText('');
+                  }}
+                  style={[styles.modalItem, selected && styles.modalItemSelected]}
+                >
+                  <Text style={[styles.modalItemText, selected && styles.modalItemTextSelected]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                </Pressable>
+              );
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
+    </View>
+  );
+}
 
 function SettingsScreen({ navigation }) {
   const {
@@ -33,12 +115,16 @@ function SettingsScreen({ navigation }) {
   const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
 
-  // Get the full object for the currently selected agent model
   const selectedAgentModel = models.find(m => m.id === agentModelName);
 
   const toggleTool = (toolId) => {
     setEnabledTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
   };
+
+  // Prepare filtered lists
+  const chatModels = useMemo(() => models.filter(m => m.isChatModel), []);
+  const titleModels = useMemo(() => models.filter(m => m.isTitleModel), []);
+  const agentModels = useMemo(() => models.filter(m => m.isAgentModel), []);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -49,9 +135,9 @@ function SettingsScreen({ navigation }) {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
 
-        {/* --- API Key Card --- */}
+        {/* API Key Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="key-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -75,7 +161,7 @@ function SettingsScreen({ navigation }) {
           <Text style={styles.infoText}>Your API key is stored securely on your device.</Text>
         </View>
 
-        {/* --- Persona Card --- */}
+        {/* Persona Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="person-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -90,56 +176,55 @@ function SettingsScreen({ navigation }) {
             multiline
           />
         </View>
-        
-        {/* --- Model Configuration Card --- */}
+
+        {/* Model Configuration Card */}
         <View style={styles.card}>
-           <View style={styles.cardHeader}>
+          <View style={styles.cardHeader}>
             <Ionicons name="hardware-chip-outline" size={20} color="#475569" style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Model Configuration</Text>
           </View>
-          
-          <Text style={styles.cardSubTitle}>Main Chat Model</Text>
-          <View style={styles.optionGroup}>
-            {models.filter(m => m.isChatModel).map(m => (
-              <Pressable key={m.id} onPress={() => setModelName(m.id)} style={[styles.optionButton, modelName === m.id && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, modelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-          
-          <View style={styles.separator} />
-          
-          <Text style={styles.cardSubTitle}>Title Generation Model</Text>
-          <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
-          <View style={styles.optionGroup}>
-            {models.filter(m => m.isTitleModel).map(m => (
-              <Pressable key={`title-${m.id}`} onPress={() => setTitleModelName(m.id)} style={[styles.optionButton, titleModelName === m.id && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, titleModelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
-              </Pressable>
-            ))}
-          </View>
+
+          {/* Main Chat Model Selector */}
+          <ModelSelector
+            label="Main Chat Model"
+            items={chatModels}
+            selectedId={modelName}
+            onSelect={setModelName}
+          />
 
           <View style={styles.separator} />
-          
-          <Text style={styles.cardSubTitle}>Agent Model</Text>
+
+          {/* Title Generation Model Selector */}
+          <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
+          <ModelSelector
+            label="Title Generation Model"
+            items={titleModels}
+            selectedId={titleModelName}
+            onSelect={setTitleModelName}
+          />
+
+          <View style={styles.separator} />
+
+          {/* Agent Model Selector */}
           <Text style={styles.infoText}>Select a model capable of using tools.</Text>
-          <View style={styles.optionGroup}>
-            {models.filter(m => m.isAgentModel).map(m => (
-              <Pressable key={`agent-${m.id}`} onPress={() => setAgentModelName(m.id)} style={[styles.optionButton, agentModelName === m.id && styles.optionButtonSelected]}>
-                <Text style={[styles.optionButtonText, agentModelName === m.id && styles.optionButtonTextSelected]}>{m.name}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <ModelSelector
+            label="Agent Model"
+            items={agentModels}
+            selectedId={agentModelName}
+            onSelect={setAgentModelName}
+          />
         </View>
 
-        {/* --- Agent Tools Card --- */}
+        {/* Agent Tools Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="build-outline" size={20} color="#475569" style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Agent Tools</Text>
           </View>
-          { !selectedAgentModel?.isAgentModel ? (
-              <Text style={styles.infoText}>The selected agent model ({selectedAgentModel?.name || agentModelName}) does not support tools. Select a different agent model to enable tools.</Text>
+          {!selectedAgentModel?.isAgentModel ? (
+            <Text style={styles.infoText}>
+              The selected agent model ({selectedAgentModel?.name || agentModelName}) does not support tools. Select a different agent model to enable tools.
+            </Text>
           ) : (
             <>
               <Text style={styles.infoText}>Enable tools for the agent. Availability depends on the selected Agent Model.</Text>
@@ -172,7 +257,7 @@ function SettingsScreen({ navigation }) {
           )}
         </View>
 
-        {/* --- Agent Prompt Card --- */}
+        {/* Agent Prompt Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="document-text-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -180,13 +265,13 @@ function SettingsScreen({ navigation }) {
           </View>
           <Text style={styles.infoText}>This is the instruction the agent receives based on the tools you've enabled. It is not editable.</Text>
           <View style={styles.promptDisplayContainer}>
-              <ScrollView nestedScrollEnabled>
-                <Text selectable style={styles.promptDisplayText}>{agentSystemPrompt}</Text>
-              </ScrollView>
+            <ScrollView nestedScrollEnabled>
+              <Text selectable style={styles.promptDisplayText}>{agentSystemPrompt}</Text>
+            </ScrollView>
           </View>
         </View>
 
-        {/* --- Danger Zone Card --- */}
+        {/* Danger Zone Card */}
         <View style={[styles.card, styles.dangerCard]}>
           <View style={styles.cardHeader}>
             <Ionicons name="warning-outline" size={20} color="#DC2626" style={styles.cardIcon} />
@@ -274,8 +359,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     marginVertical: 16,
   },
-  
-  // API Key Styles
   apiKeyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,8 +375,6 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 8,
   },
-  
-  // Persona Styles
   personaInput: {
     backgroundColor: '#F1F5F9',
     borderRadius: 8,
@@ -304,37 +385,62 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  
-  // Model Selection Styles
-  optionGroup: {
+  selectorContainer: {
+    marginTop: 8,
+  },
+  selectorButton: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8
-  },
-  optionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F1F5F9',
-    borderRadius: 20,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0'
+    borderColor: '#E2E8F0',
   },
-  optionButtonSelected: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#6366F1'
-  },
-  optionButtonText: {
+  selectorButtonText: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#334155'
+    color: '#334155',
+    marginRight: 8,
   },
-  optionButtonTextSelected: {
+  modalRoot: { flex: 1, backgroundColor: '#fff' },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalSearchInput: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: '#1E293B',
+  },
+  modalCloseButton: { marginLeft: 8 },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  modalItemSelected: {
+    backgroundColor: '#EEF2FF',
+  },
+  modalItemText: {
+    fontSize: 15,
+    color: '#334155',
+  },
+  modalItemTextSelected: {
+    fontWeight: '600',
     color: '#4338CA',
-    fontWeight: '600'
   },
-  
-  // Tool Styles
   toolRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -365,8 +471,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
   },
-  
-  // Prompt Display Styles
   promptDisplayContainer: {
     backgroundColor: '#F1F5F9',
     borderRadius: 8,
@@ -380,8 +484,6 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 20,
   },
-
-  // Danger Zone
   dangerCard: {
     borderColor: '#FCA5A5'
   },
