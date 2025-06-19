@@ -1,3 +1,5 @@
+
+import { ImageWithLoader, SkeletonPlaceholder } from '../components/imageSkeleton';
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
   StyleSheet,
@@ -11,7 +13,6 @@ import {
   StatusBar,
   Keyboard,
   Linking,
-  ActivityIndicator,
   Pressable,
   Clipboard,
   Alert,
@@ -21,12 +22,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
-import { Ionicons } from '@expo/vector-icons'; // still needed for header/back icon
+import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { generateChatTitle, sendMessageToAI } from '../services/aiService';
 import TypingIndicator from '../components/TypingIndicator';
-import { safetySettings } from '../constants/safetySettings';
 import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
 
@@ -201,19 +201,20 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const imageRule = {
-    image: (node, children, parent, styles) => {
+    image: (node) => {
       const { src, alt, title } = node.attributes;
       return (
-        <Image
+        <ImageWithLoader
           key={node.key}
-          source={{ uri: src }}
+          uri={src}
+          alt={alt || title}
           style={{
             width: '100%',
             height: 200,
             resizeMode: 'contain',
-            marginVertical: 8,
+            marginTop: 16,
+            marginBottom: 4,
           }}
-          accessibilityLabel={alt || title}
         />
       );
     },
@@ -251,7 +252,6 @@ export default function ChatThread({ navigation, route }) {
       );
     }
 
-    // model or error
     return (
       <View style={styles.aiRow}>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
@@ -284,6 +284,7 @@ export default function ChatThread({ navigation, route }) {
         </Text>
       </View>
 
+      {/* Floating Mode Selector */}
       <View
         style={styles.modeSelectorContainer}
         onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
@@ -364,6 +365,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
+    zIndex: 20,
   },
   headerIconButton: { padding: 8 },
   chatTitle: {
@@ -374,13 +376,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modeSelectorContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 70,
     alignSelf: 'center',
     flexDirection: 'row',
     backgroundColor: '#E5E7EB',
     borderRadius: 20,
     padding: 4,
     width: '50%',
-    marginVertical: 8,
+    zIndex: 20,
     overflow: 'hidden',
   },
   selectorIndicator: {
@@ -413,7 +417,7 @@ const styles = StyleSheet.create({
   chatContent: {
     padding: 12,
     paddingBottom: 80,
-    marginTop: 4,
+    paddingTop: 90,
   },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: {
