@@ -20,7 +20,7 @@ export const generateImage = async (apikey, modelName, inputText, n = 1) => {
     }
 
     const agent = new AIAgent(apikey, modelName);
-
+    console.log("Agent created with model ", modelName);
     const systemInstruction = `
 You are an AI prompt generation engine that takes user input and produces 'n' highly descriptive, image-ready prompts. Follow these rules exactly:
 
@@ -127,7 +127,7 @@ Only respond with JSON. No extra commentary or text.
             reason: result?.reason || "Unknown failure during prompt generation"
         };
     }
-
+    
     const promptArray = result.prompts;
 
     const imageResults = await Promise.all(

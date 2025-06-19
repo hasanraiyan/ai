@@ -170,7 +170,7 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
 }
 
 export default function ImageGenerationScreen({ navigation }) {
-  const { apiKey, modelName: settingsModel } = useContext(SettingsContext)
+  const { apiKey, titleModelName: settingsModel } = useContext(SettingsContext)
   const [prompt, setPrompt] = useState('')
   const [numImages, setNumImages] = useState(DEFAULT_NUM_IMAGES)
   const [loading, setLoading] = useState(false)

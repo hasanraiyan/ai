@@ -197,7 +197,7 @@ function SettingsScreen({ navigation }) {
           {/* Title Generation Model Selector */}
           <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
           <ModelSelector
-            label="Title Generation Model"
+            label="MiniAgent Model"
             items={titleModels}
             selectedId={titleModelName}
             onSelect={setTitleModelName}
