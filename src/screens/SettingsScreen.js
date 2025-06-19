@@ -24,6 +24,7 @@ function SettingsScreen({ navigation }) {
     modelName, setModelName,
     titleModelName, setTitleModelName,
     systemPrompt, setSystemPrompt,
+    agentSystemPrompt, // <-- Get the agent prompt from context
     apiKey, setApiKey,
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
@@ -145,6 +146,20 @@ function SettingsScreen({ navigation }) {
           })}
         </View>
 
+        {/* --- NEW: Agent Prompt Card --- */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="document-text-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>Agent System Prompt</Text>
+          </View>
+          <Text style={styles.infoText}>This is the instruction the agent receives based on the tools you've enabled. It is not editable.</Text>
+          <View style={styles.promptDisplayContainer}>
+              <ScrollView nestedScrollEnabled>
+                <Text selectable style={styles.promptDisplayText}>{agentSystemPrompt}</Text>
+              </ScrollView>
+          </View>
+        </View>
+
         {/* --- Danger Zone Card --- */}
         <View style={[styles.card, styles.dangerCard]}>
           <View style={styles.cardHeader}>
@@ -226,7 +241,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     lineHeight: 18,
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
   separator: {
     height: 1,
@@ -314,6 +330,21 @@ const styles = StyleSheet.create({
     color: '#475569',
     marginTop: 2,
     lineHeight: 18,
+  },
+  
+  // NEW: Prompt Display Styles
+  promptDisplayContainer: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 4,
+    maxHeight: 250,
+  },
+  promptDisplayText: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 20,
   },
 
   // Danger Zone
