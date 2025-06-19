@@ -2,24 +2,9 @@
 
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  StatusBar,
-  Keyboard,
-  Linking,
-  Pressable,
-  Clipboard,
-  Alert,
-  Image,
-  ToastAndroid,
+  StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView,
+  Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -27,29 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { sendMessageToAI } from '../services/aiService';
-import { generateChatTitle } from '../agents/chatTitleAgent'
+import { generateChatTitle } from '../agents/chatTitleAgent';
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle';
 import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
-// IMPORT the shared component instead of defining it locally
 import { ImageWithLoader } from '../components/imageSkeleton';
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const {
-    modelName,
-    titleModelName,
-    agentModelName,
-    systemPrompt,
-    agentSystemPrompt,
-    apiKey,
-  } = useContext(SettingsContext);
-  const { threads, updateThreadMessages, renameThread } = useContext(ThreadsContext);
+  const { modelName, titleModelName, agentModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
+  const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
 
-  const thread =
-    threads.find(t => t.id === threadId) ||
-    { id: threadId, name: name || 'Chat', messages: [] };
+  const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
+  const pinnedMessageIds = new Set(pinnedMessages.map(p => p.message.id));
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,17 +37,11 @@ export default function ChatThread({ navigation, route }) {
   const selectedAgentModel = models.find(m => m.id === agentModelName);
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 300);
-  }, []);
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
-      Alert.alert(
-        'Agent Mode Not Supported',
-        `The current agent model (${selectedAgentModel?.name ||
-        agentModelName}) does not support tools.`
-      );
+      Alert.alert('Agent Mode Not Supported', `The current agent model (${selectedAgentModel?.name || agentModelName}) does not support tools.`);
       return;
     }
     setMode(newMode);
@@ -79,84 +49,52 @@ export default function ChatThread({ navigation, route }) {
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
-  const handleGenerateTitle = async firstUserText => {
+  const handleGenerateTitle = async (firstUserText) => {
     try {
-      const title = await generateChatTitle(
-        apiKey,
-        titleModelName || 'gemma-3-1b-it',
-        firstUserText
-      );
+      const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText);
       if (title) renameThread(threadId, title);
-    } catch (e) {
-      console.error('Title generation failed:', e);
-    }
+    } catch (e) { console.error('Title generation failed:', e) }
   };
 
-  const sendAI = async text => {
+  const sendAI = async (text) => {
     if (!apiKey) {
       Alert.alert('API Key Missing', 'Please set your API Key in Settings.');
       return;
     }
-
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.length === 2;
-
     let newMessages = [...thread.messages, userMsg];
     updateThreadMessages(threadId, newMessages);
     setLoading(true);
-
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
     const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
-
     let historyForAPI = newMessages.map(m => ({ ...m }));
     const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
-
     let thinkingMessageId = null;
-    const handleToolCall = toolCall => {
+    const handleToolCall = (toolCall) => {
       const toolNames = Object.keys(toolCall).filter(k => k !== 'tools-required');
       if (!toolNames.length) return;
       thinkingMessageId = `thinking-${Date.now()}`;
-      const agentActionMsg = {
-        id: thinkingMessageId,
-        role: 'agent-thinking',
-        text: `Using tool(s): ${toolNames.map(n => `\`${n}\``).join(', ')}`,
-        ts,
-      };
+      const agentActionMsg = { id: thinkingMessageId, role: 'agent-thinking', text: `Using tool(s): ${toolNames.map(n => `\`${n}\``).join(', ')}`, ts };
       newMessages = [...newMessages, agentActionMsg];
       updateThreadMessages(threadId, newMessages);
       scrollToBottom();
     };
-
     try {
-      const reply = await sendMessageToAI(
-        apiKey,
-        modelForRequest,
-        historyForAPI,
-        text,
-        mode === 'agent',
-        handleToolCall
-      );
+      const reply = await sendMessageToAI(apiKey, modelForRequest, historyForAPI, text, mode === 'agent', handleToolCall);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
-
-      if (thinkingMessageId) {
-        newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
-      }
+      if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
-
       if (isFirstRealMessage && !titled.current) {
         handleGenerateTitle(text);
         titled.current = true;
       }
     } catch (e) {
-      const errorText = e.message.includes('API Key Missing')
-        ? e.message
-        : 'An error occurred while fetching the response.';
-      if (thinkingMessageId) {
-        newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
-      }
+      const errorText = e.message.includes('API Key Missing') ? e.message : 'An error occurred while fetching the response.';
+      if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push({ id: `e${Date.now()}`, text: errorText, role: 'model', error: true, ts });
       updateThreadMessages(threadId, newMessages);
     } finally {
@@ -173,43 +111,46 @@ export default function ChatThread({ navigation, route }) {
     sendAI(trimmed);
   };
 
-  const onLinkPress = url => {
+  const onLinkPress = (url) => {
     Linking.openURL(url).catch(() => { });
     return false;
   };
 
-  // Custom markdown image renderer using the imported component
   const markdownImageRules = {
     image: node => {
       const src = node.attributes.src || node.attributes.href;
       if (!src) return null;
-      return (
-        <ImageWithLoader
-          key={node.key}
-          uri={src}
-          alt={node.attributes.alt || node.attributes.title || ''}
-          style={{ width: '100%', height: 200, resizeMode: 'contain', marginVertical: 8 }}
-        />
-      );
+      return <ImageWithLoader key={node.key} uri={src} alt={node.attributes.alt || ''} style={{ width: '100%', height: 200, resizeMode: 'contain', marginVertical: 8 }} />;
     },
   };
 
-  const handleLongPress = text => {
-    Clipboard.setString(text);
-    if (Platform.OS === 'android') {
-      ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
-    } else {
-      Alert.alert('', 'Copied to clipboard');
-    }
+  const handleLongPress = (message) => {
+    const isPinned = pinnedMessageIds.has(message.id);
+    const pinActionText = isPinned ? 'Unpin Message' : 'Pin Message';
+    Alert.alert(
+      'Message Options', '',
+      [
+        { text: 'Copy Text', onPress: () => {
+            Clipboard.setString(message.text);
+            if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
+          }},
+        { text: pinActionText, onPress: () => isPinned ? unpinMessage(message.id) : pinMessage(threadId, message) },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const renderMessageItem = ({ item }) => {
+    const isPinned = pinnedMessageIds.has(item.id);
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
           <View style={styles.userBubble}>
             <Text style={styles.userText}>{item.text}</Text>
-            <Text style={styles.time}>{item.ts}</Text>
+            <View style={styles.bubbleFooter}>
+              {isPinned && <Ionicons name="pin" size={12} color="#A5B4FC" style={{ marginRight: 6 }} />}
+              <Text style={styles.time}>{item.ts}</Text>
+            </View>
           </View>
         </View>
       );
@@ -227,24 +168,14 @@ export default function ChatThread({ navigation, route }) {
     return (
       <View style={styles.aiRow}>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
-          {item.error ? (
-            <Text style={styles.errorText}>{item.text}</Text>
-          ) : (() => {
-            const processedText = item.text.replace(
-              /\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi,
-              '![$1]($2)'
-            );
-            return (
-              <Markdown
-                style={markdownStyles}
-                onLinkPress={onLinkPress}
-                rules={markdownImageRules}
-              >
-                {processedText}
-              </Markdown>
-            );
+          {item.error ? <Text style={styles.errorText}>{item.text}</Text> : (() => {
+            const processedText = item.text.replace(/\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi, '![$1]($2)');
+            return <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={markdownImageRules}>{processedText}</Markdown>;
           })()}
-          <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
+          <View style={styles.bubbleFooter}>
+            {isPinned && <Ionicons name="pin" size={12} color="#9CA3AF" style={{ marginRight: 6 }} />}
+            <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
+          </View>
         </View>
       </View>
     );
@@ -257,64 +188,25 @@ export default function ChatThread({ navigation, route }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      {/* Header */}
       <View style={styles.chatHeader}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerIconButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#475569" />
-        </TouchableOpacity>
-
-        <Text style={styles.chatTitle} numberOfLines={1}>
-          {thread.name}
-        </Text>
-
-        <ModeToggle
-          mode={mode}
-          onToggle={onToggleMode}
-          isAgentModeSupported={isAgentModeSupported}
-        />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color="#475569" /></TouchableOpacity>
+        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
+        <ModeToggle mode={mode} onToggle={onToggleMode} isAgentModeSupported={isAgentModeSupported} />
       </View>
-
-      {/* Message List */}
       <FlatList
         ref={listRef}
         data={displayMessages}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
-        renderItem={({ item }) => (
-          <Pressable onLongPress={() => handleLongPress(item.text)}>
-            {renderMessageItem({ item })}
-          </Pressable>
-        )}
+        renderItem={({ item }) => <Pressable onLongPress={() => handleLongPress(item)}>{renderMessageItem({ item })}</Pressable>}
         ListFooterComponent={showTypingIndicator && <TypingIndicator />}
         keyboardShouldPersistTaps="handled"
       />
-
-      {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.inputRow}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type a message..."
-            multiline
-            editable={!loading}
-          />
-          <TouchableOpacity
-            onPress={onSend}
-            style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]}
-            disabled={!input.trim() || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Ionicons name="send" size={20} color="#fff" />
-            )}
+          <TextInput ref={inputRef} style={styles.input} value={input} onChangeText={setInput} placeholder="Type a message..." multiline editable={!loading} />
+          <TouchableOpacity onPress={onSend} style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]} disabled={!input.trim() || loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -324,103 +216,24 @@ export default function ChatThread({ navigation, route }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F9FAFB' },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFF',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
+  chatHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 },
   headerIconButton: { padding: 8 },
-  chatTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginHorizontal: 12,
-    flex: 1,
-  },
+  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
   chatContent: { padding: 12, paddingBottom: 80, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
-  userBubble: {
-    backgroundColor: '#4F46E5',
-    padding: 12,
-    borderRadius: 20,
-    maxWidth: '80%',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
+  userBubble: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, maxWidth: '80%', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 },
   userText: { color: '#FFF', fontSize: 16 },
   aiRow: { flexDirection: 'row', marginVertical: 4 },
-  aiBubble: {
-    backgroundColor: '#FFF',
-    padding: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    maxWidth: '100%',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 1,
-  },
-  agentThinkingBubble: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    maxWidth: '80%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 1,
-  },
+  aiBubble: { backgroundColor: '#FFF', padding: 12, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', maxWidth: '100%', elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, shadowRadius: 1 },
+  agentThinkingBubble: { backgroundColor: '#F3F4F6', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', maxWidth: '80%', flexDirection: 'row', alignItems: 'center', elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, shadowRadius: 1 },
   agentThinkingText: { color: '#4B5563', fontStyle: 'italic', fontSize: 15 },
   errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
   errorText: { color: '#B91C1C', fontSize: 16 },
-  time: { fontSize: 10, color: '#9CA3AF', marginTop: 4, alignSelf: 'flex-end' },
+  bubbleFooter: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 4 },
+  time: { fontSize: 10, color: '#9CA3AF' },
   errorTime: { color: '#FCA5A5' },
-  inputRow: {
-    flexDirection: 'row',
-    padding: 8,
-    backgroundColor: '#FFF',
-    borderTopWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  input: {
-    flex: 1,
-    padding: 12,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    marginRight: 8,
-    maxHeight: 100,
-  },
-  sendBtn: {
-    backgroundColor: '#4F46E5',
-    padding: 12,
-    borderRadius: 20,
-    justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-  },
+  inputRow: { flexDirection: 'row', padding: 8, backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E7EB' },
+  input: { flex: 1, padding: 12, backgroundColor: '#F3F4F6', borderRadius: 20, marginRight: 8, maxHeight: 100 },
+  sendBtn: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2 },
   sendDisabled: { backgroundColor: '#A5B4FC' },
 });
-

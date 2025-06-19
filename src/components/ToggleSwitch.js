@@ -28,7 +28,7 @@ export default function ToggleSwitch({
   containerStyle,
   indicatorColors = ['#667EEA', '#764BA2'],
   size = 'medium', // 'small', 'medium', 'large'
-  variant = 'gradient', // 'gradient', 'solid', 'minimal'
+  variant = 'solid', // 'gradient', 'solid', 'minimal'
 }) {
   const [width, setWidth] = useState(0);
   const animX = useRef(new Animated.Value(0)).current;
