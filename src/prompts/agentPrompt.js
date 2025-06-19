@@ -55,7 +55,7 @@ Behave like a standard conversational AI when no tools are available. Always aim
     // 2. Conditionally include the image generator instruction.
     let imageInstruction = '';
     if (tools.some(t => t.agent_id === 'image_generator')) {
-        imageInstruction = `\n7.  IMPORTANT: If the 'image_generator' tool was used, you MUST embed the resulting 'image_url' in your final response using Markdown format. For example: 'Here is the image you requested: ![A description of the image](the_image_url_here)'.`;
+        imageInstruction = `\n7.  IMPORTANT: If the 'image_generator' tool was used, and query was success tell the use that imaeg is generate succcessfully and provide the image URL. If the query was not successful, inform the user that the image could not be generated and you can view the imaeg from gallery`;
     }
 
     // 3. Assemble the final prompt with the dynamic parts.

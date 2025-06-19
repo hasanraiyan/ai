@@ -23,10 +23,10 @@ export const toolMetadata = [
   },
   {
     agent_id: "image_generator",
-    description: "Generates a verified image URL based on a descriptive prompt.",
+    description: "Generates an image based on a descriptive prompt and saves it to the device's local storage.",
     capabilities: ["prompt"],
     input_format: { prompt: "string" },
-    output_format: { image_url: "string" }
+    output_format: { image_generated: "boolean", message: "string" }
   }
 ];
 
@@ -38,8 +38,6 @@ export const getAvailableTools = () => toolMetadata;
 /**
  * Tool Implementations
  */
-
-
 const tools = {
   search_web: async ({ query }) => {
     console.log(`TOOL: Searching web for "${query}"`);
@@ -52,6 +50,7 @@ const tools = {
   calculator: async ({ expression }) => {
     console.log(`TOOL: Calculating "${expression}"`);
     try {
+      // Note: Using eval() is generally unsafe in production. This is for demonstration.
       const result = eval(expression);
       return { result };
     } catch (e) {
@@ -59,10 +58,9 @@ const tools = {
     }
   },
 
-  // --- MODIFICATION: Save images to a dedicated directory ---
-  // Define the directory for AI generated images
-  // This ensures images are stored in a specific location for easier retrieval by a gallery feature.
-  // Also, ensure the directory exists before attempting to save files.
+  // --- MODIFICATION: Save prompt metadata alongside the image ---
+  // A unique ID is used for both the image and a new .json file.
+  // The .json file stores the prompt, allowing the gallery to display it.
   image_generator: async ({ prompt }) => {
     console.log(`TOOL: Generating image for "${prompt}"`);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
@@ -75,32 +73,39 @@ const tools = {
 
     const encodedPrompt = encodeURIComponent(prompt);
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true`;
-    const filename = btoa(prompt).substring(0, 30).replace(/[^a-zA-Z0-9]/g, '') + '.png';
-    const fileUri = `${IMAGE_DIR}${filename}`;
+
+    // Use a unique ID for the image and its metadata file
+    const uniqueId = Date.now().toString();
+    const imageFilename = `${uniqueId}.png`;
+    const metadataFilename = `${uniqueId}.json`;
+    const fileUri = `${IMAGE_DIR}${imageFilename}`;
+    const metadataUri = `${IMAGE_DIR}${metadataFilename}`;
 
     try {
-      // Check if image already exists
-      const fileInfo = await FileSystem.getInfoAsync(fileUri);
-      if (fileInfo.exists) {
-        console.log('Image already cached:', fileUri);
-        return { image_url: fileUri };
-      }
-
       // Download and save the image
       const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
 
       if (downloadResult.status !== 200) {
-        throw new Error('Download failed');
+        throw new Error('Image download failed');
       }
 
+      // Save the prompt in a corresponding JSON file
+      const metadata = { prompt };
+      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(metadata));
+
       console.log('Image saved to:', downloadResult.uri);
-      return { image_url: downloadResult.uri };
+      console.log('Metadata saved to:', metadataUri);
+      return { image_generated: true, message: 'Image generated successfully. You can view it in the gallery.' };
     } catch (err) {
       console.error('Image generation failed:', err.message);
+      // Clean up partial files on failure
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      await FileSystem.deleteAsync(metadataUri, { idempotent: true });
       return { error: 'Failed to fetch or save image' };
     }
   }
 };
+
 
 /**
  * Tool Dispatcher: Executes tools based on a toolCall object.

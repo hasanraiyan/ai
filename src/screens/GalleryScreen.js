@@ -52,23 +52,39 @@ export default function GalleryScreen({ navigation }) {
 
     try {
       await ensureDirExists();
-      const files = await FileSystem.readDirectoryAsync(IMAGE_DIR);
-      const pics = files
-        .filter(f => /\.(jpe?g|png)$/i.test(f))
-        .map(f => ({ id: f, uri: IMAGE_DIR + f }));
+      const allFiles = await FileSystem.readDirectoryAsync(IMAGE_DIR);
+      
+      const imageFiles = allFiles.filter(f => /\.(jpe?g|png)$/i.test(f));
 
-      const withStats = await Promise.all(
-        pics.map(async p => {
+      const imageDetails = await Promise.all(
+        imageFiles.map(async (imageFile) => {
+          const imageUri = IMAGE_DIR + imageFile;
+          const id = imageFile.split('.')[0];
+          const metadataUri = `${IMAGE_DIR}${id}.json`;
+
+          let prompt = 'Untitled Image';
+          let modTime = 0;
+
           try {
-            const st = await FileSystem.getInfoAsync(p.uri, { size: false });
-            return { ...p, time: st.modificationTime || 0 };
-          } catch {
-            return { ...p, time: 0 };
+            const imageInfo = await FileSystem.getInfoAsync(imageUri, { size: false });
+            modTime = imageInfo.modificationTime || 0;
+
+            const metadataInfo = await FileSystem.getInfoAsync(metadataUri);
+            if (metadataInfo.exists) {
+              const metadataString = await FileSystem.readAsStringAsync(metadataUri);
+              const metadata = JSON.parse(metadataString);
+              prompt = metadata.prompt || prompt;
+            }
+          } catch (e) {
+            console.warn(`Could not load metadata for ${imageFile}:`, e);
           }
+          
+          return { id: imageFile, uri: imageUri, time: modTime, prompt: prompt };
         })
       );
-      withStats.sort((a, b) => b.time - a.time);
-      setImages(withStats);
+      
+      imageDetails.sort((a, b) => b.time - a.time);
+      setImages(imageDetails);
     } catch (e) {
       console.error(e);
       setError('Couldn’t load images');
@@ -84,7 +100,6 @@ export default function GalleryScreen({ navigation }) {
     return unsub;
   }, [loadImages, navigation]);
 
-  // SHARE
   async function onShare(uri) {
     closeSheet();
     if (!(await Sharing.isAvailableAsync())) {
@@ -97,29 +112,33 @@ export default function GalleryScreen({ navigation }) {
     }
   }
 
-  // DELETE
   function onDelete(item) {
     closeSheet();
-    Alert.alert('Delete image?', '', [
+    Alert.alert('Delete image?', 'This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
+            const baseId = item.id.split('.')[0];
+            const metadataUri = `${IMAGE_DIR}${baseId}.json`;
+
             await FileSystem.deleteAsync(item.uri, { idempotent: true });
+            await FileSystem.deleteAsync(metadataUri, { idempotent: true });
+
             setImages(imgs => imgs.filter(i => i.id !== item.id));
             Toast.show({ type: 'success', text1: 'Deleted' });
             if (selected?.id === item.id) closeSheet();
-          } catch {
-            Alert.alert('Failed to delete');
+          } catch (err) {
+            console.error("Deletion failed:", err);
+            Alert.alert('Failed to delete image and its data.');
           }
         }
       }
     ]);
   }
 
-  // DOWNLOAD
   async function onDownload(uri) {
     closeSheet();
     let { granted } = mediaPerm || {};
@@ -180,7 +199,6 @@ export default function GalleryScreen({ navigation }) {
     );
   }
 
-  // LOADING
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -190,7 +208,6 @@ export default function GalleryScreen({ navigation }) {
     );
   }
 
-  // ERROR
   if (error) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -237,7 +254,10 @@ export default function GalleryScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => setRefreshing(true)}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadImages();
+              }}
               tintColor="#6366F1"
             />
           }
@@ -245,9 +265,6 @@ export default function GalleryScreen({ navigation }) {
         />
       )}
 
-   
-
-      {/* Bottom-sheet Modal */}
       <Modal
         visible={sheetVisible}
         transparent
@@ -263,11 +280,12 @@ export default function GalleryScreen({ navigation }) {
                 style={styles.preview}
                 resizeMode="contain"
               />
+              {/* --- MODIFICATION: Display the prompt and a formatted date --- */}
               <View style={styles.sheetInfo}>
-                <Text style={styles.sheetName}>{selected.id}</Text>
+                <Text style={styles.sheetName} numberOfLines={3}>{selected.prompt}</Text>
                 {selected.time > 0 && (
                   <Text style={styles.sheetDate}>
-                    {new Date(selected.time * 1000).toLocaleDateString()}
+                    Created: {new Date(selected.time * 1000).toLocaleString()}
                   </Text>
                 )}
               </View>
@@ -375,15 +393,18 @@ const styles = StyleSheet.create({
     borderRadius: 8
   },
   sheetInfo: {
-    marginTop: 12,
+    paddingVertical: 12,
     alignItems: 'center'
   },
-  sheetName: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
-  sheetDate: { marginTop: 4, fontSize: 13, color: '#475569' },
+  sheetName: { fontSize: 18, fontWeight: '600', color: '#1E293B', textAlign: 'center' },
+  sheetDate: { marginTop: 6, fontSize: 13, color: '#475569' },
   sheetActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 20,
-    paddingHorizontal: 32
+    marginTop: 12,
+    paddingTop: 12,
+    paddingHorizontal: 32,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0'
   }
 });

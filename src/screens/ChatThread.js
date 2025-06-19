@@ -57,8 +57,8 @@ export default function ChatThread({ navigation, route }) {
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
   // Animated toggle underline
+  const toggleWidth = 160; // fixed width for the toggle container
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
-  const [selectorWidth, setSelectorWidth] = useState(0);
   useEffect(() => {
     Animated.timing(animatedValue, {
       toValue: mode === 'chat' ? 0 : 1,
@@ -68,10 +68,10 @@ export default function ChatThread({ navigation, route }) {
   }, [mode]);
   const translateX = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, selectorWidth / 2],
+    outputRange: [0, toggleWidth / 2],
   });
 
-  // Auto-focus
+  // Auto-focus the input on mount
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 300);
   }, []);
@@ -90,7 +90,7 @@ export default function ChatThread({ navigation, route }) {
 
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
-  // Title generation on first user message
+  // Generate a title on first user message
   const handleGenerateTitle = async firstUserText => {
     try {
       const title = await generateChatTitle(
@@ -118,16 +118,13 @@ export default function ChatThread({ navigation, route }) {
     updateThreadMessages(threadId, newMessages);
     setLoading(true);
 
-    // Select prompts/models based on mode
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
     const currentSystemPrompt = mode === 'agent' ? agentSystemPrompt : systemPrompt;
 
-    // Build history payload
     let historyForAPI = newMessages.map(m => ({ ...m }));
     const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
     if (sysIdx > -1) historyForAPI[sysIdx].text = currentSystemPrompt;
 
-    // Tool-call placeholder
     let thinkingMessageId = null;
     const handleToolCall = toolCall => {
       const toolNames = Object.keys(toolCall).filter(k => k !== 'tools-required');
@@ -155,14 +152,12 @@ export default function ChatThread({ navigation, route }) {
       );
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts };
 
-      // Remove thinking placeholder if any
       if (thinkingMessageId) {
         newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       }
       newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
 
-      // Generate title once
       if (isFirstRealMessage && !titled.current) {
         handleGenerateTitle(text);
         titled.current = true;
@@ -195,9 +190,9 @@ export default function ChatThread({ navigation, route }) {
     return false;
   };
 
-  // Custom Markdown image rule
+  // Custom markdown image renderer
   const markdownImageRules = {
-    image: (node) => {
+    image: node => {
       const src = node.attributes.src || node.attributes.href;
       if (!src) return null;
       return (
@@ -221,7 +216,6 @@ export default function ChatThread({ navigation, route }) {
   };
 
   const renderMessageItem = ({ item }) => {
-    // User message
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
@@ -232,7 +226,6 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
-    // Agent thinking
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
@@ -243,17 +236,12 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
-    // AI or error
     return (
       <View style={styles.aiRow}>
         <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? (
             <Text style={styles.errorText}>{item.text}</Text>
           ) : (() => {
-            // FIX: This regex finds markdown links to local image files 
-            // (e.g., [alt text](file://.../image.png)) and converts them 
-            // into markdown image tags (e.g., ![alt text](file://.../image.png))
-            // so that our custom 'image' rule can render them.
             const processedText = item.text.replace(
               /\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi,
               '![$1]($2)'
@@ -284,44 +272,56 @@ export default function ChatThread({ navigation, route }) {
 
       {/* Header */}
       <View style={styles.chatHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerIconButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#475569" />
         </TouchableOpacity>
+
         <Text style={styles.chatTitle} numberOfLines={1}>
           {thread.name}
         </Text>
-      </View>
 
-      {/* Mode Toggle */}
-      <View
-        style={styles.modeSelectorContainer}
-        onLayout={e => setSelectorWidth(e.nativeEvent.layout.width)}
-      >
-        <Animated.View
-          style={[
-            styles.selectorIndicator,
-            { width: selectorWidth / 2, transform: [{ translateX }] },
-          ]}
-        />
-        <TouchableOpacity style={styles.modeButton} onPress={() => onToggleMode('chat')}>
-          <Text style={[styles.modeButtonText, mode === 'chat' && styles.modeButtonTextActive]}>
-            Chat
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]}
-          onPress={() => onToggleMode('agent')}
-        >
-          <Text
+        {/* Inline Chat/Agent Toggle */}
+        <View style={styles.modeSelectorContainer}>
+          <Animated.View
             style={[
-              styles.modeButtonText,
-              mode === 'agent' && styles.modeButtonTextActive,
-              !isAgentModeSupported && styles.modeButtonTextDisabled,
+              styles.selectorIndicator,
+              {
+                width: toggleWidth / 2,
+                transform: [{ translateX }],
+              },
             ]}
+          />
+          <TouchableOpacity
+            style={styles.modeButton}
+            onPress={() => onToggleMode('chat')}
           >
-            Agent
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.modeButtonText,
+                mode === 'chat' && styles.modeButtonTextActive,
+              ]}
+            >
+              Chat
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeButton, !isAgentModeSupported && styles.modeButtonDisabled]}
+            onPress={() => onToggleMode('agent')}
+          >
+            <Text
+              style={[
+                styles.modeButtonText,
+                mode === 'agent' && styles.modeButtonTextActive,
+                !isAgentModeSupported && styles.modeButtonTextDisabled,
+              ]}
+            >
+              Agent
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Message List */}
@@ -382,36 +382,45 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
-    zIndex: 20,
   },
   headerIconButton: { padding: 8 },
-  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
+  chatTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginHorizontal: 12,
+    flex: 1,
+  },
   modeSelectorContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 70,
-    alignSelf: 'center',
+    width: 160,
     flexDirection: 'row',
     backgroundColor: '#E5E7EB',
     borderRadius: 20,
     padding: 4,
-    width: '50%',
-    zIndex: 10,
     overflow: 'hidden',
   },
   selectorIndicator: {
     position: 'absolute',
     top: 0,
-    left: 0,
     bottom: 0,
     backgroundColor: '#4F46E5',
     borderRadius: 16,
   },
-  modeButton: { flex: 1, paddingVertical: 6, alignItems: 'center' },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
   modeButtonDisabled: { opacity: 0.6 },
-  modeButtonText: { fontWeight: '600', color: '#374151', fontSize: 15 },
+  modeButtonText: {
+    fontWeight: '600',
+    color: '#374151',
+    fontSize: 15,
+  },
   modeButtonTextActive: { color: '#FFF' },
   modeButtonTextDisabled: { color: '#6B7280' },
-  chatContent: { padding: 12, paddingBottom: 80, paddingTop: 90 },
+
+  chatContent: { padding: 12, paddingBottom: 80, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: {
     backgroundColor: '#4F46E5',
@@ -501,7 +510,15 @@ function SkeletonPlaceholder({ width, height }) {
     ).start();
   }, []);
   return (
-    <Animated.View style={{ width, height, backgroundColor: '#E5E7EB', opacity: opacityAnim, borderRadius: 8 }} />
+    <Animated.View
+      style={{
+        width,
+        height,
+        backgroundColor: '#E5E7EB',
+        opacity: opacityAnim,
+        borderRadius: 8,
+      }}
+    />
   );
 }
 
@@ -535,7 +552,10 @@ function ImageWithLoader({ uri, alt, style }) {
           source={{ uri }}
           style={[
             style,
-            { position: 'absolute', width: containerWidth || style.width || '100%' },
+            {
+              position: 'absolute',
+              width: containerWidth || style.width || '100%',
+            },
             loading && { display: 'none' },
           ]}
           accessibilityLabel={alt}
@@ -551,7 +571,16 @@ function ImageWithLoader({ uri, alt, style }) {
         />
       )}
       {error && (
-        <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' }]}>
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: '#F3F4F6',
+            },
+          ]}
+        >
           <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Failed to load image</Text>
         </View>
       )}
