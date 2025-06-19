@@ -12,26 +12,33 @@ function CustomDrawerContent(props) {
   const activeRouteName = props.state.routes[props.state.index].name;
   const navigateToScreen = screenName => {
     props.navigation.closeDrawer();
+    // Use navigation.navigate directly
     props.navigation.navigate(screenName);
   };
   const menuItems = [
     { name: 'Threads', label: 'Threads', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles', action: () => navigateToScreen('Threads') },
+    // Add the new menu item here
+    { name: 'ImageGeneration', label: 'Generate Image', icon: 'image-outline', activeIcon: 'image', action: () => navigateToScreen('ImageGeneration') },
     { name: 'Gallery', label: 'Gallery', icon: 'images-outline', activeIcon: 'images', action: () => navigateToScreen('Gallery') },
     { name: 'Settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings', action: () => navigateToScreen('Settings') },
-
   ];
-  const footerItems = [{ name: 'Help', label: 'Help & Feedback', icon: 'help-circle-outline', action: () => { props.navigation.closeDrawer(); } }];
+  const footerItems = [{ name: 'Help', label: 'Help & Feedback', icon: 'help-circle-outline', action: () => { props.navigation.closeDrawer(); /* Implement help action */ } }]; // Placeholder action
   const renderDrawerItem = (item, index, isFooter = false) => {
-    const isActive = !isFooter && activeRouteName === item.name;
+    const isActive = activeRouteName === item.name; // Simplified active check
+
     return (
       <Pressable
         key={item.name || index}
-        style={({ pressed }) => [styles.drawerItem, isActive && styles.drawerItemActive, pressed && styles.drawerItemPressed]}
+        style={({ pressed }) => [
+            styles.drawerItem,
+            isActive && styles.drawerItemActive, // Handle active state
+            pressed && styles.drawerItemPressed
+        ]}
         onPress={item.action}
         android_ripple={{ color: styles.drawerItemActive.backgroundColor || '#E0E0E0' }}
       >
         <Ionicons
-          name={isActive ? item.activeIcon : item.icon}
+          name={isActive ? item.activeIcon : item.icon} // Use active icon if active
           size={22}
           color={isActive ? styles.drawerTextActive.color : (isFooter ? styles.drawerFooterIcon.color : styles.drawerIcon.color)}
           style={isFooter ? styles.drawerFooterIcon : styles.drawerIcon}

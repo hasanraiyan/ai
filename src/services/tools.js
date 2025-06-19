@@ -61,7 +61,7 @@ const tools = {
   // --- MODIFICATION: Save prompt metadata alongside the image ---
   // A unique ID is used for both the image and a new .json file.
   // The .json file stores the prompt, allowing the gallery to display it.
-  image_generator: async ({ prompt }) => {
+  image_generator: async ({ prompt, url = false }) => {
     console.log(`TOOL: Generating image for "${prompt}"`);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
@@ -95,7 +95,13 @@ const tools = {
 
       console.log('Image saved to:', downloadResult.uri);
       console.log('Metadata saved to:', metadataUri);
-      return { image_generated: true, message: 'Image generated successfully. You can view it in the gallery.' };
+      if (url) {
+        return { image_generated: true, imageUrl: imageUrl ,message: 'Image generated successfully. You can view it in the gallery.' };
+
+      } else {
+        return { image_generated: true, message: 'Image generated successfully. You can view it in the gallery.' };
+
+      }
     } catch (err) {
       console.error('Image generation failed:', err.message);
       // Clean up partial files on failure

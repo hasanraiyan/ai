@@ -188,13 +188,7 @@ export default function GalleryScreen({ navigation }) {
         onPress={() => openSheet(item)}
       >
         <Image source={{ uri: item.uri }} style={styles.thumb} />
-        <View style={styles.infoBar}>
-          <Text style={styles.date}>
-            {item.time
-              ? new Date(item.time * 1000).toLocaleDateString()
-              : 'Unknown'}
-          </Text>
-        </View>
+     
       </TouchableOpacity>
     );
   }
@@ -239,7 +233,7 @@ export default function GalleryScreen({ navigation }) {
             Your AI-generated images will show up here.
           </Text>
           <TouchableOpacity
-            onPress={() => navigation.navigate('ChatScreen')}
+            onPress={() => navigation.navigate('ImageGeneration')}
             style={styles.btnPrimary}
           >
             <Text style={styles.btnText}>Generate One</Text>

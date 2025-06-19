@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Text,
+  Text, // Keep Text import just in case, although it's mostly used in children
   View,
   TouchableOpacity,
   Linking,
@@ -15,6 +15,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import Toast from 'react-native-toast-message'; // Import Toast
 
 import { SettingsContext } from './src/contexts/SettingsContext';
 import { ThreadsContext } from './src/contexts/ThreadsContext';
@@ -22,6 +23,7 @@ import ChatThread from './src/screens/ChatThread';
 import ThreadsList from './src/screens/ThreadsList';
 import SettingsScreen from './src/screens/SettingsScreen';
 import GalleryScreen from './src/screens/GalleryScreen';
+import ImageGenerationScreen from './src/screens/ImageGenerationScreen'; // Import the new screen
 import CustomDrawerContent from './src/navigation/CustomDrawerContent';
 import { toolMetadata } from './src/services/tools';
 import { generateAgentPrompt } from './src/prompts/agentPrompt';
@@ -30,15 +32,17 @@ const Drawer = createDrawerNavigator();
 const { width } = Dimensions.get('window');
 
 export default function App() {
+  // These are default states, the actual values are loaded from AsyncStorage
   const [modelName, setModelName] = useState('gemma-3-27b-it');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
   const [agentModelName, setAgentModelName] = useState('gemini-2.5-pro');
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya."
+    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya."
   );
 
   const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
   const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
+  // agentSystemPrompt is derived, not stored directly
   const [agentSystemPrompt, setAgentSystemPrompt] = useState('');
 
   const [threads, setThreads] = useState([]);
@@ -46,10 +50,12 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // Effect to update the agent system prompt whenever enabledTools or agentModel changes
   useEffect(() => {
     setAgentSystemPrompt(generateAgentPrompt(enabledTools, agentModelName));
   }, [enabledTools, agentModelName]);
 
+  // Effect to load state from AsyncStorage on app start
   useEffect(() => {
     (async () => {
       try {
@@ -72,16 +78,19 @@ export default function App() {
           AsyncStorage.getItem('@seenWelcome'),
           AsyncStorage.getItem('@enabledTools'),
         ]);
-        if (m) setModelName(m);
-        if (tm) setTitleModelName(tm);
-        if (am) setAgentModelName(am);
-        if (s) setSystemPrompt(s);
-        if (t) setThreads(JSON.parse(t));
-        if (ak) setApiKey(ak);
-        if (et) {
+        // Update state only if loaded value is not null
+        if (m !== null) setModelName(m);
+        if (tm !== null) setTitleModelName(tm);
+        if (am !== null) setAgentModelName(am);
+        if (s !== null) setSystemPrompt(s);
+        if (t !== null) setThreads(JSON.parse(t));
+        if (ak !== null) setApiKey(ak);
+        if (et !== null) {
           const savedTools = JSON.parse(et);
+          // Merge saved tools with initial defaults, prioritizing saved
           setEnabledTools(prev => ({ ...prev, ...savedTools }));
         }
+        // Only show welcome if it hasn't been seen before
         if (!seen) setShowWelcome(true);
       } catch (e) {
         console.warn('Error loading AsyncStorage:', e);
@@ -212,8 +221,10 @@ export default function App() {
             >
               <Drawer.Screen name="Threads" component={ThreadsList} />
               <Drawer.Screen name="Chat" component={ChatThread} />
-              <Drawer.Screen name="Settings" component={SettingsScreen} />
+              {/* Add the new screen here */}
+              <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
               <Drawer.Screen name="Gallery" component={GalleryScreen} />
+              <Drawer.Screen name="Settings" component={SettingsScreen} />
             </Drawer.Navigator>
           </NavigationContainer>
           <Modal transparent visible={showWelcome} animationType="fade">
@@ -249,6 +260,8 @@ export default function App() {
           </Modal>
         </ThreadsContext.Provider>
       </SettingsContext.Provider>
+      {/* Toast needs to be at the root of the component tree or inside a Provider */}
+      <Toast position="bottom" />
     </SafeAreaProvider>
   );
 }
@@ -271,5 +284,5 @@ const styles = StyleSheet.create({
   modalButtonSecondary: { backgroundColor: '#E2E8F0' },
   modalButtonText: { fontSize: 16, color: '#fff', fontWeight: '500' },
   modalButtonTextSecondary: { color: '#334155' },
-  loadingContainer: { justifyContent: 'center', alignItems: 'center' },
+  loadingContainer: { justifyContent: 'center', alignItems: 'center' }, // Added styles for loading
 });
