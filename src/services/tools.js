@@ -61,7 +61,7 @@ const tools = {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 800));
     const urlFriendlyPrompt = encodeURIComponent(prompt);
-    return { image_url: `https://fakeimg.pl/400x300/?text=${urlFriendlyPrompt}` };
+    return { image_url: `https://image.pollinations.ai/prompt/${urlFriendlyPrompt}?enhance=true&nologo=true` };
   }
 };
 
