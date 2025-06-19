@@ -72,7 +72,7 @@ const tools = {
     }
 
     const encodedPrompt = encodeURIComponent(prompt);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=512&height=512`;
 
     // Use a unique ID for the image and its metadata file
     const uniqueId = Date.now().toString();
