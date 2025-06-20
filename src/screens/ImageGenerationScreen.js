@@ -1,5 +1,7 @@
 // src/screens/ImageGenerationScreen.js
-import React, { useState, useContext, useRef, useEffect } from 'react'
+// FINAL VERSION: Implements the direct-to-modal UX for generated images.
+
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -13,562 +15,227 @@ import {
     KeyboardAvoidingView,
     Keyboard,
     Animated,
-    LayoutAnimation,
     UIManager,
     Image as RNImage,
     Modal,
     Dimensions,
     Alert,
     useColorScheme,
-} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
-import * as FileSystem from 'expo-file-system'
-import * as MediaLibrary from 'expo-media-library'
-import { SettingsContext } from '../contexts/SettingsContext'
-import { generateImage, improvePrompt } from '../agents/aiImageAgent'
-import { imageCategories } from '../constants/imageCategories'
-import { models } from '../constants/models'
-import { useTheme, spacing, typography } from '../utils/theme'
-import ScreenHeader from '../components/ScreenHeader'
-import ToggleSwitch from '../components/ToggleSwitch'
+    Pressable,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import { SettingsContext } from '../contexts/SettingsContext';
+import { generateImage } from '../agents/aiImageAgent';
+import { imageCategories } from '../constants/imageCategories';
+import { models } from '../constants/models';
+import { useTheme, spacing, typography } from '../utils/theme';
+import ScreenHeader from '../components/ScreenHeader';
+import ToggleSwitch from '../components/ToggleSwitch';
 
-const { width: screenWidth } = Dimensions.get('window')
-const MIN_IMAGES = 1
-const MAX_IMAGES = 6
-const DEFAULT_NUM_IMAGES = 2
-const DEFAULT_MODEL_NAME = 'gemma-3-27b-it'
+const { width: screenWidth } = Dimensions.get('window');
+const MAX_IMAGES = 6;
+const DEFAULT_NUM_IMAGES = 2;
+const DEFAULT_MODEL_NAME = 'gemma-3-27b-it';
 
-const aspectRatioOptions = [
-    { key: '1:1', label: 'Square', icon: 'square-outline' },
-    { key: '16:9', label: 'Landscape', icon: 'tablet-landscape-outline' },
-    { key: '9:16', label: 'Portrait', icon: 'tablet-portrait-outline' },
-];
-
-const imageModelOptions = [
-    { key: 'flux', label: 'Flux', icon: 'flash-outline' },
-    { key: 'turbo', label: 'Turbo', icon: 'rocket-outline' },
-];
-
-const numImagesOptions = Array.from({ length: MAX_IMAGES }, (_, i) => i + 1).map(num => ({
-    key: num,
-    label: `${num}`,
-}));
+const aspectRatioOptions = [ { key: '1:1', label: 'Square', icon: 'square-outline' }, { key: '16:9', label: 'Landscape', icon: 'tablet-landscape-outline' }, { key: '9:16', label: 'Portrait', icon: 'tablet-portrait-outline' } ];
+const imageModelOptions = [ { key: 'flux', label: 'Flux Pro', icon: 'flash-outline' }, { key: 'turbo', label: 'Turbo', icon: 'rocket-outline' } ];
+const numImagesOptions = Array.from({ length: MAX_IMAGES }, (_, i) => i + 1).map(num => ({ key: num, label: `${num}` }));
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true)
+    UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const Shimmer = ({ style }) => {
-    const theme = useTheme()
-    const shimmer = useRef(new Animated.Value(0.3)).current
-    useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(shimmer, { toValue: 1, duration: 800, useNativeDriver: false }),
-                Animated.timing(shimmer, { toValue: 0.3, duration: 800, useNativeDriver: false }),
-            ])
-        ).start()
-    }, [shimmer])
-    const backgroundColor = shimmer.interpolate({
-        inputRange: [0.3, 1],
-        outputRange: [theme.colors.emptyBg, theme.colors.card],
-    })
-    return <Animated.View style={[style, { backgroundColor }]} />
-}
-
-const FadeInImage = ({ source, style, onLoadEnd }) => {
-    const opacity = useRef(new Animated.Value(0)).current
-    const handleLoad = () =>
-        Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }).start()
-    return (
-        <Animated.Image
-            source={source}
-            style={[style, { opacity }]}
-            onLoadEnd={() => {
-                handleLoad()
-                onLoadEnd && onLoadEnd()
-            }}
-            resizeMode="cover"
-        />
-    )
-}
-
-const ManagedImage = ({ source }) => {
-    const [loading, setLoading] = useState(true)
-    const styles = getStyles(useTheme())
-    return (
-        <View style={styles.imageContainer}>
-            <FadeInImage source={source} style={styles.fillImage} onLoadEnd={() => setLoading(false)} />
-            {loading && (
-                <View style={styles.imageOverlay}>
-                    <ActivityIndicator size="small" color="#fff" />
-                </View>
-            )}
-        </View>
-    )
-}
-
-const getImageStyle = (total, ratio) => {
-    const base = { marginBottom: spacing.sm };
-    if (ratio === '16:9') {
-        return { ...base, width: '100%', aspectRatio: 16 / 9 };
-    }
-    if (ratio === '9:16') {
-        return { ...base, width: '32%', aspectRatio: 9 / 16 };
-    }
-    if (ratio === '1:1') {
-        if (total === 1) {
-            return { ...base, width: '100%', aspectRatio: 1 };
-        }
-        if (total === 2 || total === 4) {
-            return { ...base, width: '48.5%', aspectRatio: 1 };
-        }
-        return { ...base, width: '32%', aspectRatio: 1 };
-    }
-    return { ...base, width: '48.5%', aspectRatio: 1 };
-}
+const StyleCategoryCard = ({ category, isSelected, onPress, disabled }) => {
+    const theme = useTheme(); const styles = getStyles(theme);
+    return <TouchableOpacity style={[styles.categoryCard, isSelected && styles.categoryCardSelected, disabled && styles.categoryCardDisabled]} onPress={onPress} disabled={disabled} activeOpacity={0.8}><RNImage source={{ uri: category.imageUrl }} style={styles.categoryImage} /><View style={styles.categoryOverlay}><Text style={styles.categoryText}>{category.name}</Text>{isSelected && <View style={styles.categorySelectedBadge}><Ionicons name="checkmark" size={12} color={theme.colors.accent} /></View>}</View></TouchableOpacity>;
+};
 
 const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
-    const [current, setCurrent] = useState(initialIndex)
-    const scrollRef = useRef(null)
-    const styles = getStyles(useTheme())
+    const [current, setCurrent] = useState(initialIndex);
+    const [downloading, setDownloading] = useState(false);
+    const scrollRef = useRef(null);
+    const theme = useTheme();
+    const styles = getStyles(theme);
 
     useEffect(() => {
-        if (visible && scrollRef.current) {
-            setCurrent(initialIndex)
-            scrollRef.current.scrollTo({ x: screenWidth * initialIndex, animated: false })
+        if (visible) {
+            setCurrent(initialIndex);
+            setTimeout(() => scrollRef.current?.scrollTo({ x: screenWidth * initialIndex, animated: false }), 50);
         }
-    }, [visible, initialIndex])
+    }, [visible, initialIndex]);
 
     const handleDownload = async () => {
-        const url = images[current]
-        const { status } = await MediaLibrary.requestPermissionsAsync()
-        if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Please grant media library permissions in your device settings to save images.')
-            return
-        }
+        const url = images[current];
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('Permission Required', 'Please grant media library permissions to save images.'); return; }
+        setDownloading(true);
         try {
-            const fileUri = `${FileSystem.documentDirectory}${Date.now()}.jpg`
-            const { uri } = await FileSystem.downloadAsync(url, fileUri)
-            await MediaLibrary.createAssetAsync(uri)
-            Alert.alert('Success', 'Image saved to your gallery!')
+            const fileUri = `${FileSystem.documentDirectory}ai_image_${Date.now()}.jpg`;
+            const { uri } = await FileSystem.downloadAsync(url, fileUri);
+            await MediaLibrary.createAssetAsync(uri);
+            Alert.alert('Success!', 'Image saved to your gallery.');
         } catch (err) {
-            console.error('Download failed:', err)
-            Alert.alert('Error', 'Failed to save the image. Please try again.')
+            console.error('Download failed:', err); Alert.alert('Error', 'Failed to save image.');
+        } finally {
+            setDownloading(false);
         }
-    }
+    };
 
-    if (!visible) return null
+    const handleShare = async () => {
+        try { await Sharing.shareAsync(images[current]); } catch (error) { Alert.alert('Error', 'Could not share the image.'); }
+    };
+
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalContainer}>
-                <ScrollView
-                    ref={scrollRef}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={e =>
-                        setCurrent(Math.round(e.nativeEvent.contentOffset.x / screenWidth))
-                    }
-                >
-                    {images.map((uri, idx) => (
-                        <View key={idx} style={styles.modalPage}>
-                            <RNImage source={{ uri }} style={styles.modalImage} resizeMode="contain" />
-                        </View>
-                    ))}
+                <TouchableOpacity style={[styles.modalButton, styles.closeButton]} onPress={onClose}><Ionicons name="close" size={28} color="#fff" /></TouchableOpacity>
+                <ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={e => setCurrent(Math.round(e.nativeEvent.contentOffset.x / screenWidth))}>
+                    {images.map((uri, idx) => <View key={idx} style={styles.modalPage}><RNImage source={{ uri }} style={styles.modalImage} resizeMode="contain" /></View>)}
                 </ScrollView>
-                <TouchableOpacity style={[styles.modalButton, styles.closeButton]} onPress={onClose}>
-                    <Ionicons name="close" size={30} color="#fff" />
-                </TouchableOpacity>
-                {images.length > 1 && (
-                    <View style={styles.pageIndicator}>
-                        <Text style={styles.pageIndicatorText}>{current + 1} / {images.length}</Text>
+                <View style={styles.toolbar}>
+                    {images.length > 1 && <View style={styles.pageIndicator}><Text style={styles.pageIndicatorText}>{current + 1} / {images.length}</Text></View>}
+                    <View style={styles.actionsContainer}>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleShare}><Ionicons name="share-social-outline" size={24} color="#fff" /><Text style={styles.actionText}>Share</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.actionButton, downloading && styles.disabled]} onPress={handleDownload} disabled={downloading}>
+                            {downloading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="download-outline" size={24} color="#fff" />}
+                            <Text style={styles.actionText}>{downloading ? 'Saving...' : 'Save'}</Text>
+                        </TouchableOpacity>
                     </View>
-                )}
-                <TouchableOpacity
-                    style={[styles.modalButton, styles.downloadButton]}
-                    onPress={handleDownload}
-                >
-                    <Ionicons name="download-outline" size={30} color="#fff" />
-                </TouchableOpacity>
+                </View>
             </View>
         </Modal>
-    )
-}
+    );
+};
 
 export default function ImageGenerationScreen({ navigation }) {
-    const theme = useTheme()
-    const styles = getStyles(theme)
-    const scheme = useColorScheme()
+    const theme = useTheme();
+    const styles = getStyles(theme);
+    const scheme = useColorScheme();
 
-    const { apiKey, agentModelName: settingsModel } = useContext(SettingsContext)
-    const [prompt, setPrompt] = useState('')
-    const [numImages, setNumImages] = useState(DEFAULT_NUM_IMAGES)
-    const [aspectRatio, setAspectRatio] = useState('1:1')
-    const [selectedCategory, setSelectedCategory] = useState(imageCategories.find(c => c.id === 'none'))
+    const { apiKey, agentModelName: settingsModel } = useContext(SettingsContext);
+    const [prompt, setPrompt] = useState('');
+    const [numImages, setNumImages] = useState(DEFAULT_NUM_IMAGES);
+    const [aspectRatio, setAspectRatio] = useState('1:1');
+    const [selectedCategory, setSelectedCategory] = useState(imageCategories[0]);
     const [imageModel, setImageModel] = useState('flux');
-    const [loading, setLoading] = useState(false)
-    const [improving, setImproving] = useState(false)
-    const [urls, setUrls] = useState([])
-    const [modalVisible, setModalVisible] = useState(false)
-    const [startIndex, setStartIndex] = useState(0)
+    const [loading, setLoading] = useState(false);
+    const [urls, setUrls] = useState([]);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [startIndex, setStartIndex] = useState(0);
 
-    const anyLoading = loading || improving
-    const modelToUse = settingsModel || DEFAULT_MODEL_NAME
+    const anyLoading = loading;
+    const modelToUse = settingsModel || DEFAULT_MODEL_NAME;
 
-    const doLayoutAnim = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    const openModal = (idx = 0) => {
+        setStartIndex(idx);
+        setModalVisible(true);
+    };
 
     const handleGenerate = async () => {
-        Keyboard.dismiss()
-        if (!prompt.trim()) {
-            Alert.alert('Prompt is Empty', 'Please describe the image you want to generate.')
-            return
-        }
-        if (!apiKey) {
-            Alert.alert('API Key Missing', 'Please set your API Key in the Settings screen to generate images.',
-                [{ text: 'Go to Settings', onPress: () => navigation.navigate('Settings') }, { text: 'OK' }]
-            )
-            return
-        }
-
-        const selectedModelData = models.find(m => m.id === modelToUse)
-        if (!selectedModelData?.supported_tools.includes('image_generator')) {
-            Alert.alert("Model Not Capable", `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation. Please select a compatible model in Settings.`,
-                [{ text: "OK" }]
-            )
-            return
-        }
-
-        setLoading(true)
-        setUrls([])
-        doLayoutAnim()
-
-        const finalPrompt = selectedCategory.id !== 'none'
-            ? `${prompt.trim()}. Final image should be in this style: ${selectedCategory.description}`
-            : prompt.trim()
-
-        const getDimensions = (ratio) => {
-            switch (ratio) {
-                case '16:9': return { width: 768, height: 432 }
-                case '9:16': return { width: 432, height: 768 }
-                case '1:1':
-                default: return { width: 512, height: 512 }
-            }
-        }
-
-        const { width, height } = getDimensions(aspectRatio)
-
-        const metadataPayload = {
-            prompt: prompt.trim(),
-            styleId: selectedCategory.id,
-            styleName: selectedCategory.name,
-            modelUsed: modelToUse,
-            imageGenModel: imageModel,
-            batchSize: numImages,
-            aspectRatio: aspectRatio,
-            width: width,
-            height: height,
-        }
-
+        Keyboard.dismiss();
+        if (!prompt.trim()) { Alert.alert('Empty Prompt', 'Please describe the image you want to generate.'); return; }
+        if (!apiKey) { Alert.alert('API Key Required', 'Please set your API Key in Settings.', [{ text: 'Go to Settings', onPress: () => navigation.navigate('Settings') }, { text: 'Cancel' }]); return; }
+        const selectedModelData = models.find(m => m.id === modelToUse);
+        if (!selectedModelData?.supported_tools.includes('image_generator')) { Alert.alert("Incompatible Model", `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation.`, [{ text: "OK" }]); return; }
+        
+        setLoading(true);
+        
+        const finalPrompt = selectedCategory.id !== 'none' ? `${prompt.trim()}. Style: ${selectedCategory.description}` : prompt.trim();
+        const getDimensions = ratio => ({ '16:9': { width: 768, height: 432 }, '9:16': { width: 432, height: 768 } }[ratio] || { width: 512, height: 512 });
+        const { width, height } = getDimensions(aspectRatio);
+        const metadataPayload = { prompt: prompt.trim(), styleId: selectedCategory.id, styleName: selectedCategory.name, modelUsed: modelToUse, imageGenModel: imageModel, batchSize: numImages, aspectRatio, width, height };
+        
         try {
-            const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload)
-
+            const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload);
+            // *** THE KEY CHANGE IS HERE ***
             if (res.success && res.imageUrls?.length) {
-                setUrls(res.imageUrls)
+                setUrls(res.imageUrls); // Store the URLs
+                openModal(0); // Immediately open the modal to show the results
             } else {
-                Alert.alert('Generation Failed', res.reason || 'An unknown error occurred.')
+                Alert.alert('Generation Failed', res.reason || 'An unknown error occurred.');
             }
-        } catch (err) {
-            Alert.alert('Error', err.message || 'An error occurred while generating the image.')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    /*
-    const handleImprove = async () => {
-        Keyboard.dismiss()
-        if (!prompt.trim()) {
-            Alert.alert('Prompt is Empty', 'Please enter a prompt to improve.')
-            return
-        }
-        if (!apiKey) {
-            Alert.alert('API Key Missing', 'An API Key is required to improve prompts.')
-            return
-        }
-
-        setImproving(true)
-        setUrls([])
-        doLayoutAnim()
-        try {
-            const res = await improvePrompt(apiKey, modelToUse, prompt.trim())
-            if (res.success && res.prompt) {
-                setPrompt(res.prompt)
-                Alert.alert('Prompt Improved!', 'Your prompt has been enhanced.')
-            } else {
-                Alert.alert('Improvement Failed', res.reason || 'An unknown error occurred.')
-            }
-        } catch (err) {
-            Alert.alert('Error', err.message || 'An error occurred while improving the prompt.')
-        } finally {
-            setImproving(false)
-        }
-    }
-    */
-
-    const openModal = idx => {
-        setStartIndex(idx)
-        setModalVisible(true)
-    }
+        } catch (err) { Alert.alert('Error', err.message || 'An error occurred.'); }
+        finally { setLoading(false); }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
-            <ImageGalleryModal
-                visible={modalVisible}
-                images={urls}
-                initialIndex={startIndex}
-                onClose={() => setModalVisible(false)}
-            />
-            <ScreenHeader
-                title="Image Generation"
-                navigation={navigation}
-                subtitle="Create AI art with a prompt and style"
-            />
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-                <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Describe Your Image</Text>
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="A futuristic city skyline at sunset..."
-                                placeholderTextColor={theme.colors.subtext}
-                                multiline
-                                value={prompt}
-                                onChangeText={setPrompt}
-                                editable={!anyLoading}
-                            />
-           
-                        </View>
-                    </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Choose a Style</Text>
+            <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
+            <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
+            
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexContainer}>
+                <ScrollView
+                    style={{ flex: 1 }}
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}><Ionicons name="color-palette-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Choose a Style</Text></View>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                            {imageCategories.map(category => {
-                                const isSelected = selectedCategory.id === category.id
-                                return (
-                                    <TouchableOpacity
-                                        key={category.id}
-                                        style={[styles.categoryCard, isSelected && styles.categoryCardSelected]}
-                                        onPress={() => setSelectedCategory(category)}
-                                        disabled={anyLoading}
-                                    >
-                                        <RNImage source={{ uri: category.imageUrl }} style={styles.categoryImage} />
-                                        <View style={styles.categoryTextContainer}>
-                                            <Text style={styles.categoryText}>{category.name}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                )
-                            })}
+                            {imageCategories.map(category => <StyleCategoryCard key={category.id} category={category} isSelected={selectedCategory.id === category.id} onPress={() => setSelectedCategory(category)} disabled={anyLoading} />)}
                         </ScrollView>
                     </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Image Generation Model</Text>
-                        <ToggleSwitch
-                            options={imageModelOptions}
-                            selected={imageModel}
-                            onSelect={setImageModel}
-                            disabled={anyLoading}
-                            containerStyle={{ marginTop: spacing.sm }}
-                            size="medium"
-                            variant="solid"
-                        />
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}><Ionicons name="options-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Generation Settings</Text></View>
+                        <View style={styles.card}><Text style={styles.label}>Image Generation Model</Text><ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
+                        <View style={styles.card}><Text style={styles.label}>Aspect Ratio</Text><ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
+                        <View style={styles.card}><Text style={styles.label}>Number of Images</Text><ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" /></View>
                     </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Aspect Ratio</Text>
-                        <ToggleSwitch
-                            options={aspectRatioOptions}
-                            selected={aspectRatio}
-                            onSelect={setAspectRatio}
-                            disabled={anyLoading}
-                            containerStyle={{ marginTop: spacing.sm }}
-                            size="medium"
-                            variant="solid"
-                        />
-                    </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.label}>Number of Images</Text>
-                        <ToggleSwitch
-                            options={numImagesOptions}
-                            selected={numImages}
-                            onSelect={setNumImages}
-                            disabled={anyLoading}
-                            containerStyle={{ marginTop: spacing.sm }}
-                            size="small"
-                            variant="solid"
-                        />
-                    </View>
-
-                    {(loading || urls.length > 0) && (
-                        <View style={styles.previewCard}>
-                            <Text style={styles.label}>
-                                {loading ? `Generating ${numImages} images...` : 'Generated Images'}
-                            </Text>
-                            <View style={styles.imageGrid}>
-                                {loading
-                                    ? Array(numImages).fill(null).map((_, i) => (
-                                        <Shimmer
-                                            key={i}
-                                            style={[styles.imageWrapper, getImageStyle(numImages, aspectRatio)]}
-                                        />
-                                    ))
-                                    : urls.map((u, i) => (
-                                        <TouchableOpacity
-                                            key={i}
-                                            style={[styles.imageWrapper, getImageStyle(urls.length, aspectRatio)]}
-                                            onPress={() => openModal(i)}
-                                            activeOpacity={0.8}
-                                        >
-                                            <ManagedImage source={{ uri: u }} />
-                                        </TouchableOpacity>
-                                    ))}
-                            </View>
-                        </View>
-                    )}
+                    
+                    {/* *** THE PREVIEW CARD IS NO LONGER RENDERED HERE *** */}
+                    
                 </ScrollView>
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[styles.generateBtn, (!prompt.trim() || anyLoading) && styles.generateBtnDisabled]}
-                        onPress={handleGenerate}
-                        disabled={!prompt.trim() || anyLoading}
-                    >
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateText}>Generate</Text>}
-                    </TouchableOpacity>
+                <View style={styles.composerContainer}>
+                     <View style={styles.inputContainer}>
+                        <TextInput style={styles.promptInput} placeholder="A majestic dragon soaring through clouds..." placeholderTextColor={theme.colors.subtext} multiline value={prompt} onChangeText={setPrompt} editable={!anyLoading} />
+                        <TouchableOpacity style={[styles.generateBtn, (!prompt.trim() || anyLoading) && styles.generateBtnDisabled]} onPress={handleGenerate} disabled={!prompt.trim() || anyLoading}>
+                            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
-    )
+    );
 }
 
 const getStyles = (theme) => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
-    scroll: { padding: spacing.md, paddingBottom: 120 },
-    card: {
-        backgroundColor: theme.colors.card,
-        borderRadius: 12,
-        padding: spacing.md,
-        marginBottom: 16,
-    },
-    label: { fontSize: typography.h2, fontWeight: '600', color: theme.colors.text, marginBottom: spacing.sm },
-    inputWrapper: { position: 'relative' },
-    input: {
-        backgroundColor: theme.colors.background,
-        borderRadius: 8,
-        padding: spacing.sm + spacing.xs,
-        minHeight: 120,
-        textAlignVertical: 'top',
-        color: theme.colors.text,
-        fontSize: typography.body,
-        paddingRight: 40,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    improveBtn: {
-        position: 'absolute',
-        bottom: spacing.sm,
-        right: spacing.sm,
-        backgroundColor: theme.colors.accent20,
-        borderRadius: 20,
-        width: 32,
-        height: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    categoryScroll: { paddingBottom: spacing.xs },
-    categoryCard: {
-        width: 100,
-        height: 100,
-        borderRadius: 8,
-        marginRight: spacing.sm,
-        borderWidth: 2,
-        borderColor: 'transparent',
-        overflow: 'hidden',
-    },
+    flexContainer: { flex: 1 },
+    scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg, flexGrow: 1 },
+    section: { marginBottom: spacing.lg },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+    sectionTitle: { fontSize: typography.h2, fontWeight: '700', color: theme.colors.text, marginLeft: spacing.sm },
+    card: { backgroundColor: theme.colors.card, borderRadius: 12, padding: spacing.md, marginBottom: 16, borderWidth: 1, borderColor: theme.colors.border },
+    label: { fontSize: 16, fontWeight: '600', color: theme.colors.text, marginBottom: spacing.sm },
+    categoryScroll: { paddingBottom: spacing.sm },
+    categoryCard: { width: 120, height: 150, borderRadius: 12, marginRight: spacing.sm, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
     categoryCardSelected: { borderColor: theme.colors.accent },
-    categoryImage: { width: '100%', height: '100%', borderRadius: 6 },
-    categoryTextContainer: {
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
-        padding: spacing.xs,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        borderRadius: 6
-    },
-    categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '500', textAlign: 'center' },
-    previewCard: {
-        backgroundColor: theme.colors.card,
-        borderRadius: 12,
-        padding: spacing.md,
-        marginBottom: spacing.md,
-    },
-    imageGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    imageWrapper: { borderRadius: 8, overflow: 'hidden' },
-    imageContainer: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-    fillImage: { width: '100%', height: '100%' },
-    imageOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.2)',
-    },
+    categoryCardDisabled: { opacity: 0.5 },
+    categoryImage: { width: '100%', height: '100%' },
+    categoryOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: spacing.sm, backgroundColor: 'rgba(0,0,0,0.3)' },
+    categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '700' },
+    categorySelectedBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+    composerContainer: { padding: spacing.md, backgroundColor: theme.colors.background, borderTopWidth: 1, borderColor: theme.colors.border },
+    inputContainer: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: theme.colors.card, borderRadius: 24, borderWidth: 1, borderColor: theme.colors.border, paddingLeft: spacing.md, paddingRight: spacing.xs, paddingVertical: spacing.xs },
+    promptInput: { flex: 1, fontSize: typography.body, color: theme.colors.text, minHeight: 40, maxHeight: 120, paddingVertical: Platform.OS === 'ios' ? spacing.sm : 0 },
+    generateBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.accent, justifyContent: 'center', alignItems: 'center', marginLeft: spacing.sm },
+    generateBtnDisabled: { backgroundColor: theme.colors.subtext, opacity: 0.6 },
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
     modalPage: { width: screenWidth, height: '100%', justifyContent: 'center', alignItems: 'center' },
     modalImage: { width: '100%', height: '80%' },
-    modalButton: {
-        position: 'absolute',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 30,
-        padding: spacing.sm,
-        zIndex: 10,
-    },
-    closeButton: { top: Platform.OS === 'android' ? spacing.xl : 60, right: spacing.md },
-    downloadButton: { bottom: Platform.OS === 'android' ? spacing.xl : 60, alignSelf: 'center' },
-    pageIndicator: {
-        position: 'absolute',
-        top: Platform.OS === 'android' ? spacing.xl + 5 : 65,
-        alignSelf: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 12,
-        paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.sm,
-    },
-    pageIndicatorText: { color: '#fff', fontSize: typography.body, fontWeight: 'bold' },
-    footer: {
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        padding: spacing.md,
-        backgroundColor: theme.colors.background,
-        borderTopWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    generateBtn: {
-        backgroundColor: theme.colors.accent,
-        borderRadius: 12,
-        height: 52,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 3,
-    },
-    generateBtnDisabled: { backgroundColor: theme.colors.accent, opacity: 0.5, elevation: 0 },
-    generateText: { color: '#fff', fontSize: typography.h2, fontWeight: '600' },
+    modalButton: { position: 'absolute', padding: spacing.sm, zIndex: 10 },
+    closeButton: { top: Platform.OS === 'android' ? spacing.xl : 60, right: spacing.md, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+    toolbar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'android' ? spacing.lg : 40, paddingTop: spacing.md, paddingHorizontal: spacing.lg, backgroundColor: 'rgba(0,0,0,0.3)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', },
+    pageIndicator: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, },
+    pageIndicatorText: { color: '#fff', fontSize: typography.small, fontWeight: 'bold' },
+    actionsContainer: { flexDirection: 'row', alignItems: 'center' },
+    actionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 12, marginLeft: spacing.sm, },
+    actionText: { color: '#fff', marginLeft: spacing.xs, fontWeight: '600' },
+    disabled: { opacity: 0.5 },
 });

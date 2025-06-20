@@ -37,6 +37,7 @@ function CustomDrawerContent(props) {
   const menuItems = [
     { name: 'Threads', label: 'Dashboard', icon: 'grid-outline', activeIcon: 'grid' },
     { name: 'Characters', label: 'Characters', icon: 'people-outline', activeIcon: 'people' },
+    { name: 'LanguageTutor', label: 'Language Tutor', icon: 'chatbubble-ellipses-outline', activeIcon: 'chatbubble-ellipses' },
     { name: 'ImageGeneration', label: 'Generate Image', icon: 'image-outline', activeIcon: 'image' },
     { name: 'Gallery', label: 'Gallery', icon: 'images-outline', activeIcon: 'images' },
     { name: 'Settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },

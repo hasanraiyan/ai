@@ -15,6 +15,7 @@
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/drawer": "^7.4.2",
     "@react-navigation/native": "^7.1.11",
+    "@shopify/flash-list": "^1.8.3",
     "axios": "^1.10.0",
     "base-64": "^1.0.0",
     "expo": "~53.0.11",
@@ -22,7 +23,9 @@
     "expo-clipboard": "~7.1.4",
     "expo-file-system": "~18.1.10",
     "expo-haptics": "~14.1.4",
+    "expo-image": "~2.3.0",
     "expo-image-picker": "~16.1.4",
+    "expo-linear-gradient": "~14.1.5",
     "expo-media-library": "~17.1.7",
     "expo-sharing": "~13.1.5",
     "expo-speech": "~13.1.7",
@@ -35,9 +38,7 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-toast-message": "^2.3.0",
-    "expo-linear-gradient": "~14.1.5",
-    "expo-image": "~2.3.0"
+    "react-native-toast-message": "^2.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

@@ -10,41 +10,51 @@ export function useCharacters() {
   const [characters, setCharacters] = useState([]);
   const [charactersReady, setCharactersReady] = useState(false);
 
-  // Effect to load and merge characters from storage on mount
+  // This single, robust effect handles loading and initialization.
   useEffect(() => {
-    (async () => {
+    const loadAndInitializeCharacters = async () => {
       try {
         const storedCharactersJSON = await AsyncStorage.getItem(CHARACTERS_STORAGE_KEY);
-        const storedCharacters = storedCharactersJSON ? JSON.parse(storedCharactersJSON) : [];
-
-        if (storedCharacters.length === 0) {
-          // --- First time launch: seed with default characters ---
+        
+        if (storedCharactersJSON === null) {
+          // --- SCENARIO 1: FIRST-TIME LAUNCH ---
+          // No data in storage, so we seed the app with the default characters.
+          console.log("First launch: Seeding with default characters.");
           setCharacters(defaultCharacters);
         } else {
-          // --- Merge Logic for existing users ---
-          // 1. Get the latest default characters from the constants file.
+          // --- SCENARIO 2: EXISTING USER ---
+          // Data exists, so we merge it with the latest defaults from the code.
+          const storedCharacters = JSON.parse(storedCharactersJSON);
+          
+          // Get the latest default characters from the constants file.
           const latestDefaults = defaultCharacters;
           
-          // 2. Get all characters created by the user from storage.
+          // Get all non-default (i.e., user-created) characters from storage.
           const userCreatedCharacters = storedCharacters.filter(c => !c.isDefault);
           
-          // 3. Combine them. The latest defaults overwrite any old stored defaults,
-          //    and user-created characters are preserved.
+          // Combine them. The latest defaults from the code overwrite any old stored defaults,
+          // and all user-created characters are preserved.
           const finalCharacterList = [...latestDefaults, ...userCreatedCharacters];
           
           setCharacters(finalCharacterList);
         }
       } catch (e) {
-        console.warn('Error loading/merging characters from AsyncStorage:', e);
-        // Fallback to default characters on any error.
+        console.warn('Error loading or initializing characters, falling back to defaults:', e);
+        // --- SCENARIO 3: ERROR FALLBACK ---
+        // If anything goes wrong (e.g., corrupted data), start fresh with defaults.
         setCharacters(defaultCharacters);
+      } finally {
+        // Mark the characters as ready for the app to use.
+        setCharactersReady(true);
       }
-      setCharactersReady(true);
-    })();
-  }, []);
+    };
 
-  // Effect to save characters to storage whenever they change
+    loadAndInitializeCharacters();
+  }, []); // The empty dependency array `[]` ensures this runs only once on mount.
+
+  // This effect saves the characters to storage whenever the list changes.
   useEffect(() => {
+    // We only save after the initial load is complete to avoid race conditions.
     if (charactersReady) {
       AsyncStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(characters));
     }
@@ -54,14 +64,14 @@ export function useCharacters() {
     const newCharacter = {
       ...newCharacterData,
       id: `user-${Date.now().toString()}`,
-      isDefault: false, // User-created characters are never default
+      isDefault: false, // User-created characters are never default.
     };
     setCharacters(prev => [newCharacter, ...prev]);
   }, []);
 
   const updateCharacter = useCallback((characterToUpdate) => {
     setCharacters(prev => 
-      prev.map(c => c.id === characterToUpdate.id ? characterToUpdate : c)
+      prev.map(c => c.id === characterToUpdate.id ? { ...characterToUpdate, isDefault: c.isDefault } : c)
     );
   }, []);
 
