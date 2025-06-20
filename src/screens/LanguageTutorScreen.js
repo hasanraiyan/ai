@@ -35,6 +35,7 @@ import LanguageSelector from '../components/LanguageSelector'; // if still used 
 import ToggleSwitch from '../components/ToggleSwitch';
 import LanguageSettings from '../components/LanguageSettings'; // new component
 import { supportedLanguages } from '../constants/languages'; // array of { code, name, isRTL }
+import ScreenHeader from '../components/ScreenHeader';
 
 const { width: windowWidth } = Dimensions.get('window');
 
@@ -446,24 +447,11 @@ export default function LanguageTutorScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* HEADER */}
-        <LinearGradient
-          colors={['#FFFFFF', '#F8FAFC']}
-          style={styles.header}
-        >
-          <TouchableOpacity
-            onPress={navigation.openDrawer}
-            style={styles.menuButton}
-          >
-            <Ionicons name="menu-outline" size={24} color="#475569" />
-          </TouchableOpacity>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Language Lab</Text>
-            <Text style={styles.subtitle}>
-              AI-powered learning assistant
-            </Text>
-          </View>
-          <View style={styles.headerRight} />
-        </LinearGradient>
+        <ScreenHeader
+          navigation={navigation}
+          title="Language Lab"
+          subtitle="AI-powered learning assistant"
+        />
 
         <ScrollView
           contentContainerStyle={styles.scrollContainer}

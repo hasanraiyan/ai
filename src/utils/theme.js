@@ -39,12 +39,19 @@ const dark = {
   },
 };
 
+/**
+ * A hook to get the current theme object (light or dark).
+ * Provides access to all color values for the current mode.
+ */
 export function useTheme() {
   const scheme = useColorScheme();
   return scheme === 'dark' ? dark : light;
 }
 
-// spacing scale in px
+/**
+ * A consistent scale for margins, gaps, and other spacing properties.
+ * (in pixels)
+ */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -53,7 +60,23 @@ export const spacing = {
   xl: 32,
 };
 
-// typography scale
+/**
+ * A consistent scale for padding properties.
+ * Mirrors the spacing scale for uniformity in the design system.
+ * (in pixels)
+ */
+export const padding = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};
+
+
+/**
+ * A consistent scale for typography and font sizes.
+ */
 export const typography = {
   h1: 20,
   h2: 18,

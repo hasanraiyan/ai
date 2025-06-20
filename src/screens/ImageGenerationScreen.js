@@ -30,7 +30,7 @@ import { generateImage, improvePrompt } from '../agents/aiImageAgent'
 import { imageCategories } from '../constants/imageCategories'
 import { models } from '../constants/models'
 import { useTheme, spacing, typography } from '../utils/theme'
-
+import ScreenHeader from '../components/ScreenHeader'
 const { width: screenWidth } = Dimensions.get('window')
 const MIN_IMAGES = 1
 const MAX_IMAGES = 4
@@ -293,15 +293,12 @@ export default function ImageGenerationScreen({ navigation }) {
                 initialIndex={startIndex}
                 onClose={() => setModalVisible(false)}
             />
-            <View style={styles.header}>
-                <TouchableOpacity onPress={navigation.openDrawer}>
-                    <Ionicons name="menu-outline" size={28} color={theme.colors.subtext} />
-                </TouchableOpacity>
-                <Text style={styles.title}>Generate Image</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
-                    <Ionicons name="settings-outline" size={24} color={theme.colors.subtext} />
-                </TouchableOpacity>
-            </View>
+           <ScreenHeader
+                title="Image Generation"
+                navigation={navigation}
+                subtitle={"Create AI art with a prompt and style"}
+                />
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}

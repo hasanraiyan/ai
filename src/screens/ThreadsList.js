@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { useTheme, spacing, typography } from '../utils/theme';
+import ScreenHeader from '../components/ScreenHeader';
+
 
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 const { width: screenWidth } = Dimensions.get('window');
@@ -50,21 +52,21 @@ const DashboardSection = React.memo(({ title, children, onSeeAll, seeAllLabel = 
 const QuickActions = ({ navigation }) => {
   const { colors } = useTheme();
   const actions = useMemo(() => [
-    { 
-      title: 'Generate Image', 
-      icon: 'image-outline', 
+    {
+      title: 'Generate Image',
+      icon: 'image-outline',
       screen: 'ImageGeneration',
       description: 'Create AI art'
     },
-    { 
-      title: 'Language Tutor', 
-      icon: 'language-outline', 
+    {
+      title: 'Language Tutor',
+      icon: 'language-outline',
       screen: 'LanguageTutor',
       description: 'Learn languages'
     },
-    { 
-      title: 'Settings', 
-      icon: 'settings-outline', 
+    {
+      title: 'Settings',
+      icon: 'settings-outline',
       screen: 'Settings',
       description: 'App preferences'
     },
@@ -143,9 +145,9 @@ const PinnedMessages = ({ navigation }) => {
           <TouchableOpacity
             key={message.id}
             style={[
-              styles.pinCard, 
-              { 
-                backgroundColor: colors.card, 
+              styles.pinCard,
+              {
+                backgroundColor: colors.card,
                 borderColor: colors.border,
                 marginBottom: index === items.length - 1 ? 0 : spacing.sm,
               }
@@ -274,9 +276,9 @@ const RecentConversations = ({ navigation }) => {
               <TouchableOpacity
                 key={item.id}
                 style={[
-                  styles.threadCard, 
-                  { 
-                    backgroundColor: colors.card, 
+                  styles.threadCard,
+                  {
+                    backgroundColor: colors.card,
                     borderColor: colors.border,
                     marginBottom: index === recentThreads.length - 1 ? 0 : spacing.sm,
                   }
@@ -311,18 +313,13 @@ export default function ThreadsList({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBorder }]}>
-        <TouchableOpacity
-          onPress={() => navigation.openDrawer()}
-          style={styles.headerIconButton}
-        >
-          <Ionicons name="menu-outline" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Dashboard</Text>
-        <View style={{ width: 24 + spacing.sm * 2 }} />
-      </View>
+      <ScreenHeader
+        navigation={navigation}
+        title="Dashboard"
+        subtitle="Welcome back!"
+      />
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
@@ -334,8 +331,8 @@ export default function ThreadsList({ navigation }) {
 
       <TouchableOpacity
         style={[
-          styles.fab, 
-          { 
+          styles.fab,
+          {
             backgroundColor: colors.fabBg,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -378,7 +375,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: typography.h2, fontWeight: '700' },
   seeAllButton: { flexDirection: 'row', alignItems: 'center' },
   seeAllText: { fontSize: typography.body, fontWeight: '600' },
-  
+
   // Empty states
   emptySection: {
     alignItems: 'center',

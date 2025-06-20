@@ -20,6 +20,7 @@ import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
+import ScreenHeader from '../components/ScreenHeader';
 
 // A reusable selector component with search and modal for large lists
 function ModelSelector({
@@ -129,12 +130,11 @@ function SettingsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.headerButton}>
-          <Ionicons name="menu-outline" size={28} color="#475569" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
+      <ScreenHeader
+        navigation={navigation}
+        title="Settings"
+        subtitle="Configure your AI assistant"
+      />
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
 
         {/* API Key Card */}
@@ -289,7 +289,7 @@ function SettingsScreen({ navigation }) {
                 ]
               );
             }}>
-            <Ionicons name="trash-outline" size={18} color="#991B1B" style={{marginRight: 8}} />
+            <Ionicons name="trash-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
           </TouchableOpacity>
         </View>

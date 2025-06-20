@@ -14,7 +14,8 @@ import {
   Platform,
   StatusBar,
   RefreshControl,
-  Animated
+  Clipboard,
+  ToastAndroid
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, AntDesign, Feather } from '@expo/vector-icons';
@@ -24,7 +25,7 @@ import * as MediaLibrary from 'expo-media-library';
 import Toast from 'react-native-toast-message';
 import { BlurView } from 'expo-blur';
 import ImageViewing from 'react-native-image-viewing';
-
+import ScreenHeader from '../components/ScreenHeader';
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 const { width } = Dimensions.get('window');
 const numColumns = 2;
@@ -64,8 +65,7 @@ export default function GalleryScreen({ navigation }) {
           const uri = IMAGE_DIR + fn;
           const base = fn.split('.')[0];
           const metaUri = `${IMAGE_DIR}${base}.json`;
-          
-          // Default values for our new, richer metadata object
+
           let metadata = {
             id: fn,
             uri,
@@ -73,7 +73,9 @@ export default function GalleryScreen({ navigation }) {
             fullPrompt: 'Untitled',
             styleName: 'N/A',
             modelUsed: 'N/A',
-            time: 0
+            time: 0,
+            size: { width: 512, height: 512 },
+            imageUrl: ''
           };
 
           const info = await FileSystem.getInfoAsync(uri, { size: false });
@@ -83,9 +85,7 @@ export default function GalleryScreen({ navigation }) {
           if (mInfo.exists) {
             const txt = await FileSystem.readAsStringAsync(metaUri);
             const mdFromFile = JSON.parse(txt);
-            // Merge the loaded metadata with our default object
             metadata = { ...metadata, ...mdFromFile };
-            // Use creationTimestamp if available, otherwise fall back to file modification time
             metadata.time = mdFromFile.creationTimestamp || metadata.time;
           }
           return metadata;
@@ -168,6 +168,19 @@ export default function GalleryScreen({ navigation }) {
     ]);
   }
 
+  function onCopyUrl(url) {
+    if (!url) {
+      Toast.show({ type: 'error', text1: 'No URL available' });
+      return;
+    }
+    Clipboard.setString(url);
+    if (Platform.OS === 'android') {
+      ToastAndroid.show('URL Copied!', ToastAndroid.SHORT);
+    } else {
+      Toast.show({ type: 'success', text1: 'URL Copied!' });
+    }
+  }
+
   function openLightbox(idx) {
     setCurrentIndex(idx);
     setLightboxVisible(true);
@@ -207,21 +220,20 @@ export default function GalleryScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={navigation.openDrawer}>
-          <Ionicons name="menu-outline" size={28} color="#475569" />
-        </TouchableOpacity>
-        <Text style={styles.title}>AI Gallery</Text>
-        <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
-          <Ionicons
-            name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
-            size={24}
-            color="#475569"
-          />
-        </TouchableOpacity>
-      </View>
-
+      <ScreenHeader
+        navigation={navigation}
+        title="AI Gallery"
+        subtitle="Your generated masterpieces"
+        rightAction={
+          <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
+            <Ionicons
+              name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
+              size={28}
+              color="#475569"
+            />
+          </TouchableOpacity>
+        }
+      />
       {/* Content */}
       {loading && !refreshing ? (
         <View style={styles.center}>
@@ -281,39 +293,46 @@ export default function GalleryScreen({ navigation }) {
         visible={lightboxVisible}
         onRequestClose={() => setLightboxVisible(false)}
         FooterComponent={({ imageIndex }) => {
-            const currentImage = images[imageIndex];
-            if (!currentImage) return null;
-            return (
-              <View style={styles.lightboxFooter}>
-                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.prompt}>
-                  {currentImage.fullPrompt || currentImage.prompt}
-                </Text>
-                 <View style={styles.metadataRow}>
-                    <View style={styles.metadataChip}>
-                        <Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} />
-                        <Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text>
-                    </View>
-                     <View style={styles.metadataChip}>
-                        <Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} />
-                        <Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text>
-                    </View>
+          const currentImage = images[imageIndex];
+          if (!currentImage) return null;
+          return (
+            <View style={styles.lightboxFooter}>
+              <Text numberOfLines={2} ellipsizeMode="tail" style={styles.prompt}>
+                {currentImage.fullPrompt || currentImage.prompt}
+              </Text>
+              <View style={styles.metadataRow}>
+                <View style={styles.metadataChip}>
+                  <Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} />
+                  <Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text>
                 </View>
-                <Text style={styles.date}>
-                  {new Date(currentImage.time).toLocaleString()}
-                </Text>
-                <View style={styles.actions}>
-                  <TouchableOpacity onPress={() => onShare(currentImage.uri)}>
-                    <Feather name="share-2" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => onDownload(currentImage.uri)}>
-                    <Feather name="download" size={24} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => onDelete(currentImage)}>
-                    <Feather name="trash-2" size={24} color="#E57373" />
-                  </TouchableOpacity>
+                <View style={styles.metadataChip}>
+                  <Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} />
+                  <Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text>
+                </View>
+                <View style={styles.metadataChip}>
+                  <Ionicons name="resize-outline" size={14} color="#ccc" style={styles.chipIcon} />
+                  <Text style={styles.chipText}>{`${currentImage.size?.width || 'N/A'}x${currentImage.size?.height || 'N/A'}`}</Text>
                 </View>
               </View>
-            )
+              <Text style={styles.date}>
+                {new Date(currentImage.time).toLocaleString()}
+              </Text>
+              <View style={styles.actions}>
+                <TouchableOpacity onPress={() => onCopyUrl(currentImage.imageUrl)}>
+                  <Feather name="link" size={24} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onShare(currentImage.uri)}>
+                  <Feather name="share-2" size={24} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onDownload(currentImage.uri)}>
+                  <Feather name="download" size={24} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(currentImage)}>
+                  <Feather name="trash-2" size={24} color="#E57373" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
         }}
       />
 

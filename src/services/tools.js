@@ -60,7 +60,6 @@ const tools = {
     }
   },
 
-  // The tool now accepts a 'metadata' object along with the prompt.
   image_generator: async ({ prompt, metadata = {} }) => {
     console.log(`TOOL: Generating image for "${prompt}"`);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
@@ -71,8 +70,10 @@ const tools = {
       await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
     }
 
+    const width = 512;
+    const height = 512;
     const encodedPrompt = encodeURIComponent(prompt);
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=512&height=512`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}`;
 
     const uniqueId = Date.now().toString();
     const imageFilename = `${uniqueId}.png`;
@@ -89,16 +90,17 @@ const tools = {
 
       // Construct the rich metadata object to be saved.
       const dataToSave = {
-        ...metadata, // includes prompt, styleId, styleName, modelUsed, batchSize
-        fullPrompt: prompt, // The final, detailed prompt used for this specific image
-        creationTimestamp: Date.now(), // A precise timestamp
+        ...metadata,
+        fullPrompt: prompt,
+        creationTimestamp: Date.now(),
+        size: { width, height }, // Save image dimensions
+        imageUrl: imageUrl,       // Save the hosted URL
       };
-      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2)); // Save with pretty printing
+      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
 
       console.log('Image saved to:', downloadResult.uri);
       console.log('Metadata saved to:', metadataUri);
       
-      // ALWAYS return the URL and local URI on success
       return {
         image_generated: true,
         imageUrl: imageUrl,
