@@ -4,7 +4,8 @@ import { AIAgent } from "../services/aiAgents";
 // Import the actual tool implementation, not the dispatcher
 import { toolImplementations } from "../services/tools";
 
-export const generateImage = async (apikey, modelName, inputText, n = 1) => {
+// Updated function signature to accept metadataPayload
+export const generateImage = async (apikey, modelName, inputText, n = 1, metadataPayload = {}) => {
     if (!apikey || !modelName || !inputText) {
         throw new Error("Missing required parameters.");
     }
@@ -100,12 +101,15 @@ Only respond with JSON. No extra commentary or text.
     const promptArray = result.prompts;
 
     const imageResults = await Promise.all(
-        promptArray.map(async (prompt) => {
+        promptArray.map(async (p) => {
             try {
-                // Call the tool directly
-                return await toolImplementations.image_generator({ prompt });
+                // Pass the generated prompt AND the metadata payload to the tool.
+                return await toolImplementations.image_generator({ 
+                    prompt: p, 
+                    metadata: metadataPayload 
+                });
             } catch (e) {
-                console.error("Image generation failed for prompt:", prompt, e);
+                console.error("Image generation failed for prompt:", p, e);
                 return null;
             }
         })

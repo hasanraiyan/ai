@@ -62,7 +62,6 @@ export const models = [
         isChatModel: true,
         isTitleModel: true,
         isAgentModel: true,
-        // FIX: The model name implies image generation, so the tool should be supported.
         supported_tools: ['search_web', 'calculator', 'image_generator']
     },
     {

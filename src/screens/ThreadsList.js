@@ -10,7 +10,6 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  useColorScheme,
   Platform,
   Dimensions,
 } from 'react-native';
@@ -27,7 +26,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const DashboardSection = React.memo(({ title, children, onSeeAll, seeAllLabel = "See All" }) => {
   const { colors } = useTheme();
   return (
-    <View style={[styles.sectionContainer, { marginBottom: spacing.xl }]}>
+    <View style={{ marginBottom: spacing.xl }}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
         {onSeeAll && (
@@ -42,7 +41,7 @@ const DashboardSection = React.memo(({ title, children, onSeeAll, seeAllLabel = 
           </TouchableOpacity>
         )}
       </View>
-      <View style={styles.sectionContent}>{children}</View>
+      <View>{children}</View>
     </View>
   );
 });
@@ -55,21 +54,18 @@ const QuickActions = ({ navigation }) => {
       title: 'Generate Image', 
       icon: 'image-outline', 
       screen: 'ImageGeneration',
-      gradient: ['#667eea', '#764ba2'],
       description: 'Create AI art'
     },
     { 
       title: 'Language Tutor', 
       icon: 'language-outline', 
       screen: 'LanguageTutor',
-      gradient: ['#f093fb', '#f5576c'],
       description: 'Learn languages'
     },
     { 
       title: 'Settings', 
       icon: 'settings-outline', 
       screen: 'Settings',
-      gradient: ['#4facfe', '#00f2fe'],
       description: 'App preferences'
     },
   ], []);
@@ -79,27 +75,20 @@ const QuickActions = ({ navigation }) => {
   return (
     <DashboardSection title="Quick Actions">
       <View style={styles.quickActionsGrid}>
-        {actions.map((item, index) => (
+        {actions.map((item) => (
           <TouchableOpacity
             key={item.title}
             style={[
-              styles.qa_card_new,
+              styles.qaCard,
               {
                 backgroundColor: colors.card,
                 borderColor: colors.border,
                 width: cardWidth,
-                // Add subtle shadow
-                ...Platform.select({
-                  ios: {
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                  },
-                  android: {
-                    elevation: 3,
-                  },
-                }),
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: Platform.OS === 'ios' ? 0.08 : 0,
+                shadowRadius: 8,
+                elevation: 3,
               },
             ]}
             onPress={() => navigation.navigate(item.screen)}
@@ -107,17 +96,14 @@ const QuickActions = ({ navigation }) => {
             accessibilityLabel={`${item.title}: ${item.description}`}
             activeOpacity={0.8}
           >
-            <View style={[
-              styles.qa_icon_container_new, 
-              { backgroundColor: `${colors.accent}15` }
-            ]}>
+            <View style={[styles.qaIconContainer, { backgroundColor: colors.accent20 }]}>
               <Ionicons name={item.icon} size={28} color={colors.accent} />
             </View>
-            <View style={styles.qa_text_container}>
-              <Text style={[styles.qa_title_new, { color: colors.text }]} numberOfLines={2}>
+            <View>
+              <Text style={[styles.qaTitle, { color: colors.text }]} numberOfLines={2}>
                 {item.title}
               </Text>
-              <Text style={[styles.qa_description, { color: colors.subtext }]} numberOfLines={1}>
+              <Text style={[styles.qaDescription, { color: colors.subtext }]} numberOfLines={1}>
                 {item.description}
               </Text>
             </View>
@@ -137,11 +123,11 @@ const PinnedMessages = ({ navigation }) => {
     return (
       <DashboardSection title="Pinned Messages">
         <View style={[styles.emptySection, { backgroundColor: colors.emptyBg }]}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: `${colors.emptyIcon}10` }]}>
-            <Ionicons name="pin-outline" size={32} color={colors.emptyIcon} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.accent20 }]}>
+            <Ionicons name="pin-outline" size={32} color={colors.accent} />
           </View>
           <Text style={[styles.emptySectionText, { color: colors.subtext }]}>
-            Pin messages in a chat to see them here
+            Pin important messages in a chat to see them here for quick access.
           </Text>
         </View>
       </DashboardSection>
@@ -157,7 +143,7 @@ const PinnedMessages = ({ navigation }) => {
           <TouchableOpacity
             key={message.id}
             style={[
-              styles.pin_card, 
+              styles.pinCard, 
               { 
                 backgroundColor: colors.card, 
                 borderColor: colors.border,
@@ -165,17 +151,15 @@ const PinnedMessages = ({ navigation }) => {
               }
             ]}
             onPress={() => navigation.navigate('Chat', { threadId, name: threadName })}
-            accessibilityRole="button"
-            accessibilityLabel={`Pinned message from ${threadName}: ${message.text}`}
             activeOpacity={0.7}
           >
             <View style={styles.pinHeader}>
               <Ionicons name="pin" size={16} color={colors.accent} />
-              <Text style={[styles.pin_source, { color: colors.subtext }]}>
+              <Text style={[styles.pinSource, { color: colors.subtext }]}>
                 {threadName}
               </Text>
             </View>
-            <Text style={[styles.pin_text, { color: colors.text }]} numberOfLines={3}>
+            <Text style={[styles.pinText, { color: colors.text }]} numberOfLines={3}>
               {message.text}
             </Text>
           </TouchableOpacity>
@@ -230,11 +214,11 @@ const RecentImages = ({ navigation }) => {
         </View>
       ) : images.length === 0 ? (
         <View style={[styles.emptySection, { backgroundColor: colors.emptyBg }]}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: `${colors.emptyIcon}10` }]}>
-            <Ionicons name="images-outline" size={32} color={colors.emptyIcon} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.accent20 }]}>
+            <Ionicons name="images-outline" size={32} color={colors.accent} />
           </View>
           <Text style={[styles.emptySectionText, { color: colors.subtext }]}>
-            Generated images will appear here
+            Use the "Generate Image" action to create your first AI masterpiece.
           </Text>
         </View>
       ) : (
@@ -242,35 +226,19 @@ const RecentImages = ({ navigation }) => {
           data={images}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingLeft: spacing.md, paddingRight: spacing.md }}
+          contentContainerStyle={{ paddingHorizontal: spacing.md }}
           keyExtractor={item => item.id}
           renderItem={({ item, index }) => (
             <TouchableOpacity
               onPress={() => navigation.navigate('Gallery')}
-              accessibilityRole="imagebutton"
-              accessibilityLabel="View generated image"
               style={{ marginRight: index === images.length - 1 ? 0 : spacing.sm }}
             >
               <Image
                 source={{ uri: item.uri }}
                 style={[
-                  styles.ri_image,
-                  {
-                    backgroundColor: colors.imagePlaceholder,
-                    ...Platform.select({
-                      ios: {
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.15,
-                        shadowRadius: 8,
-                      },
-                      android: {
-                        elevation: 4,
-                      },
-                    }),
-                  }
+                  styles.riImage,
+                  { backgroundColor: colors.imagePlaceholder }
                 ]}
-                accessibilityIgnoresInvertColors={false}
               />
             </TouchableOpacity>
           )}
@@ -290,11 +258,11 @@ const RecentConversations = ({ navigation }) => {
     <DashboardSection title="Recent Conversations" onSeeAll={() => navigation.navigate('AllThreads')}>
       {recentThreads.length === 0 ? (
         <View style={[styles.emptySection, { backgroundColor: colors.emptyBg }]}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: `${colors.emptyIcon}10` }]}>
-            <Ionicons name="chatbubbles-outline" size={32} color={colors.emptyIcon} />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.accent20 }]}>
+            <Ionicons name="chatbubbles-outline" size={32} color={colors.accent} />
           </View>
           <Text style={[styles.emptySectionText, { color: colors.subtext }]}>
-            Start a new conversation to see it here
+            Start a new chat using the "+" button to see your conversations here.
           </Text>
         </View>
       ) : (
@@ -302,7 +270,6 @@ const RecentConversations = ({ navigation }) => {
           {recentThreads.map((item, index) => {
             const last = item.messages[item.messages.length - 1];
             const snippet = last ? `${last.text.slice(0, 50)}…` : 'No messages yet';
-            const timeLabel = last ? last.ts : '';
             return (
               <TouchableOpacity
                 key={item.id}
@@ -315,11 +282,9 @@ const RecentConversations = ({ navigation }) => {
                   }
                 ]}
                 onPress={() => navigation.navigate('Chat', { threadId: item.id, name: item.name })}
-                accessibilityRole="button"
-                accessibilityLabel={`Open conversation ${item.name}, last message: ${snippet}`}
                 activeOpacity={0.7}
               >
-                <View style={[styles.threadIcon, { backgroundColor: `${colors.accent}15` }]}>
+                <View style={[styles.threadIcon, { backgroundColor: colors.accent20 }]}>
                   <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.accent} />
                 </View>
                 <View style={styles.threadTextContainer}>
@@ -330,9 +295,6 @@ const RecentConversations = ({ navigation }) => {
                     {snippet}
                   </Text>
                 </View>
-                {timeLabel ? (
-                  <Text style={[styles.threadTime, { color: colors.subtext }]}>{timeLabel}</Text>
-                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -353,8 +315,6 @@ export default function ThreadsList({ navigation }) {
         <TouchableOpacity
           onPress={() => navigation.openDrawer()}
           style={styles.headerIconButton}
-          accessibilityRole="button"
-          accessibilityLabel="Open menu"
         >
           <Ionicons name="menu-outline" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -363,10 +323,7 @@ export default function ThreadsList({ navigation }) {
       </View>
 
       <ScrollView 
-        contentContainerStyle={{ 
-          paddingTop: spacing.lg, // Added top padding after header
-          paddingBottom: 100 
-        }}
+        contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         <QuickActions navigation={navigation} />
@@ -380,25 +337,17 @@ export default function ThreadsList({ navigation }) {
           styles.fab, 
           { 
             backgroundColor: colors.fabBg,
-            ...Platform.select({
-              android: {
-                elevation: 8,
-              },
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-              },
-            }),
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
           }
         ]}
         onPress={() => {
           const id = createThread();
           navigation.navigate('Chat', { threadId: id, name: 'New Chat' });
         }}
-        accessibilityRole="button"
-        accessibilityLabel="Start new chat"
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -408,29 +357,17 @@ export default function ThreadsList({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 1,
   },
-  headerIconButton: {
-    padding: spacing.xs,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: typography.h1,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  sectionContainer: {
-    // marginBottom handled inline
-  },
+  headerIconButton: { padding: spacing.xs },
+  headerTitle: { fontSize: typography.h1, fontWeight: '700' },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -438,31 +375,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: typography.h2,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 20,
-  },
-  seeAllText: {
-    fontSize: typography.body,
-    fontWeight: '600',
-  },
-  sectionContent: {},
+  sectionTitle: { fontSize: typography.h2, fontWeight: '700' },
+  seeAllButton: { flexDirection: 'row', alignItems: 'center' },
+  seeAllText: { fontSize: typography.body, fontWeight: '600' },
   
   // Empty states
   emptySection: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
     borderRadius: 16,
     marginHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.1)',
   },
   emptyIconContainer: {
     width: 64,
@@ -478,25 +404,25 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   loadingContainer: {
+    height: 120, // Match image height
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
   },
 
-  // Quick Actions - New Design
+  // Quick Actions
   quickActionsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
   },
-  qa_card_new: {
+  qaCard: {
     height: 120,
     borderRadius: 20,
     padding: spacing.md,
     justifyContent: 'space-between',
     borderWidth: 1,
   },
-  qa_icon_container_new: {
+  qaIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -504,48 +430,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  qa_text_container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  qa_title_new: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    lineHeight: 18,
-    marginBottom: 2,
-  },
-  qa_description: {
-    fontSize: typography.small,
-    lineHeight: 14,
-  },
+  qaTitle: { fontSize: typography.body, fontWeight: '700' },
+  qaDescription: { fontSize: typography.small },
 
   // Pinned Messages
-  pin_card: {
+  pinCard: {
     borderRadius: 16,
     padding: spacing.md,
     borderWidth: 1,
   },
-  pinHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  pin_text: {
-    fontSize: typography.body,
-    lineHeight: 22,
-  },
-  pin_source: {
-    fontSize: typography.small,
-    marginLeft: spacing.xs,
-    fontWeight: '600',
-  },
+  pinHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  pinText: { fontSize: typography.body, lineHeight: 22 },
+  pinSource: { fontSize: typography.small, marginLeft: spacing.xs, fontWeight: '600' },
 
   // Recent Images
-  ri_image: {
-    width: 120,
-    height: 120,
-    borderRadius: 16,
-  },
+  riImage: { width: 120, height: 120, borderRadius: 16 },
 
   // Recent Conversations
   threadCard: {
@@ -563,22 +462,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  threadTextContainer: {
-    flex: 1,
-  },
-  threadTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  threadSnippet: {
-    fontSize: typography.small,
-    lineHeight: 16,
-  },
-  threadTime: {
-    fontSize: typography.small,
-    marginLeft: spacing.sm,
-  },
+  threadTextContainer: { flex: 1 },
+  threadTitle: { fontSize: typography.body, fontWeight: '700', marginBottom: 2 },
+  threadSnippet: { fontSize: typography.small, lineHeight: 16 },
 
   // FAB
   fab: {

@@ -64,20 +64,31 @@ export default function GalleryScreen({ navigation }) {
           const uri = IMAGE_DIR + fn;
           const base = fn.split('.')[0];
           const metaUri = `${IMAGE_DIR}${base}.json`;
-          let prompt = 'Untitled';
-          let time = 0;
+          
+          // Default values for our new, richer metadata object
+          let metadata = {
+            id: fn,
+            uri,
+            prompt: 'Untitled',
+            fullPrompt: 'Untitled',
+            styleName: 'N/A',
+            modelUsed: 'N/A',
+            time: 0
+          };
 
           const info = await FileSystem.getInfoAsync(uri, { size: false });
-          time = info.modificationTime || 0;
+          metadata.time = info.modificationTime || 0;
 
           const mInfo = await FileSystem.getInfoAsync(metaUri);
           if (mInfo.exists) {
             const txt = await FileSystem.readAsStringAsync(metaUri);
-            const md = JSON.parse(txt);
-            prompt = md.prompt || prompt;
+            const mdFromFile = JSON.parse(txt);
+            // Merge the loaded metadata with our default object
+            metadata = { ...metadata, ...mdFromFile };
+            // Use creationTimestamp if available, otherwise fall back to file modification time
+            metadata.time = mdFromFile.creationTimestamp || metadata.time;
           }
-
-          return { id: fn, uri, prompt, time };
+          return metadata;
         })
       );
 
@@ -269,26 +280,41 @@ export default function GalleryScreen({ navigation }) {
         imageIndex={currentIndex}
         visible={lightboxVisible}
         onRequestClose={() => setLightboxVisible(false)}
-        FooterComponent={({ imageIndex }) => (
-          <View style={styles.lightboxFooter}>
-            <Text numberOfLines={1}
-              ellipsizeMode="tail" style={styles.prompt}>{images[imageIndex].prompt}</Text>
-            <Text style={styles.date}>
-              {new Date(images[imageIndex].time * 1000).toLocaleString()}
-            </Text>
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={() => onShare(images[imageIndex].uri)}>
-                <Feather name="share-2" size={24} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onDownload(images[imageIndex].uri)}>
-                <Feather name="download" size={24} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onDelete(images[imageIndex])}>
-                <Feather name="trash-2" size={24} color="#E57373" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        FooterComponent={({ imageIndex }) => {
+            const currentImage = images[imageIndex];
+            if (!currentImage) return null;
+            return (
+              <View style={styles.lightboxFooter}>
+                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.prompt}>
+                  {currentImage.fullPrompt || currentImage.prompt}
+                </Text>
+                 <View style={styles.metadataRow}>
+                    <View style={styles.metadataChip}>
+                        <Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} />
+                        <Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text>
+                    </View>
+                     <View style={styles.metadataChip}>
+                        <Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} />
+                        <Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text>
+                    </View>
+                </View>
+                <Text style={styles.date}>
+                  {new Date(currentImage.time).toLocaleString()}
+                </Text>
+                <View style={styles.actions}>
+                  <TouchableOpacity onPress={() => onShare(currentImage.uri)}>
+                    <Feather name="share-2" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => onDownload(currentImage.uri)}>
+                    <Feather name="download" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => onDelete(currentImage)}>
+                    <Feather name="trash-2" size={24} color="#E57373" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+        }}
       />
 
       <Toast position="bottom" />
@@ -375,13 +401,36 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)'
+    paddingBottom: 32, // More space at the bottom
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  prompt: { color: '#fff', fontSize: 16 },
-  date: { color: '#ccc', fontSize: 12, marginTop: 4 },
+  prompt: { color: '#fff', fontSize: 16, fontWeight: '500', marginBottom: 8 },
+  metadataRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  metadataChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  chipIcon: {
+    marginRight: 4,
+  },
+  chipText: {
+    color: '#ccc',
+    fontSize: 12,
+  },
+  date: { color: '#aaa', fontSize: 12, marginTop: 4 },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 12
+    marginTop: 16
   }
 });

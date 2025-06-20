@@ -32,15 +32,14 @@ import { models } from '../constants/models'
 import { useTheme, spacing, typography } from '../utils/theme'
 
 const { width: screenWidth } = Dimensions.get('window')
-const DEFAULT_NUM_IMAGES = 4
-// --- START: MODIFICATION FOR STEPPER ---
 const MIN_IMAGES = 1
-const MAX_IMAGES = 6
-// --- END: MODIFICATION FOR STEPPER ---
+const MAX_IMAGES = 4
+const DEFAULT_NUM_IMAGES = 2
 const DEFAULT_MODEL_NAME = 'gemma-3-27b-it'
 
-// ... (Shimmer, FadeInImage, ManagedImage, ImageGalleryModal components remain the same) ...
-// NOTE: I've collapsed them here for brevity, but they are still in the full code block below.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true)
+}
 
 const Shimmer = ({ style }) => {
     const theme = useTheme()
@@ -193,7 +192,6 @@ export default function ImageGenerationScreen({ navigation }) {
 
     const doLayoutAnim = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
 
-    // ... (handleGenerate, handleImprove, openModal functions remain the same) ...
     const handleGenerate = async () => {
         Keyboard.dismiss()
         if (!prompt.trim()) {
@@ -223,12 +221,23 @@ export default function ImageGenerationScreen({ navigation }) {
         setUrls([])
         doLayoutAnim()
 
-        const finalPrompt = selectedCategory.description
+        const finalPrompt = selectedCategory.id !== 'none'
             ? `${selectedCategory.description}, ${prompt.trim()}`
             : prompt.trim()
 
+        // Create a detailed metadata payload to be saved with the image.
+        const metadataPayload = {
+            prompt: prompt.trim(),
+            styleId: selectedCategory.id,
+            styleName: selectedCategory.name,
+            modelUsed: modelToUse,
+            batchSize: numImages,
+        };
+
         try {
-            const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages)
+            // Pass the full prompt AND the metadata payload to the agent.
+            const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload);
+            
             if (res.success && res.imageUrls?.length) {
                 setUrls(res.imageUrls)
             } else {
@@ -298,7 +307,6 @@ export default function ImageGenerationScreen({ navigation }) {
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-                    {/* ... (Prompt and Category cards are unchanged) ... */}
                     <View style={styles.card}>
                         <Text style={styles.label}>1. Describe Your Image</Text>
                         <View style={styles.inputWrapper}>
@@ -351,8 +359,6 @@ export default function ImageGenerationScreen({ navigation }) {
                         </ScrollView>
                     </View>
 
-
-                    {/* --- START: REPLACEMENT WITH STEPPER CONTROL --- */}
                     <View style={styles.card}>
                         <Text style={styles.label}>3. Number of Images</Text>
                         <View style={styles.stepperContainer}>
@@ -377,10 +383,8 @@ export default function ImageGenerationScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                    {/* --- END: REPLACEMENT WITH STEPPER CONTROL --- */}
 
                     {(loading || urls.length > 0) && (
-                        // ... (Results section is unchanged) ...
                         <View style={styles.previewCard}>
                             <Text style={styles.label}>
                                 {loading ? `Generating ${numImages} images…` : 'Generated Images'}
@@ -430,10 +434,7 @@ export default function ImageGenerationScreen({ navigation }) {
     )
 }
 
-// --- Dynamic Stylesheet with new Stepper styles ---
-
 const getStyles = (theme) => StyleSheet.create({
-    // ... (All previous styles remain the same)
     container: { flex: 1, backgroundColor: theme.colors.background },
     header: {
         flexDirection: 'row',
@@ -557,8 +558,6 @@ const getStyles = (theme) => StyleSheet.create({
     },
     generateBtnDisabled: { backgroundColor: theme.colors.accent, opacity: 0.5, elevation: 0 },
     generateText: { color: '#fff', fontSize: typography.h2, fontWeight: '600' },
-
-    // --- START: NEW STEPPER STYLES ---
     stepperContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -592,5 +591,4 @@ const getStyles = (theme) => StyleSheet.create({
         fontWeight: '700',
         color: theme.colors.text,
     },
-    // --- END: NEW STEPPER STYLES ---
 });

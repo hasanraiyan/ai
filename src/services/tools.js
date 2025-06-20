@@ -26,8 +26,8 @@ export const toolMetadata = [
   {
     agent_id: "image_generator",
     description: "Generates an image based on a descriptive prompt and saves it to the device's local storage.",
-    capabilities: ["prompt"],
-    input_format: { prompt: "string" },
+    capabilities: ["prompt", "metadata"],
+    input_format: { prompt: "string", metadata: "object" },
     output_format: { image_generated: "boolean", message: "string", imageUrl: "string", localUri: "string" }
   }
 ];
@@ -60,7 +60,8 @@ const tools = {
     }
   },
 
-  image_generator: async ({ prompt }) => {
+  // The tool now accepts a 'metadata' object along with the prompt.
+  image_generator: async ({ prompt, metadata = {} }) => {
     console.log(`TOOL: Generating image for "${prompt}"`);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
@@ -86,8 +87,13 @@ const tools = {
         throw new Error('Image download failed');
       }
 
-      const metadata = { prompt };
-      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(metadata));
+      // Construct the rich metadata object to be saved.
+      const dataToSave = {
+        ...metadata, // includes prompt, styleId, styleName, modelUsed, batchSize
+        fullPrompt: prompt, // The final, detailed prompt used for this specific image
+        creationTimestamp: Date.now(), // A precise timestamp
+      };
+      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2)); // Save with pretty printing
 
       console.log('Image saved to:', downloadResult.uri);
       console.log('Metadata saved to:', metadataUri);
