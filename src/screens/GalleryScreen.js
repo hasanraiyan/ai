@@ -16,8 +16,8 @@ import {
   RefreshControl,
   Clipboard,
   ToastAndroid,
-  Pressable, // Import Pressable for the new interaction
-  LayoutAnimation, // Import LayoutAnimation for smooth transitions
+  Pressable,
+  LayoutAnimation,
   UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,7 +29,6 @@ import Toast from 'react-native-toast-message';
 import ImageViewing from 'react-native-image-viewing';
 import ScreenHeader from '../components/ScreenHeader';
 
-// Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -37,7 +36,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 const { width } = Dimensions.get('window');
 
-// --- Constants for layout ---
 const PADDING = 16;
 const SPACING = 12;
 const HALF_WIDTH = (width - PADDING * 2 - SPACING) / 2;
@@ -59,9 +57,7 @@ export default function GalleryScreen({ navigation }) {
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [mediaPerm, requestPerm] = MediaLibrary.usePermissions();
-  
-  // --- STATE FOR NEW UX ---
-  const [isOverlayVisible, setIsOverlayVisible] = useState(true);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
 
   const loadImages = useCallback(async () => {
     setError(null);
@@ -79,15 +75,10 @@ export default function GalleryScreen({ navigation }) {
           const metaUri = `${IMAGE_DIR}${base}.json`;
 
           let metadata = {
-            id: fn,
-            uri,
-            prompt: 'Untitled',
-            fullPrompt: 'Untitled',
-            styleName: 'N/A',
-            modelUsed: 'N/A',
-            time: 0,
-            size: { width: 512, height: 512 },
-            imageUrl: ''
+            id: fn, uri, prompt: 'Untitled', fullPrompt: 'Untitled',
+            styleName: 'N/A', modelUsed: 'N/A', time: 0,
+            size: { width: 512, height: 512 }, imageUrl: '',
+            imageGenModel: 'flux', // Default for old images
           };
 
           const info = await FileSystem.getInfoAsync(uri, { size: false });
@@ -135,24 +126,19 @@ export default function GalleryScreen({ navigation }) {
       const isLandscape = (currentImage.size.width / currentImage.size.height) > 1.2;
 
       if (isLandscape) {
-        rows.push([currentImage]);
-        i++;
-        continue;
+        rows.push([currentImage]); i++; continue;
       }
       
       const nextImage = images[i + 1];
       if (nextImage) {
         const nextIsLandscape = (nextImage.size.width / nextImage.size.height) > 1.2;
         if (nextIsLandscape) {
-          rows.push([currentImage]);
-          i++;
+          rows.push([currentImage]); i++;
         } else {
-          rows.push([currentImage, nextImage]);
-          i += 2;
+          rows.push([currentImage, nextImage]); i += 2;
         }
       } else {
-        rows.push([currentImage]);
-        i++;
+        rows.push([currentImage]); i++;
       }
     }
     return rows;
@@ -169,8 +155,12 @@ export default function GalleryScreen({ navigation }) {
     }
     try {
       const asset = await MediaLibrary.createAssetAsync(uri);
-      const album = await MediaLibrary.getAlbumAsync('AI Generated');
-      await MediaLibrary.addAssetsToAlbumAsync([asset], album || 'AI Generated', false);
+      let album = await MediaLibrary.getAlbumAsync('AI Generated');
+      if (!album) {
+        album = await MediaLibrary.createAlbumAsync('AI Generated', asset, false);
+      } else {
+        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+      }
       Toast.show({ type: 'success', text1: 'Saved to gallery' });
     } catch {
       Alert.alert('Couldn’t save');
@@ -183,6 +173,7 @@ export default function GalleryScreen({ navigation }) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
           try {
+            await ensureDirExists();
             const base = item.id.split('.')[0];
             await FileSystem.deleteAsync(item.uri, { idempotent: true });
             await FileSystem.deleteAsync(`${IMAGE_DIR}${base}.json`, { idempotent: true });
@@ -207,31 +198,29 @@ export default function GalleryScreen({ navigation }) {
     const originalIndex = images.findIndex(img => img.id === item.id);
     if (originalIndex > -1) {
       setCurrentIndex(originalIndex);
-      setIsOverlayVisible(false); // Always show overlay when opening a new image
+      setIsOverlayVisible(false);
       setLightboxVisible(true);
     }
   }
 
-  const renderRow = ({ item: row }) => {
-    return (
-      <View style={styles.row}>
-        {row.map(imageItem => {
-          const containerWidth = row.length === 2 ? HALF_WIDTH : FULL_WIDTH;
-          const cardHeight = (containerWidth / imageItem.size.width) * imageItem.size.height;
-          return (
-            <TouchableOpacity
-              key={imageItem.id}
-              onPress={() => openLightbox(imageItem)}
-              activeOpacity={0.8}
-              style={[styles.card, { width: containerWidth, height: cardHeight }]}
-            >
-              <Image source={{ uri: imageItem.uri }} style={styles.image} />
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
+  const renderRow = ({ item: row }) => (
+    <View style={styles.row}>
+      {row.map(imageItem => {
+        const containerWidth = row.length === 2 ? HALF_WIDTH : FULL_WIDTH;
+        const cardHeight = (containerWidth / imageItem.size.width) * imageItem.size.height;
+        return (
+          <TouchableOpacity
+            key={imageItem.id}
+            onPress={() => openLightbox(imageItem)}
+            activeOpacity={0.8}
+            style={[styles.card, { width: containerWidth, height: cardHeight }]}
+          >
+            <Image source={{ uri: imageItem.uri }} style={styles.image} />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
   
   const renderContent = () => {
     if (loading && !refreshing) {
@@ -259,7 +248,6 @@ export default function GalleryScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-
       <ScreenHeader
         navigation={navigation}
         title="AI Gallery"
@@ -292,6 +280,12 @@ export default function GalleryScreen({ navigation }) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setIsOverlayVisible(!isOverlayVisible);
           };
+          
+          // --- NEW LOGIC ---
+          // Determine the specific image generation model and its corresponding icon.
+          const imageGenModel = currentImage.imageGenModel || 'flux'; // Default to flux for older images
+          const modelIcon = imageGenModel === 'turbo' ? 'rocket-outline' : 'flash-outline';
+          const modelName = imageGenModel.charAt(0).toUpperCase() + imageGenModel.slice(1);
 
           return (
             <Pressable onPress={handleToggleOverlay}>
@@ -304,7 +298,13 @@ export default function GalleryScreen({ navigation }) {
                   <>
                     <View style={styles.metadataRow}>
                       <View style={styles.metadataChip}><Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text></View>
-                      <View style={styles.metadataChip}><Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text></View>
+                      
+                      {/* --- MODIFIED CHIP --- */}
+                      <View style={styles.metadataChip}>
+                        <Ionicons name={modelIcon} size={14} color="#ccc" style={styles.chipIcon} />
+                        <Text style={styles.chipText}>{modelName}</Text>
+                      </View>
+
                       <View style={styles.metadataChip}><Ionicons name="resize-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{`${currentImage.size?.width || 'N/A'}x${currentImage.size?.height || 'N/A'}`}</Text></View>
                     </View>
                     <Text style={styles.date}>{new Date(currentImage.time).toLocaleString()}</Text>
@@ -375,7 +375,6 @@ const styles = StyleSheet.create({
   chipText: { color: '#ccc', fontSize: 12 },
   date: { color: '#aaa', fontSize: 12, marginTop: 4 },
   actions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 },
-  // Styles for the new "Show Details" hint
   showDetailsHint: {
     flexDirection: 'row',
     alignItems: 'center',

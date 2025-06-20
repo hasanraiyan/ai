@@ -70,13 +70,16 @@ const tools = {
       await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
     }
 
-    // <-- MODIFICATION START -->
-    // Destructure width and height from metadata, providing default values.
-    const { width = 512, height = 512 } = metadata;
+    // --- MODIFIED --- Destructure all relevant params from metadata with defaults
+    const { 
+      width = 512, 
+      height = 512, 
+      imageGenModel = 'flux' // Default to 'flux' if not provided
+    } = metadata;
+    
     const encodedPrompt = encodeURIComponent(prompt);
-    // Use the dynamic width and height in the URL.
-    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}`;
-    // <-- MODIFICATION END -->
+    // --- MODIFIED --- Append the new model parameter to the URL
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}&model=${imageGenModel}`;
 
     const uniqueId = Date.now().toString();
     const imageFilename = `${uniqueId}.png`;
@@ -91,17 +94,14 @@ const tools = {
         throw new Error('Image download failed');
       }
 
-      // <-- MODIFICATION START -->
-      // Construct the rich metadata object to be saved.
-      // The `size` property now correctly reflects the generated dimensions.
+      // The metadata object from the screen already contains everything we need
       const dataToSave = {
         ...metadata,
         fullPrompt: prompt,
         creationTimestamp: Date.now(),
-        size: { width, height }, // Save image dimensions
-        imageUrl: imageUrl,       // Save the hosted URL
+        size: { width, height },
+        imageUrl: imageUrl,
       };
-      // <-- MODIFICATION END -->
       await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
 
       console.log('Image saved to:', downloadResult.uri);

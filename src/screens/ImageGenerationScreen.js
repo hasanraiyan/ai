@@ -35,7 +35,7 @@ import ToggleSwitch from '../components/ToggleSwitch'
 
 const { width: screenWidth } = Dimensions.get('window')
 const MIN_IMAGES = 1
-const MAX_IMAGES = 6 // Requirement updated to 6
+const MAX_IMAGES = 6
 const DEFAULT_NUM_IMAGES = 2
 const DEFAULT_MODEL_NAME = 'gemma-3-27b-it'
 
@@ -44,6 +44,18 @@ const aspectRatioOptions = [
     { key: '16:9', label: 'Landscape', icon: 'tablet-landscape-outline' },
     { key: '9:16', label: 'Portrait', icon: 'tablet-portrait-outline' },
 ];
+
+const imageModelOptions = [
+    { key: 'flux', label: 'Flux', icon: 'flash-outline' },
+    { key: 'turbo', label: 'Turbo', icon: 'rocket-outline' },
+];
+
+// --- NEW --- Options for the number of images toggle
+const numImagesOptions = Array.from({ length: MAX_IMAGES }, (_, i) => i + 1).map(num => ({
+    key: num,
+    label: `${num}`,
+    // Note: The ToggleSwitch component should be able to handle options without an icon
+}));
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true)
@@ -99,39 +111,23 @@ const ManagedImage = ({ source }) => {
     )
 }
 
-/**
- * BUG FIX & CODE QUALITY: Added comments to explain the complex but robust logic.
- * This function calculates the style for each image in the preview grid.
- * It gracefully handles all combinations of aspect ratio and image count (1-6).
- */
 const getImageStyle = (total, ratio) => {
     const base = { marginBottom: spacing.sm };
-
-    // Landscape images are always full-width for impact.
     if (ratio === '16:9') {
         return { ...base, width: '100%', aspectRatio: 16 / 9 };
     }
-
-    // Portrait images use a 3-column grid, which works well for counts 1-6.
     if (ratio === '9:16') {
         return { ...base, width: '32%', aspectRatio: 9 / 16 };
     }
-
-    // Square images have special logic for a balanced, visually pleasing grid.
     if (ratio === '1:1') {
-        // A single square image is full-width.
         if (total === 1) {
             return { ...base, width: '100%', aspectRatio: 1 };
         }
-        // A 2-column grid is perfect for 2 or 4 images.
         if (total === 2 || total === 4) {
             return { ...base, width: '48.5%', aspectRatio: 1 };
         }
-        // A 3-column grid prevents a "dangling" single image on the last row for 3, 5, or 6 images.
         return { ...base, width: '32%', aspectRatio: 1 };
     }
-
-    // Fallback to a default style if the ratio is somehow unknown.
     return { ...base, width: '48.5%', aspectRatio: 1 };
 }
 
@@ -151,10 +147,7 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
         const url = images[current]
         const { status } = await MediaLibrary.requestPermissionsAsync()
         if (status !== 'granted') {
-            Alert.alert(
-                'Permission Denied',
-                'Please grant media library permissions in your device settings to save images.'
-            )
+            Alert.alert('Permission Denied', 'Please grant media library permissions in your device settings to save images.')
             return
         }
         try {
@@ -192,9 +185,7 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
                 </TouchableOpacity>
                 {images.length > 1 && (
                     <View style={styles.pageIndicator}>
-                        <Text style={styles.pageIndicatorText}>
-                            {current + 1} / {images.length}
-                        </Text>
+                        <Text style={styles.pageIndicatorText}>{current + 1} / {images.length}</Text>
                     </View>
                 )}
                 <TouchableOpacity
@@ -218,6 +209,7 @@ export default function ImageGenerationScreen({ navigation }) {
     const [numImages, setNumImages] = useState(DEFAULT_NUM_IMAGES)
     const [aspectRatio, setAspectRatio] = useState('1:1')
     const [selectedCategory, setSelectedCategory] = useState(imageCategories.find(c => c.id === 'none'))
+    const [imageModel, setImageModel] = useState('flux');
     const [loading, setLoading] = useState(false)
     const [improving, setImproving] = useState(false)
     const [urls, setUrls] = useState([])
@@ -226,9 +218,6 @@ export default function ImageGenerationScreen({ navigation }) {
 
     const anyLoading = loading || improving
     const modelToUse = settingsModel || DEFAULT_MODEL_NAME
-
-    // BUG FIX: The `imageCountOptions` variable was removed as it is redundant.
-    // The options are now generated inline in the ToggleSwitch component props.
 
     const doLayoutAnim = () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
 
@@ -239,9 +228,7 @@ export default function ImageGenerationScreen({ navigation }) {
             return
         }
         if (!apiKey) {
-            Alert.alert(
-                'API Key Missing',
-                'Please set your API Key in the Settings screen to generate images.',
+             Alert.alert('API Key Missing', 'Please set your API Key in the Settings screen to generate images.',
                 [{ text: 'Go to Settings', onPress: () => navigation.navigate('Settings') }, { text: 'OK' }]
             )
             return
@@ -249,9 +236,7 @@ export default function ImageGenerationScreen({ navigation }) {
 
         const selectedModelData = models.find(m => m.id === modelToUse)
         if (!selectedModelData?.supported_tools.includes('image_generator')) {
-            Alert.alert(
-                "Model Not Capable",
-                `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation. Please select a compatible model in Settings.`,
+            Alert.alert("Model Not Capable", `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation. Please select a compatible model in Settings.`,
                 [{ text: "OK" }]
             )
             return
@@ -270,7 +255,7 @@ export default function ImageGenerationScreen({ navigation }) {
                 case '16:9': return { width: 768, height: 432 }
                 case '9:16': return { width: 432, height: 768 }
                 case '1:1':
-                default: return { width: 512, height: 512 }
+                default:     return { width: 512, height: 512 }
             }
         }
 
@@ -281,6 +266,7 @@ export default function ImageGenerationScreen({ navigation }) {
             styleId: selectedCategory.id,
             styleName: selectedCategory.name,
             modelUsed: modelToUse,
+            imageGenModel: imageModel,
             batchSize: numImages,
             aspectRatio: aspectRatio,
             width: width,
@@ -289,7 +275,7 @@ export default function ImageGenerationScreen({ navigation }) {
 
         try {
             const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload)
-
+            
             if (res.success && res.imageUrls?.length) {
                 setUrls(res.imageUrls)
             } else {
@@ -361,7 +347,6 @@ export default function ImageGenerationScreen({ navigation }) {
                         <View style={styles.inputWrapper}>
                             <TextInput
                                 style={styles.input}
-                                // BUG FIX: Replaced non-standard character with standard ellipsis
                                 placeholder="A futuristic city skyline at sunset..."
                                 placeholderTextColor={theme.colors.subtext}
                                 multiline
@@ -399,14 +384,25 @@ export default function ImageGenerationScreen({ navigation }) {
                                     >
                                         <RNImage source={{ uri: category.imageUrl }} style={styles.categoryImage} />
                                         <View style={styles.categoryTextContainer}>
-                                            <Text style={styles.categoryText}>
-                                                {category.name}
-                                            </Text>
+                                            <Text style={styles.categoryText}>{category.name}</Text>
                                         </View>
                                     </TouchableOpacity>
                                 )
                             })}
                         </ScrollView>
+                    </View>
+                    
+                    <View style={styles.card}>
+                        <Text style={styles.label}>Image Generation Model</Text>
+                        <ToggleSwitch
+                            options={imageModelOptions}
+                            selected={imageModel}
+                            onSelect={setImageModel}
+                            disabled={anyLoading}
+                            containerStyle={{ marginTop: spacing.sm }}
+                            size="medium"
+                            variant="solid"
+                        />
                     </View>
 
                     <View style={styles.card}>
@@ -422,19 +418,16 @@ export default function ImageGenerationScreen({ navigation }) {
                         />
                     </View>
 
+                    {/* --- UPDATED SECTION --- */}
                     <View style={styles.card}>
                         <Text style={styles.label}>Number of Images</Text>
                         <ToggleSwitch
-                            // BUG FIX: `imageCountOptions` removed, options generated inline.
-                            options={Array.from({ length: MAX_IMAGES - MIN_IMAGES + 1 }, (_, i) => {
-                                const count = MIN_IMAGES + i;
-                                return { key: count, label: `${count}` };
-                            })}
+                            options={numImagesOptions}
                             selected={numImages}
                             onSelect={setNumImages}
                             disabled={anyLoading}
                             containerStyle={{ marginTop: spacing.sm }}
-                            size="medium"
+                            size="small" // Using "small" to better fit more options
                             variant="solid"
                         />
                     </View>
@@ -446,14 +439,12 @@ export default function ImageGenerationScreen({ navigation }) {
                             </Text>
                             <View style={styles.imageGrid}>
                                 {loading
-                                    ? Array(numImages)
-                                        .fill(null)
-                                        .map((_, i) => (
-                                            <Shimmer
-                                                key={i}
-                                                style={[styles.imageWrapper, getImageStyle(numImages, aspectRatio)]}
-                                            />
-                                        ))
+                                    ? Array(numImages).fill(null).map((_, i) => (
+                                        <Shimmer
+                                            key={i}
+                                            style={[styles.imageWrapper, getImageStyle(numImages, aspectRatio)]}
+                                        />
+                                    ))
                                     : urls.map((u, i) => (
                                         <TouchableOpacity
                                             key={i}
@@ -470,18 +461,11 @@ export default function ImageGenerationScreen({ navigation }) {
                 </ScrollView>
                 <View style={styles.footer}>
                     <TouchableOpacity
-                        style={[
-                            styles.generateBtn,
-                            (!prompt.trim() || anyLoading) && styles.generateBtnDisabled,
-                        ]}
+                        style={[styles.generateBtn, (!prompt.trim() || anyLoading) && styles.generateBtnDisabled]}
                         onPress={handleGenerate}
                         disabled={!prompt.trim() || anyLoading}
                     >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.generateText}>Generate</Text>
-                        )}
+                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateText}>Generate</Text>}
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -493,6 +477,7 @@ const getStyles = (theme) => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
     scroll: { padding: spacing.md, paddingBottom: 120 },
     card: {
+        backgroundColor: theme.colors.card,
         borderRadius: 12,
         padding: spacing.md,
     },
@@ -537,8 +522,8 @@ const getStyles = (theme) => StyleSheet.create({
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
         padding: spacing.xs,
-        borderRadius: 6,
         backgroundColor: 'rgba(0,0,0,0.4)',
+        borderRadius: 6
     },
     categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '500', textAlign: 'center' },
     previewCard: {
@@ -598,4 +583,5 @@ const getStyles = (theme) => StyleSheet.create({
     },
     generateBtnDisabled: { backgroundColor: theme.colors.accent, opacity: 0.5, elevation: 0 },
     generateText: { color: '#fff', fontSize: typography.h2, fontWeight: '600' },
+
 });
