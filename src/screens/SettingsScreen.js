@@ -20,6 +20,7 @@ import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
+import { deleteAllImageData } from '../services/fileService'; // <-- IMPORT NEW FUNCTION
 import ScreenHeader from '../components/ScreenHeader';
 
 // A reusable selector component with search and modal for large lists
@@ -122,7 +123,6 @@ function SettingsScreen({ navigation }) {
     setEnabledTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
   };
 
-  // Prepare filtered lists
   const chatModels = useMemo(() => models.filter(m => m.isChatModel), []);
   const titleModels = useMemo(() => models.filter(m => m.isTitleModel), []);
   const agentModels = useMemo(() => models.filter(m => m.isAgentModel), []);
@@ -183,36 +183,13 @@ function SettingsScreen({ navigation }) {
             <Ionicons name="hardware-chip-outline" size={20} color="#475569" style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Model Configuration</Text>
           </View>
-
-          {/* Main Chat Model Selector */}
-          <ModelSelector
-            label="Main Chat Model"
-            items={chatModels}
-            selectedId={modelName}
-            onSelect={setModelName}
-          />
-
+          <ModelSelector label="Main Chat Model" items={chatModels} selectedId={modelName} onSelect={setModelName} />
           <View style={styles.separator} />
-
-          {/* Title Generation Model Selector */}
           <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
-          <ModelSelector
-            label="MiniAgent Model"
-            items={titleModels}
-            selectedId={titleModelName}
-            onSelect={setTitleModelName}
-          />
-
+          <ModelSelector label="MiniAgent Model" items={titleModels} selectedId={titleModelName} onSelect={setTitleModelName} />
           <View style={styles.separator} />
-
-          {/* Agent Model Selector */}
           <Text style={styles.infoText}>Select a model capable of using tools.</Text>
-          <ModelSelector
-            label="Agent Model"
-            items={agentModels}
-            selectedId={agentModelName}
-            onSelect={setAgentModelName}
-          />
+          <ModelSelector label="Agent Model" items={agentModels} selectedId={agentModelName} onSelect={setAgentModelName} />
         </View>
 
         {/* Agent Tools Card */}
@@ -231,7 +208,6 @@ function SettingsScreen({ navigation }) {
               {availableTools.map((tool, index) => {
                 const isUserEnabled = !!enabledTools[tool.agent_id];
                 const isModelSupported = selectedAgentModel?.supported_tools.includes(tool.agent_id);
-
                 return (
                   <React.Fragment key={tool.agent_id}>
                     {index > 0 && <View style={styles.separator} />}
@@ -280,17 +256,25 @@ function SettingsScreen({ navigation }) {
           <TouchableOpacity
             style={styles.dangerButton}
             onPress={() => {
-              Alert.alert(
-                "Clear All Chat History?",
-                "This action is permanent and will delete all conversations. It cannot be undone.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  { text: "Clear History", style: "destructive", onPress: clearAllThreads },
-                ]
+              Alert.alert("Clear All Chat History?", "This action is permanent and will delete all conversations. It cannot be undone.",
+                [ { text: "Cancel", style: "cancel" }, { text: "Clear History", style: "destructive", onPress: clearAllThreads } ]
               );
             }}>
             <Ionicons name="trash-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
+          </TouchableOpacity>
+
+          {/* --- NEW BUTTON --- */}
+          <View style={styles.dangerSeparator} />
+          <TouchableOpacity
+            style={styles.dangerButton}
+            onPress={() => {
+              Alert.alert("Clear All Image Data?", "This will permanently delete all generated images and their metadata from your device. This action cannot be undone.",
+                [ { text: "Cancel", style: "cancel" }, { text: "Delete Images", style: "destructive", onPress: deleteAllImageData }]
+              );
+            }}>
+            <Ionicons name="images-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
+            <Text style={styles.dangerButtonText}>Clear All Image Data</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -300,25 +284,7 @@ function SettingsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-  },
-  headerButton: { padding: 4 },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginLeft: 16,
-  },
-  scrollContainer: {
-    padding: 16,
-  },
+  scrollContainer: { padding: 16 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -327,180 +293,69 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardIcon: {
-    marginRight: 12,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  cardSubTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#334155',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 18,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 16,
-  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  cardIcon: { marginRight: 12 },
+  cardTitle: { fontSize: 17, fontWeight: '600', color: '#1E293B' },
+  cardSubTitle: { fontSize: 15, fontWeight: '600', color: '#334155', marginTop: 8, marginBottom: 4 },
+  infoText: { fontSize: 13, color: '#64748B', lineHeight: 18, marginTop: 4, marginBottom: 8 },
+  separator: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 16 },
   apiKeyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9',
+    borderRadius: 8, paddingHorizontal: 12,
   },
   apiKeyInput: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-    color: '#1E293B',
-    fontSize: 15,
+    flex: 1, paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+    color: '#1E293B', fontSize: 15,
   },
-  eyeIcon: {
-    padding: 8,
-  },
+  eyeIcon: { padding: 8 },
   personaInput: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 120,
-    textAlignVertical: 'top',
-    color: '#1E293B',
-    fontSize: 15,
-    lineHeight: 22,
+    backgroundColor: '#F1F5F9', borderRadius: 8, padding: 12,
+    minHeight: 120, textAlignVertical: 'top', color: '#1E293B', fontSize: 15, lineHeight: 22,
   },
-  selectorContainer: {
-    marginTop: 8,
-  },
+  selectorContainer: { marginTop: 8 },
   selectorButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F1F5F9', borderRadius: 8, paddingVertical: 10,
+    paddingHorizontal: 12, borderWidth: 1, borderColor: '#E2E8F0',
   },
-  selectorButtonText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#334155',
-    marginRight: 8,
-  },
+  selectorButtonText: { flex: 1, fontSize: 14, color: '#334155', marginRight: 8 },
   modalRoot: { flex: 1, backgroundColor: '#fff' },
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
+    paddingVertical: 8, borderBottomWidth: 1, borderColor: '#E2E8F0',
   },
   modalSearchInput: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#1E293B',
+    flex: 1, backgroundColor: '#F1F5F9', borderRadius: 8,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10, paddingHorizontal: 12,
+    fontSize: 15, color: '#1E293B',
   },
   modalCloseButton: { marginLeft: 8 },
-  modalItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  modalItemSelected: {
-    backgroundColor: '#EEF2FF',
-  },
-  modalItemText: {
-    fontSize: 15,
-    color: '#334155',
-  },
-  modalItemTextSelected: {
-    fontWeight: '600',
-    color: '#4338CA',
-  },
-  toolRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  toolRowDisabled: {
-    opacity: 0.5,
-  },
-  toolInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  toolName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  toolDescription: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 2,
-    lineHeight: 18,
-  },
-  toolSupportText: {
-    fontSize: 12,
-    color: '#DC2626',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
+  modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: '#F1F5F9' },
+  modalItemSelected: { backgroundColor: '#EEF2FF' },
+  modalItemText: { fontSize: 15, color: '#334155' },
+  modalItemTextSelected: { fontWeight: '600', color: '#4338CA' },
+  toolRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+  toolRowDisabled: { opacity: 0.5 },
+  toolInfo: { flex: 1, marginRight: 16 },
+  toolName: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+  toolDescription: { fontSize: 13, color: '#475569', marginTop: 2, lineHeight: 18 },
+  toolSupportText: { fontSize: 12, color: '#DC2626', fontStyle: 'italic', marginTop: 4 },
   promptDisplayContainer: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 4,
-    maxHeight: 250,
+    backgroundColor: '#F1F5F9', borderRadius: 8, padding: 12,
+    marginTop: 4, maxHeight: 250,
   },
   promptDisplayText: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 13,
-    color: '#475569',
-    lineHeight: 20,
+    fontSize: 13, color: '#475569', lineHeight: 20,
   },
-  dangerCard: {
-    borderColor: '#FCA5A5'
-  },
+  dangerCard: { borderColor: '#FCA5A5' },
   dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FEE2E2', borderRadius: 8,
+    paddingVertical: 12, paddingHorizontal: 16,
   },
-  dangerButtonText: {
-    color: '#B91C1C',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  dangerButtonText: { color: '#B91C1C', fontSize: 15, fontWeight: '600' },
+  dangerSeparator: { height: 12 }, // Add vertical space between buttons
 });
 
 export default SettingsScreen;

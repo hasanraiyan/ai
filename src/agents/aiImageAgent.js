@@ -157,8 +157,7 @@ You are an AI prompt enhancer that takes a single raw image prompt and upgrades 
 2. If valid, enhance the prompt by adding:
    - vivid **adjectives**
    - specific **nouns**
-   - a **visual style** (e.g. "cyberpunk", "realistic render", "watercolor", etc.)
-   - optional **camera angle**, **lighting**, **mood**, or **environmental context**
+   - **camera angle**, **lighting**, **mood**, or **environmental context**
 
 3. Output should be visually expressive, imaginative, and ready for AI image generation.
 

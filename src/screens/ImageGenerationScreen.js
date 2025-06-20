@@ -228,7 +228,7 @@ export default function ImageGenerationScreen({ navigation }) {
             return
         }
         if (!apiKey) {
-             Alert.alert('API Key Missing', 'Please set your API Key in the Settings screen to generate images.',
+            Alert.alert('API Key Missing', 'Please set your API Key in the Settings screen to generate images.',
                 [{ text: 'Go to Settings', onPress: () => navigation.navigate('Settings') }, { text: 'OK' }]
             )
             return
@@ -247,7 +247,7 @@ export default function ImageGenerationScreen({ navigation }) {
         doLayoutAnim()
 
         const finalPrompt = selectedCategory.id !== 'none'
-            ? `${selectedCategory.description}, ${prompt.trim()}`
+            ? `${prompt.trim()}. Final image should be in this style: ${selectedCategory.description}`
             : prompt.trim()
 
         const getDimensions = (ratio) => {
@@ -255,7 +255,7 @@ export default function ImageGenerationScreen({ navigation }) {
                 case '16:9': return { width: 768, height: 432 }
                 case '9:16': return { width: 432, height: 768 }
                 case '1:1':
-                default:     return { width: 512, height: 512 }
+                default: return { width: 512, height: 512 }
             }
         }
 
@@ -275,7 +275,7 @@ export default function ImageGenerationScreen({ navigation }) {
 
         try {
             const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload)
-            
+
             if (res.success && res.imageUrls?.length) {
                 setUrls(res.imageUrls)
             } else {
@@ -391,7 +391,7 @@ export default function ImageGenerationScreen({ navigation }) {
                             })}
                         </ScrollView>
                     </View>
-                    
+
                     <View style={styles.card}>
                         <Text style={styles.label}>Image Generation Model</Text>
                         <ToggleSwitch
