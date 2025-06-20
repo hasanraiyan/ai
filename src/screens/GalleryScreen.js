@@ -1,6 +1,6 @@
 // GalleryScreen.js
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,7 +15,7 @@ import {
   StatusBar,
   RefreshControl,
   Clipboard,
-  ToastAndroid
+  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, AntDesign, Feather } from '@expo/vector-icons';
@@ -23,16 +23,17 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Toast from 'react-native-toast-message';
-import { BlurView } from 'expo-blur';
 import ImageViewing from 'react-native-image-viewing';
 import ScreenHeader from '../components/ScreenHeader';
+
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 const { width } = Dimensions.get('window');
-const numColumns = 2;
+
+// --- Constants for layout ---
 const PADDING = 16;
 const SPACING = 12;
-const CARD_SIZE = (width - PADDING * 2 - SPACING) / numColumns;
-const LIST_IMG_HEIGHT = 200;
+const HALF_WIDTH = (width - PADDING * 2 - SPACING) / 2;
+const FULL_WIDTH = width - PADDING * 2;
 
 async function ensureDirExists() {
   const info = await FileSystem.getInfoAsync(IMAGE_DIR);
@@ -44,9 +45,9 @@ async function ensureDirExists() {
 export default function GalleryScreen({ navigation }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState();
+  const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // or 'list'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [mediaPerm, requestPerm] = MediaLibrary.usePermissions();
@@ -85,6 +86,7 @@ export default function GalleryScreen({ navigation }) {
           if (mInfo.exists) {
             const txt = await FileSystem.readAsStringAsync(metaUri);
             const mdFromFile = JSON.parse(txt);
+            mdFromFile.size = mdFromFile.size || { width: 512, height: 512 };
             metadata = { ...metadata, ...mdFromFile };
             metadata.time = mdFromFile.creationTimestamp || metadata.time;
           }
@@ -109,27 +111,59 @@ export default function GalleryScreen({ navigation }) {
     return unsub;
   }, [loadImages, navigation]);
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadImages();
+  }, [loadImages]);
+
+  // This is the core logic for the content-aware grid.
+  // It groups images into rows based on their aspect ratio.
+  const groupedRows = useMemo(() => {
+    const rows = [];
+    let i = 0;
+    while (i < images.length) {
+      const currentImage = images[i];
+      const isLandscape = (currentImage.size.width / currentImage.size.height) > 1.2;
+
+      if (isLandscape) {
+        // Landscape images get their own row.
+        rows.push([currentImage]);
+        i++;
+        continue;
+      }
+      
+      // It's a portrait or square image, try to pair it.
+      const nextImage = images[i + 1];
+      if (nextImage) {
+        const nextIsLandscape = (nextImage.size.width / nextImage.size.height) > 1.2;
+        if (nextIsLandscape) {
+          // If the next one is landscape, the current one gets its own row.
+          rows.push([currentImage]);
+          i++;
+        } else {
+          // Pair two non-landscape images together.
+          rows.push([currentImage, nextImage]);
+          i += 2;
+        }
+      } else {
+        // It's the last image and it's not landscape.
+        rows.push([currentImage]);
+        i++;
+      }
+    }
+    return rows;
+  }, [images]);
+
   async function onShare(uri) {
     setLightboxVisible(false);
-    if (!(await Sharing.isAvailableAsync())) {
-      return Alert.alert('Sharing not available');
-    }
-    try {
-      await Sharing.shareAsync(uri, { dialogTitle: 'Share Image' });
-    } catch {
-      Alert.alert('Couldn’t share');
-    }
+    await Sharing.shareAsync(uri, { dialogTitle: 'Share Image' }).catch(() => Alert.alert('Couldn’t share'));
   }
 
   async function onDownload(uri) {
     setLightboxVisible(false);
-    let granted = mediaPerm?.granted;
-    if (!granted) {
-      const res = await requestPerm();
-      granted = res.granted;
-    }
-    if (!granted) {
-      return Alert.alert('Permission needed to save');
+    if (!mediaPerm?.granted) {
+      const { granted } = await requestPerm();
+      if (!granted) return Alert.alert('Permission needed to save');
     }
     try {
       const asset = await MediaLibrary.createAssetAsync(uri);
@@ -147,12 +181,9 @@ export default function GalleryScreen({ navigation }) {
 
   function onDelete(item) {
     setLightboxVisible(false);
-    Alert.alert('Delete?', 'This cannot be undone.', [
+    Alert.alert('Delete Image?', 'This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
+      { text: 'Delete', style: 'destructive', onPress: async () => {
           try {
             const base = item.id.split('.')[0];
             await FileSystem.deleteAsync(item.uri, { idempotent: true });
@@ -160,7 +191,6 @@ export default function GalleryScreen({ navigation }) {
             setImages(imgs => imgs.filter(i => i.id !== item.id));
             Toast.show({ type: 'success', text1: 'Deleted' });
           } catch (err) {
-            console.error(err);
             Alert.alert('Failed to delete');
           }
         }
@@ -169,52 +199,85 @@ export default function GalleryScreen({ navigation }) {
   }
 
   function onCopyUrl(url) {
-    if (!url) {
-      Toast.show({ type: 'error', text1: 'No URL available' });
-      return;
-    }
+    if (!url) return Toast.show({ type: 'error', text1: 'No URL available' });
     Clipboard.setString(url);
-    if (Platform.OS === 'android') {
-      ToastAndroid.show('URL Copied!', ToastAndroid.SHORT);
-    } else {
-      Toast.show({ type: 'success', text1: 'URL Copied!' });
+    if (Platform.OS === 'android') ToastAndroid.show('URL Copied!', ToastAndroid.SHORT);
+    else Toast.show({ type: 'success', text1: 'URL Copied!' });
+  }
+
+  function openLightbox(item) {
+    const originalIndex = images.findIndex(img => img.id === item.id);
+    if (originalIndex > -1) {
+      setCurrentIndex(originalIndex);
+      setLightboxVisible(true);
     }
   }
 
-  function openLightbox(idx) {
-    setCurrentIndex(idx);
-    setLightboxVisible(true);
-  }
-
-  function renderItem({ item, index }) {
-    const isGrid = viewMode === 'grid';
+  // Renders a single row for the content-aware grid.
+  const renderRow = ({ item: row }) => {
     return (
-      <TouchableOpacity
-        onPress={() => openLightbox(index)}
-        activeOpacity={0.8}
-        style={[
-          styles.card,
-          isGrid
-            ? { width: CARD_SIZE, height: CARD_SIZE, margin: SPACING / 2 }
-            : { width: '100%', height: LIST_IMG_HEIGHT, marginBottom: SPACING }
-        ]}
-      >
-        <BlurView intensity={20} tint="light" style={styles.blur}>
-          <ActivityIndicator size="small" color="#888" />
-        </BlurView>
-        <Image
-          source={{ uri: item.uri }}
-          style={isGrid ? styles.gridImage : styles.listImage}
-          resizeMode="cover"
-        />
-        <View style={styles.heart}>
-          <Ionicons name="heart-outline" size={20} color="#F06292" />
-        </View>
-      </TouchableOpacity>
+      <View style={styles.row}>
+        {row.map(imageItem => {
+          const containerWidth = row.length === 2 ? HALF_WIDTH : FULL_WIDTH;
+          const cardHeight = (containerWidth / imageItem.size.width) * imageItem.size.height;
+          return (
+            <TouchableOpacity
+              key={imageItem.id}
+              onPress={() => openLightbox(imageItem)}
+              activeOpacity={0.8}
+              style={[styles.card, { width: containerWidth, height: cardHeight }]}
+            >
+              <Image source={{ uri: imageItem.uri }} style={styles.image} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     );
-  }
-
-  const imageURLs = images.map(img => ({ uri: img.uri }));
+  };
+  
+  const renderContent = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.status}>Loading images…</Text>
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={60} color="#dc2626" />
+          <Text style={[styles.status, { color: '#dc2626' }]}>{error}</Text>
+          <TouchableOpacity onPress={loadImages} style={styles.btnPrimary}>
+            <Text style={styles.btnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (images.length === 0) {
+      return (
+        <View style={styles.center}>
+          <Ionicons name="images-outline" size={80} color="#cbd5e1" />
+          <Text style={styles.emptyTitle}>No images yet</Text>
+          <Text style={styles.emptySub}>Tap the '+' button to generate your first masterpiece.</Text>
+        </View>
+      );
+    }
+    // The "list" view remains the same (full-width images).
+    // The "grid" view now uses the new content-aware layout.
+    return (
+        <FlatList
+          key={viewMode} // Re-renders the list when view mode changes
+          data={viewMode === 'grid' ? groupedRows : images}
+          keyExtractor={(item, index) => viewMode === 'grid' ? `row-${index}` : item.id}
+          renderItem={viewMode === 'grid' ? renderRow : ({ item }) => renderRow({ item: [item] })}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />}
+          contentContainerStyle={{ paddingHorizontal: PADDING, paddingTop: PADDING }}
+          showsVerticalScrollIndicator={false}
+        />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -226,69 +289,21 @@ export default function GalleryScreen({ navigation }) {
         subtitle="Your generated masterpieces"
         rightAction={
           <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
-            <Ionicons
-              name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'}
-              size={28}
-              color="#475569"
-            />
+            <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={28} color="#475569" />
           </TouchableOpacity>
         }
       />
-      {/* Content */}
-      {loading && !refreshing ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#6366F1" />
-          <Text style={styles.status}>Loading images…</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={60} color="#dc2626" />
-          <Text style={[styles.status, { color: '#dc2626' }]}>{error}</Text>
-          <TouchableOpacity onPress={loadImages} style={styles.btnPrimary}>
-            <Text style={styles.btnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : images.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="images-outline" size={80} color="#cbd5e1" />
-          <Text style={styles.emptyTitle}>No images yet</Text>
-          <Text style={styles.emptySub}>Tap “+” to generate your first AI masterpiece.</Text>
-        </View>
-      ) : (
-        <FlatList
-          key={viewMode}
-          data={images}
-          renderItem={renderItem}
-          keyExtractor={i => i.id}
-          numColumns={viewMode === 'grid' ? numColumns : 1}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                loadImages();
-              }}
-              tintColor="#6366F1"
-            />
-          }
-          contentContainerStyle={{ padding: SPACING }}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      
+      {renderContent()}
 
-      {/* FAB */}
       <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('ImageGeneration')}
-        >
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('ImageGeneration')}>
           <AntDesign name="plus" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Lightbox */}
       <ImageViewing
-        images={imageURLs}
+        images={images.map(img => ({ uri: img.uri }))}
         imageIndex={currentIndex}
         visible={lightboxVisible}
         onRequestClose={() => setLightboxVisible(false)}
@@ -297,45 +312,23 @@ export default function GalleryScreen({ navigation }) {
           if (!currentImage) return null;
           return (
             <View style={styles.lightboxFooter}>
-              <Text numberOfLines={2} ellipsizeMode="tail" style={styles.prompt}>
-                {currentImage.fullPrompt || currentImage.prompt}
-              </Text>
+              <Text numberOfLines={2} style={styles.prompt}>{currentImage.fullPrompt || currentImage.prompt}</Text>
               <View style={styles.metadataRow}>
-                <View style={styles.metadataChip}>
-                  <Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} />
-                  <Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text>
-                </View>
-                <View style={styles.metadataChip}>
-                  <Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} />
-                  <Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text>
-                </View>
-                <View style={styles.metadataChip}>
-                  <Ionicons name="resize-outline" size={14} color="#ccc" style={styles.chipIcon} />
-                  <Text style={styles.chipText}>{`${currentImage.size?.width || 'N/A'}x${currentImage.size?.height || 'N/A'}`}</Text>
-                </View>
+                <View style={styles.metadataChip}><Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text></View>
+                <View style={styles.metadataChip}><Ionicons name="hardware-chip-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{currentImage.modelUsed || 'N/A'}</Text></View>
+                <View style={styles.metadataChip}><Ionicons name="resize-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{`${currentImage.size?.width || 'N/A'}x${currentImage.size?.height || 'N/A'}`}</Text></View>
               </View>
-              <Text style={styles.date}>
-                {new Date(currentImage.time).toLocaleString()}
-              </Text>
+              <Text style={styles.date}>{new Date(currentImage.time).toLocaleString()}</Text>
               <View style={styles.actions}>
-                <TouchableOpacity onPress={() => onCopyUrl(currentImage.imageUrl)}>
-                  <Feather name="link" size={24} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onShare(currentImage.uri)}>
-                  <Feather name="share-2" size={24} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDownload(currentImage.uri)}>
-                  <Feather name="download" size={24} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => onDelete(currentImage)}>
-                  <Feather name="trash-2" size={24} color="#E57373" />
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => onCopyUrl(currentImage.imageUrl)}><Feather name="link" size={24} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onShare(currentImage.uri)}><Feather name="share-2" size={24} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDownload(currentImage.uri)}><Feather name="download" size={24} color="#fff" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => onDelete(currentImage)}><Feather name="trash-2" size={24} color="#E57373" /></TouchableOpacity>
               </View>
             </View>
-          )
+          );
         }}
       />
-
       <Toast position="bottom" />
     </SafeAreaView>
   );
@@ -343,113 +336,47 @@ export default function GalleryScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: {
-    flexDirection: 'row',
-    padding: PADDING,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 }
-      },
-      android: { elevation: 3 }
-    })
-  },
-  title: { fontSize: 20, fontWeight: '600', color: '#1E293B' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: PADDING },
   status: { marginTop: 12, fontSize: 16, color: '#475569' },
-  btnPrimary: {
-    marginTop: 16,
-    backgroundColor: '#6366F1',
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8
-  },
+  btnPrimary: { marginTop: 16, backgroundColor: '#6366F1', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8 },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   emptyTitle: { marginTop: 16, fontSize: 22, fontWeight: '600', color: '#64748B' },
   emptySub: { marginTop: 8, fontSize: 15, color: '#9CA3AF', textAlign: 'center' },
+  // New Grid Styles
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
-  blur: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(240,240,240,0.6)'
+  image: { 
+    width: '100%', 
+    height: '100%',
+    backgroundColor: '#E2E8F0',
   },
-  gridImage: { width: '100%', height: '100%' },
-  listImage: { width: '100%', height: LIST_IMG_HEIGHT },
-  heart: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderRadius: 12,
-    padding: 4
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: 32,
-    right: 24
-  },
+  // --- End of New Grid Styles ---
+  fabContainer: { position: 'absolute', bottom: 32, right: 24 },
   fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#6366F1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 }
-      },
-      android: { elevation: 5 }
-    })
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center',
+    elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }
   },
-  lightboxFooter: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    padding: 16,
-    paddingBottom: 32, // More space at the bottom
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
+  lightboxFooter: { position: 'absolute', bottom: 0, width: '100%', padding: 16, paddingBottom: 32, backgroundColor: 'rgba(0,0,0,0.7)' },
   prompt: { color: '#fff', fontSize: 16, fontWeight: '500', marginBottom: 8 },
-  metadataRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-  },
+  metadataRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   metadataChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginRight: 8,
-    marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, marginRight: 8, marginBottom: 4
   },
-  chipIcon: {
-    marginRight: 4,
-  },
-  chipText: {
-    color: '#ccc',
-    fontSize: 12,
-  },
+  chipIcon: { marginRight: 4 },
+  chipText: { color: '#ccc', fontSize: 12 },
   date: { color: '#aaa', fontSize: 12, marginTop: 4 },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16
-  }
+  actions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }
 });

@@ -61,7 +61,7 @@ const tools = {
   },
 
   image_generator: async ({ prompt, metadata = {} }) => {
-    console.log(`TOOL: Generating image for "${prompt}"`);
+    console.log(`TOOL: Generating image for "${prompt}" with metadata:`, metadata);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
     // Ensure the directory exists
@@ -70,10 +70,13 @@ const tools = {
       await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
     }
 
-    const width = 512;
-    const height = 512;
+    // <-- MODIFICATION START -->
+    // Destructure width and height from metadata, providing default values.
+    const { width = 512, height = 512 } = metadata;
     const encodedPrompt = encodeURIComponent(prompt);
+    // Use the dynamic width and height in the URL.
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}`;
+    // <-- MODIFICATION END -->
 
     const uniqueId = Date.now().toString();
     const imageFilename = `${uniqueId}.png`;
@@ -88,7 +91,9 @@ const tools = {
         throw new Error('Image download failed');
       }
 
+      // <-- MODIFICATION START -->
       // Construct the rich metadata object to be saved.
+      // The `size` property now correctly reflects the generated dimensions.
       const dataToSave = {
         ...metadata,
         fullPrompt: prompt,
@@ -96,6 +101,7 @@ const tools = {
         size: { width, height }, // Save image dimensions
         imageUrl: imageUrl,       // Save the hosted URL
       };
+      // <-- MODIFICATION END -->
       await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
 
       console.log('Image saved to:', downloadResult.uri);
