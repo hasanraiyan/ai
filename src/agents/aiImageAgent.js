@@ -33,11 +33,10 @@ Step A — Valid Visual Prompt Detected:
 - Generate exactly 'n' high-quality image prompts using:
   - vivid **adjectives**
   - specific **nouns**
-  - **style** (e.g. "digital painting", "realistic render", "cinematic frame", "oil on canvas")
   - **camera angle** or **scene composition**
-  - optional **lighting**, **mood**, and **background details**
+  - **lighting**, **mood**, and **background details**
 - Be imaginative and visually expressive.
-
+Note: Same style for each prompt, but vary the details to create unique images.
 ---
 
 **3. FEW-SHOT EXAMPLES:**
