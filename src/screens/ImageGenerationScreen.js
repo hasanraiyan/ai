@@ -50,11 +50,9 @@ const imageModelOptions = [
     { key: 'turbo', label: 'Turbo', icon: 'rocket-outline' },
 ];
 
-// --- NEW --- Options for the number of images toggle
 const numImagesOptions = Array.from({ length: MAX_IMAGES }, (_, i) => i + 1).map(num => ({
     key: num,
     label: `${num}`,
-    // Note: The ToggleSwitch component should be able to handle options without an icon
 }));
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -288,6 +286,7 @@ export default function ImageGenerationScreen({ navigation }) {
         }
     }
 
+    /*
     const handleImprove = async () => {
         Keyboard.dismiss()
         if (!prompt.trim()) {
@@ -316,6 +315,7 @@ export default function ImageGenerationScreen({ navigation }) {
             setImproving(false)
         }
     }
+    */
 
     const openModal = idx => {
         setStartIndex(idx)
@@ -357,7 +357,7 @@ export default function ImageGenerationScreen({ navigation }) {
                             {prompt.trim().length > 0 && (
                                 <TouchableOpacity
                                     style={styles.improveBtn}
-                                    onPress={handleImprove}
+                                    onPress={() => { /* handleImprove is commented out */ }}
                                     disabled={anyLoading}
                                 >
                                     {improving ? (
@@ -418,7 +418,6 @@ export default function ImageGenerationScreen({ navigation }) {
                         />
                     </View>
 
-                    {/* --- UPDATED SECTION --- */}
                     <View style={styles.card}>
                         <Text style={styles.label}>Number of Images</Text>
                         <ToggleSwitch
@@ -427,7 +426,7 @@ export default function ImageGenerationScreen({ navigation }) {
                             onSelect={setNumImages}
                             disabled={anyLoading}
                             containerStyle={{ marginTop: spacing.sm }}
-                            size="small" // Using "small" to better fit more options
+                            size="small"
                             variant="solid"
                         />
                     </View>
@@ -480,6 +479,7 @@ const getStyles = (theme) => StyleSheet.create({
         backgroundColor: theme.colors.card,
         borderRadius: 12,
         padding: spacing.md,
+        marginBottom: 16,
     },
     label: { fontSize: typography.h2, fontWeight: '600', color: theme.colors.text, marginBottom: spacing.sm },
     inputWrapper: { position: 'relative' },
@@ -583,5 +583,4 @@ const getStyles = (theme) => StyleSheet.create({
     },
     generateBtnDisabled: { backgroundColor: theme.colors.accent, opacity: 0.5, elevation: 0 },
     generateText: { color: '#fff', fontSize: typography.h2, fontWeight: '600' },
-
 });
