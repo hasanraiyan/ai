@@ -33,6 +33,7 @@ Step A — Valid Visual Prompt Detected:
 - Generate exactly 'n' high-quality image prompts using:
   - vivid **adjectives**
   - specific **nouns**
+  - **style** description 
   - **camera angle** or **scene composition**
   - **lighting**, **mood**, and **background details**
 - Be imaginative and visually expressive.

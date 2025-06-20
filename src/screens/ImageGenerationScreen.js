@@ -354,19 +354,7 @@ export default function ImageGenerationScreen({ navigation }) {
                                 onChangeText={setPrompt}
                                 editable={!anyLoading}
                             />
-                            {prompt.trim().length > 0 && (
-                                <TouchableOpacity
-                                    style={styles.improveBtn}
-                                    onPress={() => { /* handleImprove is commented out */ }}
-                                    disabled={anyLoading}
-                                >
-                                    {improving ? (
-                                        <ActivityIndicator size="small" color={theme.colors.accent} />
-                                    ) : (
-                                        <Ionicons name="sparkles-outline" size={20} color={theme.colors.accent} />
-                                    )}
-                                </TouchableOpacity>
-                            )}
+           
                         </View>
                     </View>
 

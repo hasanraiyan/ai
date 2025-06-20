@@ -3,23 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export function useThreads(systemPrompt) {
+// --- FIX: The hook is no longer aware of the system prompt ---
+export function useThreads() {
   const [threads, setThreads] = useState([]);
   const [pinnedMessages, setPinnedMessages] = useState([]);
   const [threadsReady, setThreadsReady] = useState(false);
 
-  // Effect to load threads and pins from storage on mount
   useEffect(() => {
     (async () => {
       try {
-        const [
-          loadedThreads,
-          loadedPinnedMessages,
-        ] = await Promise.all([
+        const [loadedThreads, loadedPinnedMessages] = await Promise.all([
           AsyncStorage.getItem('@threads'),
           AsyncStorage.getItem('@pinnedMessages'),
         ]);
-
         if (loadedThreads !== null) setThreads(JSON.parse(loadedThreads));
         if (loadedPinnedMessages !== null) setPinnedMessages(JSON.parse(loadedPinnedMessages));
       } catch (e) {
@@ -29,24 +25,17 @@ export function useThreads(systemPrompt) {
     })();
   }, []);
 
-  // --- Start: Effects to save state ---
   useEffect(() => { if (threadsReady) AsyncStorage.setItem('@threads', JSON.stringify(threads)) }, [threads, threadsReady]);
   useEffect(() => { if (threadsReady) AsyncStorage.setItem('@pinnedMessages', JSON.stringify(pinnedMessages)) }, [pinnedMessages, threadsReady]);
-  // --- End: Effects to save state ---
 
-
-  // --- Start: Memoized Context Functions ---
-  const createThread = useCallback(() => {
+  // --- FIX: createThread is now a pure data function. ---
+  // It receives all necessary data instead of creating it internally.
+  const createThread = useCallback((name, initialMessages, characterId = null) => {
     const id = Date.now().toString();
-    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const initialMessages = [
-      { id: `u-system-${id}`, text: systemPrompt, role: 'user', ts },
-      { id: `a-system-${id}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', ts },
-    ];
-    const newThread = { id, name: 'New Chat', messages: initialMessages };
+    const newThread = { id, name, messages: initialMessages, characterId };
     setThreads(prev => [newThread, ...prev]);
     return id;
-  }, [systemPrompt]);
+  }, []);
 
   const updateThreadMessages = useCallback((threadId, messages) =>
     setThreads(prev => {
@@ -79,7 +68,6 @@ export function useThreads(systemPrompt) {
   const unpinMessage = useCallback((messageId) => {
     setPinnedMessages(prev => prev.filter(p => p.message.id !== messageId));
   }, []);
-  // --- End: Memoized Context Functions ---
 
   return {
     threads, createThread, updateThreadMessages, renameThread,

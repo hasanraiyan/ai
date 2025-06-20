@@ -12,47 +12,72 @@ import {
   StatusBar,
   Platform,
   Dimensions,
+  Image, // <-- Import Image component
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThreadsContext } from '../contexts/ThreadsContext';
+import { CharactersContext } from '../contexts/CharactersContext'; // <-- Import CharactersContext
+
 const { width } = Dimensions.get('window');
+
+// --- NEW: A dedicated component for each list item ---
+const ThreadItem = ({ item, character, onPress, onLongPress }) => {
+  const lastMessage = item.messages[item.messages.length - 1];
+  const snippet = lastMessage
+    ? lastMessage.text.slice(0, 40) + (lastMessage.text.length > 40 ? '…' : '')
+    : 'No messages yet';
+
+  return (
+    <TouchableOpacity
+      style={styles.threadCard}
+      onPress={onPress}
+      onLongPress={onLongPress}
+    >
+      <View style={styles.threadCardContent}>
+        <View style={styles.threadIconContainer}>
+          {character?.avatarUrl ? (
+            <Image source={{ uri: character.avatarUrl }} style={styles.threadAvatarImage} />
+          ) : (
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#6366F1" />
+          )}
+        </View>
+        <View style={styles.threadTextContainer}>
+          <Text style={styles.threadTitle} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.threadSnippet} numberOfLines={1}>{snippet}</Text>
+        </View>
+        {lastMessage && <Text style={styles.threadTime}>{lastMessage.ts}</Text>}
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 // This screen is the dedicated view for ALL conversations, with search and management.
 export default function AllThreadsScreen({ navigation }) {
   const { threads, renameThread, deleteThread } = useContext(ThreadsContext);
+  const { characters } = useContext(CharactersContext); // <-- Get characters from context
+
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [selectedThread, setSelectedThread] = useState(null);
   const [renameInput, setRenameInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // --- UPDATED RENDER FUNCTION ---
   const renderItem = ({ item }) => {
-    const last = item.messages[item.messages.length - 1];
-    const snippet = last
-      ? last.text.slice(0, 40) + (last.text.length > 40 ? '…' : '')
-      : 'No messages yet';
+    // Find the character associated with this thread, if any.
+    const character = characters.find(c => c.id === item.characterId);
     return (
-      <TouchableOpacity
-        style={styles.threadCard}
+      <ThreadItem
+        item={item}
+        character={character} // Pass the character to the item component
         onPress={() => navigation.navigate('Chat', { threadId: item.id, name: item.name })}
         onLongPress={() => {
           setSelectedThread(item);
           setActionModalVisible(true);
         }}
-      >
-        <View style={styles.threadCardContent}>
-          <View style={styles.threadIcon}>
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#6366F1" />
-          </View>
-          <View style={styles.threadTextContainer}>
-            <Text style={styles.threadTitle} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.threadSnippet} numberOfLines={1}>{snippet}</Text>
-          </View>
-          {last && <Text style={styles.threadTime}>{last.ts}</Text>}
-        </View>
-      </TouchableOpacity>
+      />
     );
   };
 
@@ -152,7 +177,6 @@ export default function AllThreadsScreen({ navigation }) {
   );
 }
 
-// Reusing styles from the original ThreadsList
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff' },
   headerIconButton: { padding: 8 },
@@ -174,7 +198,20 @@ const styles = StyleSheet.create({
     }),
   },
   threadCardContent: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-  threadIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  threadIconContainer: { // Renamed for clarity
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  threadAvatarImage: { // New style for the avatar image
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
   threadTextContainer: { flex: 1 },
   threadTitle: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
   threadSnippet: { fontSize: 14, color: '#64748B', marginTop: 4 },
