@@ -25,8 +25,8 @@ export const models = [
         contextWindow: 32768,
         isChatModel: true,
         isTitleModel: true,
-        isAgentModel: false,
-        supported_tools: []
+        isAgentModel: true,
+        supported_tools: ['calculator', 'image_generator','search_web']
     },
     {
         id: 'gemma-3-12b-it',
@@ -35,7 +35,7 @@ export const models = [
         isChatModel: true,
         isTitleModel: true,
         isAgentModel: true,
-        supported_tools: ['calculator', 'image_generator']
+        supported_tools: ['calculator', 'image_generator','search_web']
     },
     {
         id: 'gemma-3-27b-it',

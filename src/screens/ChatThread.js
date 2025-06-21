@@ -31,9 +31,52 @@ const AiAvatar = ({ characterId }) => {
   return <Ionicons name="sparkles" size={20} color="#6366F1" />;
 };
 
+// --- MODIFICATION START: Redesigned Agent Action Indicator ---
+/**
+ * A visually enhanced, single-line "pill" component to show when the AI agent is using tools.
+ * It cycles through tool names if there are multiple.
+ */
+const AgentActionIndicator = ({ text }) => {
+  const [toolNames, setToolNames] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Effect to parse tool names from the input text prop
+  useEffect(() => {
+    const toolNameRegex = /`([^`]+)`/g;
+    const matches = text.matchAll(toolNameRegex);
+    const names = Array.from(matches, match => match[1]);
+    // Use a fallback if no tools are found, ensuring the component always displays something
+    setToolNames(names.length > 0 ? names : ['Thinking...']);
+    setCurrentIndex(0); // Reset index when text changes
+  }, [text]);
+
+  // Effect to cycle through tool names if there are multiple
+  useEffect(() => {
+    if (toolNames.length > 1) {
+      const intervalId = setInterval(() => {
+        setCurrentIndex(prevIndex => (prevIndex + 1) % toolNames.length);
+      }, 2500); // Change tool name every 2.5 seconds
+
+      return () => clearInterval(intervalId); // Cleanup on component unmount or when toolNames change
+    }
+  }, [toolNames]);
+
+  const displayedText = toolNames[currentIndex] || '';
+
+  return (
+    <View style={styles.agentPillContainer}>
+      <ActivityIndicator size="small" color="#6366F1" style={styles.agentPillSpinner} />
+      <Ionicons name="build-outline" size={16} color="#6B7280" style={styles.agentPillIcon} />
+      <Text style={styles.agentPillText} numberOfLines={1}>
+        {displayedText}
+      </Text>
+    </View>
+  );
+};
+// --- MODIFICATION END ---
+
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  // --- MODIFICATION START ---
   const { 
     modelName, 
     titleModelName, 
@@ -41,9 +84,8 @@ export default function ChatThread({ navigation, route }) {
     systemPrompt, 
     agentSystemPrompt, 
     apiKey,
-    tavilyApiKey // <-- Get Tavily key
+    tavilyApiKey
   } = useContext(SettingsContext);
-  // --- MODIFICATION END ---
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
 
@@ -131,7 +173,6 @@ export default function ChatThread({ navigation, route }) {
       scrollToBottom();
     };
     try {
-      // --- MODIFICATION START ---
       const reply = await sendMessageToAI({
         apiKey,
         modelName: modelForRequest,
@@ -139,9 +180,8 @@ export default function ChatThread({ navigation, route }) {
         newMessageText: text,
         isAgentMode: mode === 'agent',
         onToolCall: handleToolCall,
-        tavilyApiKey: tavilyApiKey // <-- Pass Tavily key
+        tavilyApiKey: tavilyApiKey
       });
-      // --- MODIFICATION END ---
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push(aiMsg);
@@ -212,19 +252,18 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
+    // --- MODIFICATION START ---
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
           <View style={styles.avatar}>
             <AiAvatar characterId={item.characterId} />
           </View>
-          <View style={styles.agentThinkingBubble}>
-            <ActivityIndicator size="small" color="#475569" style={{ marginRight: 8 }} />
-            <Text style={styles.agentThinkingText}>{item.text}</Text>
-          </View>
+          <AgentActionIndicator text={item.text} />
         </View>
       );
     }
+    // --- MODIFICATION END ---
     return (
       <View style={styles.aiRow}>
         <View style={styles.avatar}>
@@ -277,7 +316,7 @@ export default function ChatThread({ navigation, route }) {
     </SafeAreaView>
   );
 }
-// Styles remain unchanged
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F9FAFB' },
   chatHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF' },
@@ -292,8 +331,6 @@ const styles = StyleSheet.create({
   avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
   avatarImage: { width: '100%', height: '100%', borderRadius: 16 },
   aiBubble: { backgroundColor: '#FFF', padding: 12, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', maxWidth: '80%' },
-  agentThinkingBubble: { backgroundColor: '#F3F4F6', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center' },
-  agentThinkingText: { color: '#4B5563', fontStyle: 'italic', fontSize: 15 },
   errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
   errorText: { color: '#B91C1C', fontSize: 16 },
   bubbleFooter: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 4 },
@@ -303,4 +340,30 @@ const styles = StyleSheet.create({
   input: { flex: 1, padding: 12, backgroundColor: '#F3F4F6', borderRadius: 20, marginRight: 8, maxHeight: 100 },
   sendBtn: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, justifyContent: 'center' },
   sendDisabled: { backgroundColor: '#A5B4FC' },
+  // --- MODIFICATION START: New styles for single-line agent action pill ---
+  agentPillContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start', // Prevent stretching
+    maxWidth: '80%',
+  },
+  agentPillSpinner: {
+    marginRight: 8,
+  },
+  agentPillIcon: {
+    marginRight: 6,
+  },
+  agentPillText: {
+    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: '500',
+    flexShrink: 1, // Allow text to shrink if the container is constrained
+  },
+  // --- MODIFICATION END ---
 });

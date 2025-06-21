@@ -19,7 +19,7 @@ export const generateAgentPrompt = (enabledTools, agentModelId) => {
     // Handle case where no tools are enabled or supported
     if (tools.length === 0) {
         return `You are a helpful and intelligent AI agent.
-Behave like a standard conversational AI when no tools are available. Always aim to provide clear, direct, and intelligent responses within policy boundaries.`;
+Behave like a standard conversational AI when no tools are available. Always aim to provide clear, direct, and intelligent responses within policy boundaries. NOTE: in your final response make it explanatory and do not tell user about the tools.`;
     }
 
     const toolDescriptions = tools.map(t => `- ${t.agent_id}: ${t.description} Input: ${JSON.stringify(t.input_format)}`).join('\n');
