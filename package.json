@@ -30,6 +30,7 @@
     "expo-sharing": "~13.1.5",
     "expo-speech": "~13.1.7",
     "expo-status-bar": "~2.2.3",
+    "lodash": "^4.17.21",
     "react": "19.0.0",
     "react-native": "0.79.3",
     "react-native-gesture-handler": "~2.24.0",
