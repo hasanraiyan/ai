@@ -53,17 +53,6 @@ Output:
   ]
 }
 
-
-
-Input: "how do I fix a 404 error?", n: 3  
-Output:
-{
-  "generate": false,
-  "reason": "no image intent"
-}
-
----
-
 **4. OUTPUT FORMAT (ALWAYS JSON):**
 
 If valid:
@@ -75,7 +64,7 @@ If valid:
 If invalid:
 {
   "generate": false,
-  "reason": "unsafe content" | "no image intent"
+  "reason": "add reason why prompts could not be generated in 5 to 7 words" 
 }
 
 Only respond with JSON. No extra commentary or text.

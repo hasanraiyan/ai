@@ -134,18 +134,17 @@ const SelectableCharacters = ({ navigation }) => {
   }), [systemPrompt]);
 
   const handleSelectCharacter = (character) => {
-    // --- FIX: The AI's opening greeting message must also be marked as hidden ---
     if (character.id === 'default-ai') {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null, isHidden: true },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null },
       ];
       const newThreadId = createThread("New Chat", initialMessages, null);
       navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
     } else {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, isHidden: true },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id },
       ];
       const newThreadId = createThread(character.name, initialMessages, character.id);
       navigation.navigate('Chat', { threadId: newThreadId, name: character.name });
@@ -382,7 +381,7 @@ const RecentConversations = ({ navigation }) => {
           {recentThreads.map((item, index) => {
             // --- FIX: Find the last *visible* message for the snippet ---
             const lastVisibleMessage = item.messages.slice().reverse().find(m => !m.isHidden);
-            const snippet = lastVisibleMessage ? `${lastVisibleMessage.text.slice(0, 50)}…` : 'No messages yet';
+            const snippet = lastVisibleMessage ? `${lastVisibleMessage.text.slice(0, 50)}â€¦` : 'No messages yet';
             const character = characters.find(c => c.id === item.characterId);
             
             return (
@@ -427,10 +426,9 @@ export default function ThreadsList({ navigation }) {
   }, []);
 
   const handleCreateGenericThread = () => {
-    // --- FIX: The AI's opening greeting message must also be marked as hidden ---
     const initialMessages = [
         { id: `u-system-${Date.now()}`, text: systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', isHidden: true },
+        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model' },
     ];
     const newThreadId = createThread("New Chat", initialMessages, null);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });

@@ -3,8 +3,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
 import { toolDispatcher } from './tools';
-import  {extractJson}  from '../utils/extractJson';
-
+import { extractJson } from '../utils/extractJson';
+import { IS_DEBUG } from '../constants';
 export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMessageText, isAgentMode, onToolCall) => {
   if (!apiKey) {
     throw new Error("API Key Missing. Please set your API Key in Settings.");
@@ -13,6 +13,10 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
 
+  { IS_DEBUG && console.log("Using model:", modelName); }
+
+
+  { IS_DEBUG && console.log("History Messages:", historyMessages); }
   // The chat history needs to potentially include the system prompt,
   const chatHistory = historyMessages
     .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking')
@@ -20,13 +24,14 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
       role: m.role,
       parts: [{ text: m.text }],
     }));
-    console.log("Chat History:", chatHistory);
-    
+  { IS_DEBUG && console.log("Chat History:", chatHistory); }
+
   const chat = model.startChat({ history: chatHistory });
 
+  { IS_DEBUG && console.log("New Message Text:", newMessageText); }
   const result = await chat.sendMessage(newMessageText);
   let responseText = await result.response.text();
-
+  { IS_DEBUG && console.log("AI Response Text:", responseText); }
   if (isAgentMode) {
     const toolCall = extractJson(responseText);
     if (toolCall && toolCall['tools-required']) {
@@ -51,7 +56,3 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
 
   return responseText;
 };
-
-// --- REMOVED REDUNDANT HELPER FUNCTION ---
-// The callImageTool helper function has been removed from this file.
-// Image generation is handled by aiImageAgent.js which now calls the tool directly.
