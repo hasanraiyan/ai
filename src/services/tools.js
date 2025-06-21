@@ -3,7 +3,7 @@
 import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
 import { encode as btoa } from 'base-64';
-
+import { IS_DEBUG } from '../constants';
 /**
  * A collection of mock tool metadata for discovery.
  * This tells the Manager Agent what tools are available.
@@ -60,6 +60,11 @@ const tools = {
       
       const { answer, results } = response.data;
       
+      { IS_DEBUG && console.log("Tavily Search Response:", response.data); }
+      {
+        IS_DEBUG && console.log("Tavily Search Answer:", answer);
+        IS_DEBUG && console.log("Tavily Search Results:", results);
+      }
       // Construct a concise summary for the AI
       let summary = `**Search Answer:**\n${answer || 'No direct answer found.'}\n\n**Top Results:**\n`;
       if (results && results.length > 0) {
