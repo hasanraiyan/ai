@@ -54,6 +54,31 @@ export default function ChatThread({ navigation, route }) {
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
 
+  // --- FIX START: Add a useEffect to sync system prompt with the mode ---
+  useEffect(() => {
+    if (!thread || !thread.messages) return;
+
+    const getSystemPromptForRequest = () => {
+      if (mode === 'agent') return agentSystemPrompt;
+      if (currentCharacter) return currentCharacter.systemPrompt;
+      return systemPrompt;
+    };
+    
+    const correctSystemPrompt = getSystemPromptForRequest();
+    const systemMessageIndex = thread.messages.findIndex(m => m.id.startsWith('u-system-'));
+
+    if (systemMessageIndex !== -1 && thread.messages[systemMessageIndex].text !== correctSystemPrompt) {
+      const updatedMessages = [...thread.messages];
+      updatedMessages[systemMessageIndex] = {
+        ...updatedMessages[systemMessageIndex],
+        text: correctSystemPrompt,
+      };
+      // Use the `preserveOrder` flag to prevent re-ordering the thread list on this update
+      updateThreadMessages(threadId, updatedMessages, true);
+    }
+  }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
+  // --- FIX END ---
+
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
       Alert.alert('Agent Mode Not Supported', `The current agent model (${selectedAgentModel?.name || agentModelName}) does not support tools.`);
@@ -87,24 +112,11 @@ export default function ChatThread({ navigation, route }) {
     setLoading(true);
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
 
-    // --- FIX START: Determine the correct system prompt ---
-    const getSystemPromptForRequest = () => {
-      if (mode === 'agent') {
-        return agentSystemPrompt; // Agent mode always uses its specific prompt
-      }
-      if (currentCharacter) {
-        return currentCharacter.systemPrompt; // A character is active, use its prompt
-      }
-      return systemPrompt; // Fallback to the global default prompt
-    };
-    const currentSystemPrompt = getSystemPromptForRequest();
-    // --- FIX END ---
-    
+    // --- FIX START: Remove redundant system prompt logic ---
+    // The useEffect now handles keeping the system prompt in sync.
+    // The `newMessages` array already has the correct system prompt.
     let historyForAPI = newMessages.map(m => ({ ...m }));
-    const sysIdx = historyForAPI.findIndex(m => m.id.startsWith('u-system-'));
-    if (sysIdx > -1) {
-      historyForAPI[sysIdx].text = currentSystemPrompt;
-    }
+    // --- FIX END ---
     
     let thinkingMessageId = null;
     const handleToolCall = (toolCall) => {
@@ -178,13 +190,13 @@ export default function ChatThread({ navigation, route }) {
     if (item.role === 'user') {
       return (
         <View style={styles.userRow}>
-          <View style={styles.userBubble}>
+          <Pressable onLongPress={() => handleLongPress(item)} style={styles.userBubble}>
             <Text style={styles.userText}>{item.text}</Text>
             <View style={styles.bubbleFooter}>
               {isPinned && <Ionicons name="pin" size={12} color="#A5B4FC" style={{ marginRight: 6 }} />}
               <Text style={styles.time}>{item.ts}</Text>
             </View>
-          </View>
+          </Pressable>
         </View>
       );
     }
@@ -206,7 +218,7 @@ export default function ChatThread({ navigation, route }) {
         <View style={styles.avatar}>
           <AiAvatar characterId={item.characterId} />
         </View>
-        <View style={[styles.aiBubble, item.error && styles.errorBubble]}>
+        <Pressable onLongPress={() => handleLongPress(item)} style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? <Text style={styles.errorText}>{item.text}</Text> : (() => {
             const processedText = item.text.replace(/\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi, '![$1]($2)');
             return <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={markdownImageRules}>{processedText}</Markdown>;
@@ -215,12 +227,12 @@ export default function ChatThread({ navigation, route }) {
             {isPinned && <Ionicons name="pin" size={12} color="#9CA3AF" style={{ marginRight: 6 }} />}
             <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
           </View>
-        </View>
+        </Pressable>
       </View>
     );
   };
 
-  const displayMessages = thread.messages.filter(m => !m.isHidden);
+  const displayMessages = thread.messages.filter(m => !m.id.startsWith('u-system-') && !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
 
@@ -238,7 +250,7 @@ export default function ChatThread({ navigation, route }) {
         data={displayMessages}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.chatContent}
-        renderItem={({ item }) => <Pressable onLongPress={() => handleLongPress(item)}>{renderMessageItem({ item })}</Pressable>}
+        renderItem={renderMessageItem}
         ListFooterComponent={showTypingIndicator && <TypingIndicator />}
         keyboardShouldPersistTaps="handled"
       />
@@ -260,7 +272,7 @@ const styles = StyleSheet.create({
   headerIconButton: { padding: 8 },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, marginLeft: 8 },
   chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
-  chatContent: { padding: 12, paddingBottom: 80, paddingTop: 8 },
+  chatContent: { padding: 12, paddingBottom: 20, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, maxWidth: '80%' },
   userText: { color: '#FFF', fontSize: 16 },

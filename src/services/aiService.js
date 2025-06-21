@@ -14,15 +14,16 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
   const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
 
   // The chat history needs to potentially include the system prompt,
-  // but exclude the agent-thinking messages and tool-results for the AI's perspective
   const chatHistory = historyMessages
     .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking')
     .map(m => ({
       role: m.role,
       parts: [{ text: m.text }],
     }));
-
+    console.log("Chat History:", chatHistory);
+    
   const chat = model.startChat({ history: chatHistory });
+
   const result = await chat.sendMessage(newMessageText);
   let responseText = await result.response.text();
 
