@@ -99,7 +99,7 @@ export default function LanguageTutorScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  
+
   const markdownStyles = {
     body: { fontSize: 16, lineHeight: 24, color: colors.text },
     heading1: { ...typography.h1, fontWeight: '700', color: colors.text },
@@ -120,11 +120,11 @@ export default function LanguageTutorScreen({ navigation }) {
     Keyboard.dismiss();
     if (!inputText.trim() || loading) return;
     if (!apiKey) return Alert.alert('API Key Missing', 'Please set it in Settings.');
-    
+
     setLoading(true);
     setResult(null);
     setError('');
-    
+
     try {
       const response = await processLanguageRequest(apiKey, agentModelName, { text: inputText, sourceLang: sourceLangCode, targetLang: targetLangCode, mode });
       if (!response) throw new Error('Empty response from AI.');
@@ -166,27 +166,27 @@ export default function LanguageTutorScreen({ navigation }) {
     );
 
     if (!result) return (
-        <View style={styles.stateContainer}>
-            <View style={[styles.stateIcon, { backgroundColor: colors.accent20 }]}>
-              <Ionicons name="chatbubbles-outline" size={48} color={colors.accent} />
-            </View>
-            <Text style={[styles.stateTitle, { color: colors.text }]}>Ready to help you learn!</Text>
-            <Text style={[styles.stateSubtitle, { color: colors.subtext }]}>
-                {mode === 'Translate' ? 'Translate text and get a detailed analysis' : 'Ask me anything about language learning'}
-            </Text>
+      <View style={styles.stateContainer}>
+        <View style={[styles.stateIcon, { backgroundColor: colors.accent20 }]}>
+          <Ionicons name="chatbubbles-outline" size={48} color={colors.accent} />
         </View>
+        <Text style={[styles.stateTitle, { color: colors.text }]}>Ready to help you learn!</Text>
+        <Text style={[styles.stateSubtitle, { color: colors.subtext }]}>
+          {mode === 'Translate' ? 'Translate text and get a detailed analysis' : 'Ask me anything about language learning'}
+        </Text>
+      </View>
     );
-    
+
     // Tutor Mode
     if (mode === 'Tutor') {
       const tutorText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
       return (
         <ResultCard title="AI Tutor Response" icon="school" color="#8B5CF6" isRTL={!!targetLangObj.isRTL} listenText={tutorText} listenLang={targetLangCode} highlight>
-          <Markdown style={{...markdownStyles, body: {...markdownStyles.body, textAlign: targetLangObj.isRTL ? 'right' : 'left'}}}>{tutorText}</Markdown>
+          <Markdown style={{ ...markdownStyles, body: { ...markdownStyles.body, textAlign: targetLangObj.isRTL ? 'right' : 'left' } }}>{tutorText}</Markdown>
         </ResultCard>
       );
     }
-    
+
     // Translate Mode
     if (result.translation) {
       const { translation, inputAnalysis, formality, culturalNotes } = result;
@@ -197,29 +197,29 @@ export default function LanguageTutorScreen({ navigation }) {
           </ResultCard>
 
           <ResultCard title="Grammar Analysis" icon={inputAnalysis.isCorrect ? 'checkmark-circle' : 'alert-circle'} color={inputAnalysis.isCorrect ? '#059669' : '#DC2626'} isRTL={!!sourceLangObj.isRTL} listenText={inputAnalysis.correction} listenLang={sourceLangCode}>
-            <Text style={[styles.correctionText, {color: colors.text}, sourceLangObj.isRTL && { textAlign: 'right' }]}>{inputAnalysis.correction || 'Your input seems correct!'}</Text>
+            <Text style={[styles.correctionText, { color: colors.text }, sourceLangObj.isRTL && { textAlign: 'right' }]}>{inputAnalysis.correction || 'Your input seems correct!'}</Text>
             {!inputAnalysis.isCorrect && (
               <View style={[styles.explanationContainer, { backgroundColor: '#FEF9C3', borderLeftColor: '#F59E0B' }]}>
                 <Text style={styles.explanationText}>{inputAnalysis.explanation}</Text>
               </View>
             )}
           </ResultCard>
-          
+
           <ResultCard title="Formality Variations" icon="people" color="#7C3AED" isRTL={!!targetLangObj.isRTL} listenText={`Formal: ${formality.formal}. Informal: ${formality.informal}`} listenLang={targetLangCode}>
-             <Text style={[styles.formalityText, {color: colors.text}]}><Text style={styles.formalityLabel}>Formal: </Text>{formality.formal}</Text>
-             <View style={[styles.divider, {backgroundColor: colors.border}]} />
-             <Text style={[styles.formalityText, {color: colors.text}]}><Text style={styles.formalityLabel}>Informal: </Text>{formality.informal}</Text>
+            <Text style={[styles.formalityText, { color: colors.text }]}><Text style={styles.formalityLabel}>Formal: </Text>{formality.formal}</Text>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <Text style={[styles.formalityText, { color: colors.text }]}><Text style={styles.formalityLabel}>Informal: </Text>{formality.informal}</Text>
           </ResultCard>
 
           <ResultCard title="Cultural Context" icon="globe" color="#F59E0B" isRTL={!!targetLangObj.isRTL}>
-            <Text style={[styles.culturalText, {color: colors.text}]}>{culturalNotes || 'No specific cultural notes for this translation.'}</Text>
+            <Text style={[styles.culturalText, { color: colors.text }]}>{culturalNotes || 'No specific cultural notes for this translation.'}</Text>
           </ResultCard>
         </>
       );
     }
 
     // Fallback for unexpected response
-    return <ResultCard title="Unexpected Response" icon="alert-circle" color="#EF4444"><Text style={[styles.bodyText, {color: colors.text}]}>{JSON.stringify(result, null, 2)}</Text></ResultCard>;
+    return <ResultCard title="Unexpected Response" icon="alert-circle" color="#EF4444"><Text style={[styles.bodyText, { color: colors.text }]}>{JSON.stringify(result, null, 2)}</Text></ResultCard>;
   };
 
   return (
@@ -236,11 +236,11 @@ export default function LanguageTutorScreen({ navigation }) {
           </View>
           <View style={styles.section}>
             <LanguageSettings // <-- USING THE IMPORTED COMPONENT
-              sourceLangCode={sourceLangCode} 
-              targetLangCode={targetLangCode} 
-              onSwap={swapLanguages} 
-              onSelectSource={setSourceLangCode} 
-              onSelectTarget={setTargetLangCode} 
+              sourceLangCode={sourceLangCode}
+              targetLangCode={targetLangCode}
+              onSwap={swapLanguages}
+              onSelectSource={setSourceLangCode}
+              onSelectTarget={setTargetLangCode}
               disabled={loading}
             />
           </View>
@@ -248,7 +248,7 @@ export default function LanguageTutorScreen({ navigation }) {
         </ScrollView>
         <View style={[styles.composerContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <View style={[styles.composerInner, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <TextInput style={[styles.input, { color: colors.text }]} placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'} placeholderTextColor={colors.subtext} multiline value={inputText} onChangeText={setInputText} editable={!loading}/>
+            <TextInput style={[styles.input, { color: colors.text }]} placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'} placeholderTextColor={colors.subtext} multiline value={inputText} onChangeText={setInputText} editable={!loading} />
             <TouchableOpacity onPress={handleProcess} disabled={!inputText.trim() || loading} style={[styles.sendButton, (!inputText.trim() || loading) && styles.disabled]}>
               <Ionicons name="arrow-up" size={24} color={'#FFFFFF'} />
             </TouchableOpacity>
@@ -260,34 +260,83 @@ export default function LanguageTutorScreen({ navigation }) {
 }
 
 const useStyles = ({ colors }) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    scrollContainer: { padding: spacing.md, paddingBottom: spacing.xl },
-    section: { marginBottom: spacing.lg },
-    disabled: { opacity: 0.5 },
-    stateContainer: { alignItems: 'center', paddingVertical: spacing.xl * 2, gap: spacing.md },
-    stateIcon: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
-    stateTitle: { ...typography.h2, fontWeight: '700', textAlign: 'center' },
-    stateSubtitle: { ...typography.body, textAlign: 'center', lineHeight: 20 },
-    errorContainer: { alignItems: 'center', padding: spacing.lg, borderRadius: 16, borderWidth: 1, gap: spacing.sm },
-    errorTitle: { ...typography.h3, fontWeight: '600', color: '#DC2626' },
-    errorText: { color: '#DC2626', textAlign: 'center', ...typography.body },
-    resultCard: { borderRadius: 16, marginBottom: spacing.md, borderWidth: 1 },
-    resultCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-    resultCardTitleContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.sm },
-    iconContainer: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-    resultCardTitle: { ...typography.h4, fontWeight: '700' },
-    resultCardContent: { padding: spacing.md },
-    listenButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: spacing.sm },
-    translationText: { fontSize: 22, fontWeight: '600', color: '#059669', lineHeight: 30 },
-    correctionText: { ...typography.body, lineHeight: 22 },
-    explanationContainer: { padding: spacing.md, borderRadius: 12, borderLeftWidth: 4, marginTop: spacing.md },
-    explanationText: { color: '#92400E', ...typography.body, lineHeight: 20 },
-    formalityText: { ...typography.body, lineHeight: 24 },
-    formalityLabel: { fontWeight: '600' },
-    culturalText: { ...typography.body, lineHeight: 24 },
-    divider: { height: 1, marginVertical: spacing.md },
-    composerContainer: { padding: spacing.md, borderTopWidth: 1 },
-    composerInner: { flexDirection: 'row', alignItems: 'flex-end', borderRadius: 24, borderWidth: 1, padding: spacing.sm },
-    input: { flex: 1, ...typography.body, minHeight: 24, maxHeight: 120, paddingHorizontal: spacing.sm, paddingVertical: Platform.OS === 'ios' ? spacing.sm : 0 },
-    sendButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent, marginLeft: spacing.sm },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContainer: { padding: spacing.md, paddingBottom: spacing.xl },
+  section: { marginBottom: spacing.lg },
+  disabled: { opacity: 0.5 },
+  stateContainer: { alignItems: 'center', paddingVertical: spacing.xl * 2, gap: spacing.md },
+  stateIcon: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
+  stateTitle: { ...typography.h2, fontWeight: '700', textAlign: 'center' },
+  stateSubtitle: { ...typography.body, textAlign: 'center', lineHeight: 20 },
+  errorContainer: { alignItems: 'center', padding: spacing.lg, borderRadius: 16, borderWidth: 1, gap: spacing.sm },
+  errorTitle: { ...typography.h3, fontWeight: '600', color: '#DC2626' },
+  errorText: { color: '#DC2626', textAlign: 'center', ...typography.body },
+  resultCard: { borderRadius: 16, marginBottom: spacing.md, borderWidth: 1 },
+  resultCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  resultCardTitleContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.sm },
+  iconContainer: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  resultCardTitle: { ...typography.h4, fontWeight: '700' },
+  resultCardContent: { padding: spacing.md },
+  listenButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginLeft: spacing.sm },
+  translationText: { fontSize: 22, fontWeight: '600', color: '#059669', lineHeight: 30 },
+  correctionText: { ...typography.body, lineHeight: 22 },
+  explanationContainer: { padding: spacing.md, borderRadius: 12, borderLeftWidth: 4, marginTop: spacing.md },
+  explanationText: { color: '#92400E', ...typography.body, lineHeight: 20 },
+  formalityText: { ...typography.body, lineHeight: 24 },
+  formalityLabel: { fontWeight: '600' },
+  culturalText: { ...typography.body, lineHeight: 24 },
+  divider: { height: 1, marginVertical: spacing.md },
+  composerContainer: {
+    padding: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+  },
+
+  composerInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2, // Android shadow
+  },
+
+  input: {
+    flex: 1,
+    ...typography.body,
+    height: 44, // Fixed height for vertical centering
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 0, // remove vertical padding
+    textAlignVertical: 'center', // needed for Android
+    color: colors.text,
+  },
+
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    marginLeft: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  sendIcon: {
+    tintColor: '#fff',
+    width: 20,
+    height: 20,
+  }
 });
