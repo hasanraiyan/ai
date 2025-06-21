@@ -28,7 +28,6 @@ const AiAvatar = ({ characterId }) => {
     return <Image source={{ uri: character.avatarUrl }} style={styles.avatarImage} />;
   }
   
-  // Fallback to default sparkles icon
   return <Ionicons name="sparkles" size={20} color="#6366F1" />;
 };
 
@@ -53,8 +52,7 @@ export default function ChatThread({ navigation, route }) {
   const isAgentModeSupported = selectedAgentModel?.isAgentModel ?? false;
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
-
-  // --- FIX START: Add a useEffect to sync system prompt with the mode ---
+  
   useEffect(() => {
     if (!thread || !thread.messages) return;
 
@@ -73,11 +71,9 @@ export default function ChatThread({ navigation, route }) {
         ...updatedMessages[systemMessageIndex],
         text: correctSystemPrompt,
       };
-      // Use the `preserveOrder` flag to prevent re-ordering the thread list on this update
       updateThreadMessages(threadId, updatedMessages, true);
     }
   }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
-  // --- FIX END ---
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
@@ -90,7 +86,6 @@ export default function ChatThread({ navigation, route }) {
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
   const handleGenerateTitle = async (firstUserText) => {
-    // Don't auto-title character chats
     if (thread.characterId) return;
 
     try {
@@ -107,17 +102,19 @@ export default function ChatThread({ navigation, route }) {
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.length === 2;
-    let newMessages = [...thread.messages, userMsg];
+
+    // --- FIX START: Correctly separate history from the new message ---
+    // The history for the API call should be the state *before* adding the new message.
+    const historyForAPI = [...thread.messages];
+
+    // The state for the UI should be updated immediately to show the user's new message.
+    let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
+    // --- FIX END ---
+    
     setLoading(true);
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
 
-    // --- FIX START: Remove redundant system prompt logic ---
-    // The useEffect now handles keeping the system prompt in sync.
-    // The `newMessages` array already has the correct system prompt.
-    let historyForAPI = newMessages.map(m => ({ ...m }));
-    // --- FIX END ---
-    
     let thinkingMessageId = null;
     const handleToolCall = (toolCall) => {
       const toolNames = Object.keys(toolCall).filter(k => k !== 'tools-required');
@@ -129,6 +126,7 @@ export default function ChatThread({ navigation, route }) {
       scrollToBottom();
     };
     try {
+      // Pass the *old* history and the *new* text separately.
       const reply = await sendMessageToAI(apiKey, modelForRequest, historyForAPI, text, mode === 'agent', handleToolCall);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
