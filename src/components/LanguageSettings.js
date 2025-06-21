@@ -1,12 +1,9 @@
+// src/components/LanguageSettings.js
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import LanguageSelector from '../components/LanguageSelector';
+import LanguageSelector from './LanguageSelector';
+import { useTheme, spacing, typography } from '../utils/theme';
 
 export default function LanguageSettings({
   sourceLangCode,
@@ -16,62 +13,46 @@ export default function LanguageSettings({
   onSelectTarget,
   disabled,
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles({ colors });
+
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <View style={styles.col}>
-          <Text style={styles.label}>From</Text>
-          <LanguageSelector selected={sourceLangCode} onSelect={onSelectSource} disabled={disabled} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.swapButton, disabled && styles.disabled]}
-          onPress={onSwap}
-          disabled={disabled}
-        >
-          <Ionicons name="swap-horizontal" size={24} color="#1D4ED8" />
-        </TouchableOpacity>
-
-        <View style={styles.col}>
-          <Text style={styles.label}>To</Text>
-          <LanguageSelector selected={targetLangCode} onSelect={onSelectTarget} disabled={disabled} />
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.col}>
+        <Text style={[styles.label, { color: colors.subtext }]}>From</Text>
+        <LanguageSelector langCode={sourceLangCode} onSelect={onSelectSource} disabled={disabled} />
+      </View>
+      <TouchableOpacity style={styles.swapButton} onPress={onSwap} disabled={disabled}>
+        <Ionicons name="swap-horizontal" size={24} color={colors.accent} />
+      </TouchableOpacity>
+      <View style={styles.col}>
+        <Text style={[styles.label, { color: colors.subtext }]}>To</Text>
+        <LanguageSelector langCode={targetLangCode} onSelect={onSelectTarget} disabled={disabled} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = ({ colors }) => StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    padding: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: spacing.sm,
   },
   col: {
     flex: 1,
+    gap: spacing.xs,
   },
   label: {
-    fontSize: 14,
+    ...typography.small,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 4,
+    paddingHorizontal: spacing.xs,
   },
   swapButton: {
-    marginHorizontal: 8,
-    backgroundColor: '#EFF6FF',
-    padding: 8,
-    borderRadius: 20,
-  },
-  disabled: {
-    opacity: 0.5,
+    padding: spacing.sm,
+    marginBottom: spacing.xs, // Aligns button with the bottom of the selector
   },
 });
