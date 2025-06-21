@@ -33,7 +33,17 @@ const AiAvatar = ({ characterId }) => {
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
-  const { modelName, titleModelName, agentModelName, systemPrompt, agentSystemPrompt, apiKey } = useContext(SettingsContext);
+  // --- MODIFICATION START ---
+  const { 
+    modelName, 
+    titleModelName, 
+    agentModelName, 
+    systemPrompt, 
+    agentSystemPrompt, 
+    apiKey,
+    tavilyApiKey // <-- Get Tavily key
+  } = useContext(SettingsContext);
+  // --- MODIFICATION END ---
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
 
@@ -96,7 +106,7 @@ export default function ChatThread({ navigation, route }) {
 
   const sendAI = async (text) => {
     if (!apiKey) {
-      Alert.alert('API Key Missing', 'Please set your API Key in Settings.');
+      Alert.alert('API Key Missing', 'Please set your Google AI API Key in Settings.');
       return;
     }
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -121,7 +131,17 @@ export default function ChatThread({ navigation, route }) {
       scrollToBottom();
     };
     try {
-      const reply = await sendMessageToAI(apiKey, modelForRequest, historyForAPI, text, mode === 'agent', handleToolCall);
+      // --- MODIFICATION START ---
+      const reply = await sendMessageToAI({
+        apiKey,
+        modelName: modelForRequest,
+        historyMessages: historyForAPI,
+        newMessageText: text,
+        isAgentMode: mode === 'agent',
+        onToolCall: handleToolCall,
+        tavilyApiKey: tavilyApiKey // <-- Pass Tavily key
+      });
+      // --- MODIFICATION END ---
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push(aiMsg);
@@ -224,7 +244,6 @@ export default function ChatThread({ navigation, route }) {
     );
   };
 
-  // --- FIX: Simplify the display logic to only rely on the `isHidden` flag ---
   const displayMessages = thread.messages.filter(m => !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
@@ -258,7 +277,7 @@ export default function ChatThread({ navigation, route }) {
     </SafeAreaView>
   );
 }
-
+// Styles remain unchanged
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F9FAFB' },
   chatHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF' },

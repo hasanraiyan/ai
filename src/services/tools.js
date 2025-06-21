@@ -11,7 +11,8 @@ import { encode as btoa } from 'base-64';
 export const toolMetadata = [
   {
     agent_id: "search_web",
-    description: "Simulates searching the web for a given query. Use for real-time information or general knowledge questions.",
+    // --- MODIFIED DESCRIPTION ---
+    description: "Performs a web search using the Tavily API for real-time information. Requires a Tavily API key to be set by the user.",
     capabilities: ["query"],
     input_format: { query: "string" },
     output_format: { result: "string" }
@@ -41,18 +42,43 @@ export const getAvailableTools = () => toolMetadata;
  * Tool Implementations
  */
 const tools = {
-  search_web: async ({ query }) => {
-    console.log(`TOOL: Searching web for "${query}"`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      result: `Showing mock web search results for: "${query}". The latest AI trends include multimodal models, agentic workflows, and on-device AI.`
-    };
+  // --- REPLACED IMPLEMENTATION ---
+  search_web: async ({ query }, tavilyApiKey) => {
+    console.log(`TOOL: Searching Tavily for "${query}"`);
+    if (!tavilyApiKey) {
+      console.error("Tavily API key is missing.");
+      return { result: "Error: Tavily API key is not configured. Please add it in the settings." };
+    }
+    try {
+      const response = await axios.post('https://api.tavily.com/search', {
+        api_key: tavilyApiKey,
+        query: query,
+        search_depth: "basic",
+        include_answer: true,
+        max_results: 5
+      });
+      
+      const { answer, results } = response.data;
+      
+      // Construct a concise summary for the AI
+      let summary = `**Search Answer:**\n${answer || 'No direct answer found.'}\n\n**Top Results:**\n`;
+      if (results && results.length > 0) {
+        summary += results.map(res => `- [${res.title}](${res.url}): ${res.content}`).join('\n');
+      } else {
+        summary += "No web results found.";
+      }
+      
+      return { result: summary };
+
+    } catch (error) {
+      console.error("Tavily search failed:", error.response ? error.response.data : error.message);
+      return { result: "Error: Failed to perform web search. The API key might be invalid or the service may be unavailable." };
+    }
   },
 
   calculator: async ({ expression }) => {
     console.log(`TOOL: Calculating "${expression}"`);
     try {
-      // Note: Using eval() is generally unsafe in production. This is for demonstration.
       const result = eval(expression);
       return { result };
     } catch (e) {
@@ -64,21 +90,18 @@ const tools = {
     console.log(`TOOL: Generating image for "${prompt}" with metadata:`, metadata);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
-    // Ensure the directory exists
     const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
     if (!dirInfo.exists) {
       await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
     }
-
-    // --- MODIFIED --- Destructure all relevant params from metadata with defaults
+    
     const { 
       width = 512, 
       height = 512, 
-      imageGenModel = 'flux' // Default to 'flux' if not provided
+      imageGenModel = 'flux'
     } = metadata;
     
     const encodedPrompt = encodeURIComponent(prompt);
-    // --- MODIFIED --- Append the new model parameter to the URL
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}&model=${imageGenModel}`;
 
     const uniqueId = Date.now().toString();
@@ -94,7 +117,6 @@ const tools = {
         throw new Error('Image download failed');
       }
 
-      // The metadata object from the screen already contains everything we need
       const dataToSave = {
         ...metadata,
         fullPrompt: prompt,
@@ -123,19 +145,22 @@ const tools = {
   }
 };
 
-// Export implementations for direct use
 export const toolImplementations = tools;
 
 /**
  * Tool Dispatcher: Executes tools based on a toolCall object.
  */
-export const toolDispatcher = async (toolCall) => {
+// --- MODIFIED SIGNATURE ---
+export const toolDispatcher = async ({ toolCall, tavilyApiKey }) => {
   const toolPromises = [];
   const results = {};
 
   for (const toolName in toolCall) {
-    if (tools[toolName]) {
-      const promise = tools[toolName](toolCall[toolName])
+    if (toolCall.hasOwnProperty(toolName) && tools[toolName]) {
+      // Pass the specific key only to the tool that needs it
+      const apiKeyForTool = toolName === 'search_web' ? tavilyApiKey : undefined;
+      
+      const promise = tools[toolName](toolCall[toolName], apiKeyForTool)
         .then(result => {
           results[toolName] = result;
         });

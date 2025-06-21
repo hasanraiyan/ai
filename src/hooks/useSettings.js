@@ -11,13 +11,14 @@ export function useSettings() {
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
   const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya."
+    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act roboticâ€”be real, be Arya."
   );
 
   const initialEnabledTools = toolMetadata.reduce((acc, tool) => ({ ...acc, [tool.agent_id]: true }), {});
   const [enabledTools, setEnabledTools] = useState(initialEnabledTools);
   const [agentSystemPrompt, setAgentSystemPrompt] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [tavilyApiKey, setTavilyApiKey] = useState(''); // --- NEW STATE ---
   const [settingsReady, setSettingsReady] = useState(false);
 
   // Effect to generate agent prompt when dependencies change
@@ -35,6 +36,7 @@ export function useSettings() {
           loadedAgentModel,
           loadedSystemPrompt,
           loadedApiKey,
+          loadedTavilyApiKey, // --- NEW ---
           loadedEnabledTools,
         ] = await Promise.all([
           AsyncStorage.getItem('@modelName'),
@@ -42,6 +44,7 @@ export function useSettings() {
           AsyncStorage.getItem('@agentModelName'),
           AsyncStorage.getItem('@systemPrompt'),
           AsyncStorage.getItem('@apiKey'),
+          AsyncStorage.getItem('@tavilyApiKey'), // --- NEW ---
           AsyncStorage.getItem('@enabledTools'),
         ]);
 
@@ -79,6 +82,7 @@ export function useSettings() {
 
         if (loadedSystemPrompt !== null) setSystemPrompt(loadedSystemPrompt);
         if (loadedApiKey !== null) setApiKey(loadedApiKey);
+        if (loadedTavilyApiKey !== null) setTavilyApiKey(loadedTavilyApiKey); // --- NEW ---
 
       } catch (e) {
         console.warn('Error loading settings from AsyncStorage:', e);
@@ -94,6 +98,7 @@ export function useSettings() {
   useEffect(() => { if (settingsReady) AsyncStorage.setItem('@systemPrompt', systemPrompt) }, [systemPrompt, settingsReady]);
   useEffect(() => { if (settingsReady) AsyncStorage.setItem('@enabledTools', JSON.stringify(enabledTools)) }, [enabledTools, settingsReady]);
   useEffect(() => { if (settingsReady) AsyncStorage.setItem('@apiKey', apiKey) }, [apiKey, settingsReady]);
+  useEffect(() => { if (settingsReady) AsyncStorage.setItem('@tavilyApiKey', tavilyApiKey) }, [tavilyApiKey, settingsReady]); // --- NEW ---
   // --- End: Effects to save state ---
 
   return {
@@ -104,6 +109,7 @@ export function useSettings() {
     agentSystemPrompt,
     enabledTools, setEnabledTools,
     apiKey, setApiKey,
+    tavilyApiKey, setTavilyApiKey, // --- NEW ---
     settingsReady,
   };
 }

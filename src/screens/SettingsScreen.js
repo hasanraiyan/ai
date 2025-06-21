@@ -20,10 +20,10 @@ import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
-import { deleteAllImageData } from '../services/fileService'; // <-- IMPORT NEW FUNCTION
+import { deleteAllImageData } from '../services/fileService';
 import ScreenHeader from '../components/ScreenHeader';
 
-// A reusable selector component with search and modal for large lists
+// ModelSelector component remains unchanged...
 function ModelSelector({
   label,
   items,
@@ -103,6 +103,7 @@ function ModelSelector({
   );
 }
 
+
 function SettingsScreen({ navigation }) {
   const {
     modelName, setModelName,
@@ -111,11 +112,13 @@ function SettingsScreen({ navigation }) {
     systemPrompt, setSystemPrompt,
     agentSystemPrompt,
     apiKey, setApiKey,
+    tavilyApiKey, setTavilyApiKey, // <-- Get Tavily key and setter
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showTavilyApiKey, setShowTavilyApiKey] = useState(false); // <-- New state for visibility
 
   const selectedAgentModel = models.find(m => m.id === agentModelName);
 
@@ -141,8 +144,11 @@ function SettingsScreen({ navigation }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="key-outline" size={20} color="#475569" style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>API Key</Text>
+            <Text style={styles.cardTitle}>API Keys</Text>
           </View>
+          
+          {/* Google AI Key Input */}
+          <Text style={styles.cardSubTitle}>Google AI API Key</Text>
           <View style={styles.apiKeyContainer}>
             <TextInput
               style={styles.apiKeyInput}
@@ -158,10 +164,30 @@ function SettingsScreen({ navigation }) {
               <Ionicons name={showApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.infoText}>Your API key is stored securely on your device.</Text>
+          <Text style={styles.infoText}>Your Google key is used for chat, agents, and image generation.</Text>
+
+          {/* Tavily AI Key Input --- NEW --- */}
+          <View style={styles.separator} />
+          <Text style={styles.cardSubTitle}>Tavily AI API Key</Text>
+          <View style={styles.apiKeyContainer}>
+            <TextInput
+              style={styles.apiKeyInput}
+              value={tavilyApiKey}
+              onChangeText={setTavilyApiKey}
+              placeholder="Enter your Tavily AI API Key"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showTavilyApiKey}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowTavilyApiKey(!showTavilyApiKey)} style={styles.eyeIcon}>
+              <Ionicons name={showTavilyApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.infoText}>Your Tavily key is required for the `search_web` tool.</Text>
         </View>
 
-        {/* Persona Card */}
+        {/* Persona Card (unchanged) */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="person-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -177,7 +203,7 @@ function SettingsScreen({ navigation }) {
           />
         </View>
 
-        {/* Model Configuration Card */}
+        {/* Model Configuration Card (unchanged) */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="hardware-chip-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -208,22 +234,29 @@ function SettingsScreen({ navigation }) {
               {availableTools.map((tool, index) => {
                 const isUserEnabled = !!enabledTools[tool.agent_id];
                 const isModelSupported = selectedAgentModel?.supported_tools.includes(tool.agent_id);
+                // --- NEW LOGIC --- Disable search_web if Tavily key is missing
+                const isToolDisabled = !isModelSupported || (tool.agent_id === 'search_web' && !tavilyApiKey);
+                
                 return (
                   <React.Fragment key={tool.agent_id}>
                     {index > 0 && <View style={styles.separator} />}
-                    <View style={[styles.toolRow, !isModelSupported && styles.toolRowDisabled]}>
+                    <View style={[styles.toolRow, isToolDisabled && styles.toolRowDisabled]}>
                       <View style={styles.toolInfo}>
                         <Text style={styles.toolName}>{tool.agent_id}</Text>
                         <Text style={styles.toolDescription}>{tool.description}</Text>
                         {!isModelSupported && <Text style={styles.toolSupportText}>Not supported by {selectedAgentModel.name}</Text>}
+                        {/* --- NEW FEEDBACK --- */}
+                        {tool.agent_id === 'search_web' && !tavilyApiKey && isModelSupported && (
+                          <Text style={styles.toolSupportText}>Tavily API Key required</Text>
+                        )}
                       </View>
                       <Switch
                         trackColor={{ false: '#D1D5DB', true: '#A5B4FC' }}
-                        thumbColor={isUserEnabled && isModelSupported ? '#6366F1' : '#f4f3f4'}
+                        thumbColor={isUserEnabled && !isToolDisabled ? '#6366F1' : '#f4f3f4'}
                         ios_backgroundColor="#D1D5DB"
                         onValueChange={() => toggleTool(tool.agent_id)}
                         value={isUserEnabled}
-                        disabled={!isModelSupported}
+                        disabled={isToolDisabled} // <-- USE NEW DISABLED FLAG
                       />
                     </View>
                   </React.Fragment>
@@ -233,7 +266,7 @@ function SettingsScreen({ navigation }) {
           )}
         </View>
 
-        {/* Agent Prompt Card */}
+        {/* Agent Prompt Card (unchanged) */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="document-text-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -247,7 +280,7 @@ function SettingsScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Danger Zone Card */}
+        {/* Danger Zone Card (unchanged) */}
         <View style={[styles.card, styles.dangerCard]}>
           <View style={styles.cardHeader}>
             <Ionicons name="warning-outline" size={20} color="#DC2626" style={styles.cardIcon} />
@@ -264,7 +297,6 @@ function SettingsScreen({ navigation }) {
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
           </TouchableOpacity>
 
-          {/* --- NEW BUTTON --- */}
           <View style={styles.dangerSeparator} />
           <TouchableOpacity
             style={styles.dangerButton}
@@ -282,6 +314,7 @@ function SettingsScreen({ navigation }) {
   );
 }
 
+// Styles remain mostly the same, no changes needed here.
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAFC' },
   scrollContainer: { padding: 16 },
@@ -355,7 +388,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 16,
   },
   dangerButtonText: { color: '#B91C1C', fontSize: 15, fontWeight: '600' },
-  dangerSeparator: { height: 12 }, // Add vertical space between buttons
+  dangerSeparator: { height: 12 },
 });
 
 export default SettingsScreen;
