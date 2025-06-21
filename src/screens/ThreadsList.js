@@ -68,12 +68,12 @@ const QuickActions = ({ navigation }) => {
 
   return (
     <DashboardSection title="Quick Actions" icon="flash-outline">
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContainer}
       >
-        {actions.map((item, index) => (
+        {actions.map((item) => (
           <TouchableOpacity
             key={item.title}
             style={[ styles.qaCard, { backgroundColor: colors.card, borderColor: colors.border } ]}
@@ -101,7 +101,7 @@ const SelectableCharacters = ({ navigation }) => {
   const defaultAi = useMemo(() => ({
     id: 'default-ai',
     name: 'Arya',
-    avatarUrl: 'https://image.pollinations.ai/prompt/abstract_logo_of_a_friendly_AI_assistant,_glowing_blue_and_purple_orb?width=512&height=512&seed=12345',
+    avatarUrl: require('../../assets/icon.png'), // This uses a local asset
     systemPrompt: systemPrompt,
     greeting: "Hello! How can I help you today?",
     isDefault: true,
@@ -118,12 +118,12 @@ const SelectableCharacters = ({ navigation }) => {
     const newThreadId = createThread(threadName, initialMessages, isDefault ? null : character.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: threadName });
   };
-  
+
   const allSelectable = [defaultAi, ...characters];
 
   return (
-    <DashboardSection 
-      title="Start a Chat" 
+    <DashboardSection
+      title="Start a Chat"
       icon="chatbubbles-outline"
       onSeeAll={() => navigation.navigate('Characters')}
       seeAllLabel={`View All (${characters.length})`}
@@ -141,7 +141,11 @@ const SelectableCharacters = ({ navigation }) => {
             activeOpacity={0.8}
           >
             <View>
-              <Image source={{ uri: item.avatarUrl }} style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]} />
+              {/* --- FIX: Conditionally set the source for local vs. remote images --- */}
+              <Image
+                source={item.isDefault ? item.avatarUrl : { uri: item.avatarUrl }}
+                style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
+              />
               {item.isDefault && (
                 <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
                   <Ionicons name="star" size={10} color="#fff" />
@@ -213,14 +217,14 @@ const RecentImages = ({ navigation }) => {
       const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
       if (!dirInfo.exists) { setImages([]); return; }
       const files = (await FileSystem.readDirectoryAsync(IMAGE_DIR)).filter(f => /\.(jpe?g|png)$/i.test(f));
-      const data = await Promise.all(
-        files.map(async fn => ({
-          id: fn,
-          uri: IMAGE_DIR + fn,
-          time: (await FileSystem.getInfoAsync(IMAGE_DIR + fn)).modificationTime || 0,
+      const fileData = await Promise.all(
+        files.map(async (fileName) => ({
+          id: fileName,
+          uri: IMAGE_DIR + fileName,
+          time: (await FileSystem.getInfoAsync(IMAGE_DIR + fileName)).modificationTime || 0,
         }))
       );
-      setImages(data.sort((a, b) => b.time - a.time).slice(0, 6));
+      setImages(fileData.sort((a, b) => b.time - a.time).slice(0, 6));
     } catch (e) {
       console.error("Couldn't load recent images:", e);
       setImages([]);
@@ -230,8 +234,8 @@ const RecentImages = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    const unsub = navigation.addListener('focus', loadRecentImages);
-    return unsub;
+    const unsubscribe = navigation.addListener('focus', loadRecentImages);
+    return unsubscribe;
   }, [navigation, loadRecentImages]);
 
   const renderContent = () => {
@@ -259,20 +263,19 @@ const RecentImages = ({ navigation }) => {
         contentContainerStyle={styles.horizontalListContainer}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          // --- MODIFICATION START ---
           <TouchableOpacity
-            onPress={() => navigation.navigate('Gallery')}
+            // --- FIX: Pass the specific image URI to the Gallery screen ---
+            onPress={() => navigation.navigate('Gallery', { initialImage: item.uri })}
             style={styles.imageCard}
             activeOpacity={0.8}
           >
             <Image source={{ uri: item.uri }} style={[styles.riImage, { backgroundColor: colors.imagePlaceholder }]}/>
           </TouchableOpacity>
-          // --- MODIFICATION END ---
         )}
       />
     );
   };
-  
+
   return (
     <DashboardSection title="Recent Images" icon="images-outline" onSeeAll={() => navigation.navigate('Gallery')}>
       {renderContent()}
@@ -295,7 +298,7 @@ const RecentConversations = ({ navigation }) => {
           const lastVisibleMessage = item.messages.slice().reverse().find(m => !m.isHidden);
           const snippet = lastVisibleMessage ? lastVisibleMessage.text : 'No messages yet';
           const character = characters.find(c => c.id === item.characterId);
-          
+
           return (
             <TouchableOpacity
               key={item.id}
@@ -333,7 +336,7 @@ export default function ThreadsList({ navigation }) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // In a real app, you'd re-fetch data here.
+    // In a real app, you'd re-fetch data here. For now, it's a mock refresh.
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
@@ -346,7 +349,7 @@ export default function ThreadsList({ navigation }) {
     const newThreadId = createThread("New Chat", initialMessages, null);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
   };
-  
+
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
       <ScreenHeader navigation={navigation} title="Dashboard" subtitle="Welcome back!" />
@@ -361,7 +364,7 @@ export default function ThreadsList({ navigation }) {
         <RecentImages navigation={navigation} />
         <RecentConversations navigation={navigation} />
       </ScrollView>
-      
+
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.fabBg }]}
         onPress={handleCreateGenericThread}
@@ -377,7 +380,7 @@ export default function ThreadsList({ navigation }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContainer: { paddingTop: spacing.md, paddingBottom: spacing.xl * 2, },
-  
+
   // Section Layout
   sectionContainer: { marginBottom: spacing.xl, },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.md },
@@ -387,7 +390,7 @@ const styles = StyleSheet.create({
   seeAllButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, paddingLeft: spacing.sm },
   seeAllText: { ...typography.body, fontWeight: '600' },
   seeAllIcon: { marginLeft: 2 },
-  
+
   // List Containers
   horizontalListContainer: { paddingHorizontal: spacing.md, gap: spacing.sm },
   verticalListContainer: { marginHorizontal: spacing.md },
@@ -398,30 +401,29 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.h3, fontWeight: '600', marginBottom: spacing.xs },
   emptySectionText: { ...typography.body, textAlign: 'center', lineHeight: 20 },
   loadingContainer: { height: 150, alignItems: 'center', justifyContent: 'center' },
-  
+
   // Card: Quick Actions
   qaCard: { width: (screenWidth / 2) - (spacing.md + (spacing.sm / 2)), borderRadius: 20, padding: spacing.md, borderWidth: 1, gap: spacing.sm },
   qaIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   qaTitle: { ...typography.h4, fontWeight: '700' },
   qaDescription: { ...typography.small, lineHeight: 16 },
-  
+
   // Card: Characters
   charCard: { alignItems: 'center', width: 90, padding: spacing.sm, borderRadius: 16, borderWidth: 1, gap: spacing.sm },
   charAvatar: { width: 60, height: 60, borderRadius: 30 },
-  charBadge: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, },
+  charBadge: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, display: 'none' },
   charName: { ...typography.small, fontWeight: '600', textAlign: 'center' },
-  
+
   // Card: Pinned Messages
   pinCard: { borderRadius: 16, padding: spacing.md, borderWidth: 1, },
   pinText: { ...typography.body, lineHeight: 22, fontWeight: '500' },
   pinFooter: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: spacing.xs },
   pinSource: { ...typography.small, fontWeight: '600', flex: 1 },
-  
+
   // Card: Recent Images
   imageCard: { borderRadius: 12, overflow: 'hidden' },
   riImage: { width: 120, height: 150 },
-  // --- MODIFICATION: The imageOverlay style is no longer needed and has been removed ---
-  
+
   // Item: Recent Conversations
   threadCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: 16, },
   threadIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: spacing.md, overflow: 'hidden' },
@@ -430,7 +432,7 @@ const styles = StyleSheet.create({
   threadTitle: { ...typography.body, fontWeight: '700', marginBottom: 2 },
   threadSnippet: { ...typography.small, lineHeight: 18 },
   threadTime: { ...typography.small },
-  
+
   // Floating Action Button (FAB)
   fab: { position: 'absolute', margin: spacing.lg, right: 0, bottom: 0, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, },
   fabText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },

@@ -1,5 +1,4 @@
 // src/screens/AllThreadsScreen.js
-
 import React, { useState, useContext, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
