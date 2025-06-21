@@ -134,17 +134,18 @@ const SelectableCharacters = ({ navigation }) => {
   }), [systemPrompt]);
 
   const handleSelectCharacter = (character) => {
+    // --- FIX: The AI's opening greeting message must also be marked as hidden ---
     if (character.id === 'default-ai') {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null, isHidden: true },
       ];
       const newThreadId = createThread("New Chat", initialMessages, null);
       navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
     } else {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, isHidden: true },
       ];
       const newThreadId = createThread(character.name, initialMessages, character.id);
       navigation.navigate('Chat', { threadId: newThreadId, name: character.name });
@@ -195,9 +196,6 @@ const SelectableCharacters = ({ navigation }) => {
               <Text style={[styles.charName, { color: colors.text }]} numberOfLines={1}>
                 {item.name}
               </Text>
-              {/* <View style={styles.charAction}>
-                <Ionicons name="chatbubble-outline" size={12} color={colors.accent} />
-              </View> */}
             </TouchableOpacity>
           );
         }}
@@ -364,7 +362,6 @@ const RecentConversations = ({ navigation }) => {
 
   const formatTime = (ts) => {
     if (!ts) return '';
-    // A more sophisticated time formatting could be implemented here
     return ts;
   };
 
@@ -383,8 +380,9 @@ const RecentConversations = ({ navigation }) => {
       ) : (
         <View style={styles.threadsContainer}>
           {recentThreads.map((item, index) => {
-            const last = item.messages[item.messages.length - 1];
-            const snippet = last ? `${last.text.slice(0, 50)}…` : 'No messages yet';
+            // --- FIX: Find the last *visible* message for the snippet ---
+            const lastVisibleMessage = item.messages.slice().reverse().find(m => !m.isHidden);
+            const snippet = lastVisibleMessage ? `${lastVisibleMessage.text.slice(0, 50)}…` : 'No messages yet';
             const character = characters.find(c => c.id === item.characterId);
             
             return (
@@ -405,7 +403,7 @@ const RecentConversations = ({ navigation }) => {
                   <Text style={[styles.threadTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.threadSnippet, { color: colors.subtext }]} numberOfLines={1}>{snippet}</Text>
                 </View>
-                 <Text style={[styles.threadTime, { color: colors.subtext }]}>{formatTime(last?.ts)}</Text>
+                 <Text style={[styles.threadTime, { color: colors.subtext }]}>{formatTime(lastVisibleMessage?.ts)}</Text>
               </TouchableOpacity>
             );
           })}
@@ -423,17 +421,16 @@ export default function ThreadsList({ navigation }) {
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
-  // A placeholder onRefresh function for the ScrollView
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // In a real app, you might re-fetch data here.
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
   const handleCreateGenericThread = () => {
+    // --- FIX: The AI's opening greeting message must also be marked as hidden ---
     const initialMessages = [
         { id: `u-system-${Date.now()}`, text: systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model' },
+        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', isHidden: true },
     ];
     const newThreadId = createThread("New Chat", initialMessages, null);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });

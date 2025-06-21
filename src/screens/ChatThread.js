@@ -101,16 +101,11 @@ export default function ChatThread({ navigation, route }) {
     }
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
-    const isFirstRealMessage = thread.messages.length === 2;
+    const isFirstRealMessage = thread.messages.filter(m => !m.isHidden).length === 0;
 
-    // --- FIX START: Correctly separate history from the new message ---
-    // The history for the API call should be the state *before* adding the new message.
     const historyForAPI = [...thread.messages];
-
-    // The state for the UI should be updated immediately to show the user's new message.
     let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
-    // --- FIX END ---
     
     setLoading(true);
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
@@ -126,7 +121,6 @@ export default function ChatThread({ navigation, route }) {
       scrollToBottom();
     };
     try {
-      // Pass the *old* history and the *new* text separately.
       const reply = await sendMessageToAI(apiKey, modelForRequest, historyForAPI, text, mode === 'agent', handleToolCall);
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
@@ -230,7 +224,8 @@ export default function ChatThread({ navigation, route }) {
     );
   };
 
-  const displayMessages = thread.messages.filter(m => !m.id.startsWith('u-system-') && !m.isHidden);
+  // --- FIX: Simplify the display logic to only rely on the `isHidden` flag ---
+  const displayMessages = thread.messages.filter(m => !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
 

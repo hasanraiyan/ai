@@ -12,21 +12,22 @@ import {
   StatusBar,
   Platform,
   Dimensions,
-  Image, // <-- Import Image component
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThreadsContext } from '../contexts/ThreadsContext';
-import { CharactersContext } from '../contexts/CharactersContext'; // <-- Import CharactersContext
+import { CharactersContext } from '../contexts/CharactersContext';
 
 const { width } = Dimensions.get('window');
 
-// --- NEW: A dedicated component for each list item ---
+// --- A dedicated component for each list item ---
 const ThreadItem = ({ item, character, onPress, onLongPress }) => {
-  const lastMessage = item.messages[item.messages.length - 1];
-  const snippet = lastMessage
-    ? lastMessage.text.slice(0, 40) + (lastMessage.text.length > 40 ? '…' : '')
+  // --- FIX: Find the last *visible* message for the snippet ---
+  const lastVisibleMessage = item.messages.slice().reverse().find(m => !m.isHidden);
+  const snippet = lastVisibleMessage
+    ? lastVisibleMessage.text.slice(0, 40) + (lastVisibleMessage.text.length > 40 ? '…' : '')
     : 'No messages yet';
 
   return (
@@ -47,7 +48,7 @@ const ThreadItem = ({ item, character, onPress, onLongPress }) => {
           <Text style={styles.threadTitle} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.threadSnippet} numberOfLines={1}>{snippet}</Text>
         </View>
-        {lastMessage && <Text style={styles.threadTime}>{lastMessage.ts}</Text>}
+        {lastVisibleMessage && <Text style={styles.threadTime}>{lastVisibleMessage.ts}</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -56,7 +57,7 @@ const ThreadItem = ({ item, character, onPress, onLongPress }) => {
 // This screen is the dedicated view for ALL conversations, with search and management.
 export default function AllThreadsScreen({ navigation }) {
   const { threads, renameThread, deleteThread } = useContext(ThreadsContext);
-  const { characters } = useContext(CharactersContext); // <-- Get characters from context
+  const { characters } = useContext(CharactersContext);
 
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -64,14 +65,12 @@ export default function AllThreadsScreen({ navigation }) {
   const [renameInput, setRenameInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // --- UPDATED RENDER FUNCTION ---
   const renderItem = ({ item }) => {
-    // Find the character associated with this thread, if any.
     const character = characters.find(c => c.id === item.characterId);
     return (
       <ThreadItem
         item={item}
-        character={character} // Pass the character to the item component
+        character={character}
         onPress={() => navigation.navigate('Chat', { threadId: item.id, name: item.name })}
         onLongPress={() => {
           setSelectedThread(item);
@@ -109,7 +108,7 @@ export default function AllThreadsScreen({ navigation }) {
           <Ionicons name="arrow-back-outline" size={24} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.listTitle}>All Conversations</Text>
-        <View style={{ width: 24 + 8 * 2 }} />{/* Placeholder for balance */}
+        <View style={{ width: 24 + 8 * 2 }} />
       </View>
       <View style={styles.searchContainer}>
         <TextInput
@@ -198,7 +197,7 @@ const styles = StyleSheet.create({
     }),
   },
   threadCardContent: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-  threadIconContainer: { // Renamed for clarity
+  threadIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -207,7 +206,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  threadAvatarImage: { // New style for the avatar image
+  threadAvatarImage: {
     width: '100%',
     height: '100%',
     borderRadius: 20,
