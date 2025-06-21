@@ -134,17 +134,18 @@ const SelectableCharacters = ({ navigation }) => {
   }), [systemPrompt]);
 
   const handleSelectCharacter = (character) => {
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     if (character.id === 'default-ai') {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: null, ts },
       ];
       const newThreadId = createThread("New Chat", initialMessages, null);
       navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
     } else {
       const initialMessages = [
         { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id },
+        { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, ts },
       ];
       const newThreadId = createThread(character.name, initialMessages, character.id);
       navigation.navigate('Chat', { threadId: newThreadId, name: character.name });
@@ -426,9 +427,10 @@ export default function ThreadsList({ navigation }) {
   }, []);
 
   const handleCreateGenericThread = () => {
+    const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const initialMessages = [
         { id: `u-system-${Date.now()}`, text: systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model' },
+        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', ts },
     ];
     const newThreadId = createThread("New Chat", initialMessages, null);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });

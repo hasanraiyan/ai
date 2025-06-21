@@ -24,7 +24,7 @@ export const sendMessageToAI = async (apiKey, modelName, historyMessages, newMes
       role: m.role,
       parts: [{ text: m.text }],
     }));
-  { IS_DEBUG && console.log("Chat History:", chatHistory); }
+  { IS_DEBUG && console.log("Chat History:", JSON.stringify(chatHistory)); }
 
   const chat = model.startChat({ history: chatHistory });
 
