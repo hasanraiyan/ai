@@ -142,7 +142,8 @@ export default function ImageGenerationScreen({ navigation }) {
         
         setLoading(true);
         
-        const finalPrompt = selectedCategory.id !== 'none' ? `${prompt.trim()}. Style: ${selectedCategory.description}` : prompt.trim();
+        const finalPrompt = selectedCategory.id !== 'none' ? `Image Description: ${prompt.trim()}. Style Description: ${selectedCategory.description}` : prompt.trim();
+        console.log('Final Prompt:', finalPrompt);
         const getDimensions = ratio => ({ '16:9': { width: 768, height: 432 }, '9:16': { width: 432, height: 768 } }[ratio] || { width: 512, height: 512 });
         const { width, height } = getDimensions(aspectRatio);
         const metadataPayload = { prompt: prompt.trim(), styleId: selectedCategory.id, styleName: selectedCategory.name, modelUsed: modelToUse, imageGenModel: imageModel, batchSize: numImages, aspectRatio, width, height };
