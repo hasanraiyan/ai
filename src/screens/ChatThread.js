@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import {
-  StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView,
+  StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
   Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, TouchableOpacity
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -19,6 +19,7 @@ import ModeToggle from '../components/ModeToggle';
 import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
 import { ImageWithLoader } from '../components/imageSkeleton';
+import Composer from '../components/Composer';
 
 const AiAvatar = ({ characterId }) => {
   const { characters } = useContext(CharactersContext);
@@ -31,33 +32,25 @@ const AiAvatar = ({ characterId }) => {
   return <Ionicons name="sparkles" size={20} color="#6366F1" />;
 };
 
-// --- MODIFICATION START: Redesigned Agent Action Indicator ---
-/**
- * A visually enhanced, single-line "pill" component to show when the AI agent is using tools.
- * It cycles through tool names if there are multiple.
- */
 const AgentActionIndicator = ({ text }) => {
   const [toolNames, setToolNames] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Effect to parse tool names from the input text prop
   useEffect(() => {
     const toolNameRegex = /`([^`]+)`/g;
     const matches = text.matchAll(toolNameRegex);
     const names = Array.from(matches, match => match[1]);
-    // Use a fallback if no tools are found, ensuring the component always displays something
     setToolNames(names.length > 0 ? names : ['Thinking...']);
-    setCurrentIndex(0); // Reset index when text changes
+    setCurrentIndex(0);
   }, [text]);
 
-  // Effect to cycle through tool names if there are multiple
   useEffect(() => {
     if (toolNames.length > 1) {
       const intervalId = setInterval(() => {
         setCurrentIndex(prevIndex => (prevIndex + 1) % toolNames.length);
-      }, 2500); // Change tool name every 2.5 seconds
+      }, 2500);
 
-      return () => clearInterval(intervalId); // Cleanup on component unmount or when toolNames change
+      return () => clearInterval(intervalId);
     }
   }, [toolNames]);
 
@@ -73,7 +66,6 @@ const AgentActionIndicator = ({ text }) => {
     </View>
   );
 };
-// --- MODIFICATION END ---
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
@@ -252,7 +244,6 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
-    // --- MODIFICATION START ---
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
@@ -263,7 +254,6 @@ export default function ChatThread({ navigation, route }) {
         </View>
       );
     }
-    // --- MODIFICATION END ---
     return (
       <View style={styles.aiRow}>
         <View style={styles.avatar}>
@@ -296,23 +286,29 @@ export default function ChatThread({ navigation, route }) {
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
         {!currentCharacter && <ModeToggle mode={mode} onToggle={onToggleMode} isAgentModeSupported={isAgentModeSupported} />}
       </View>
-      <FlatList
-        ref={listRef}
-        data={displayMessages}
-        keyExtractor={i => i.id}
-        contentContainerStyle={styles.chatContent}
-        renderItem={renderMessageItem}
-        ListFooterComponent={showTypingIndicator && <TypingIndicator />}
-        keyboardShouldPersistTaps="handled"
-      />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <View style={styles.inputRow}>
-          <TextInput ref={inputRef} style={styles.input} value={input} onChangeText={setInput} placeholder="Type a message..." multiline editable={!loading} />
-          <TouchableOpacity onPress={onSend} style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]} disabled={!input.trim() || loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
-          </TouchableOpacity>
-        </View>
+      {/* --- MODIFICATION START --- */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <FlatList
+          ref={listRef}
+          data={displayMessages}
+          keyExtractor={i => i.id}
+          contentContainerStyle={styles.chatContent}
+          renderItem={renderMessageItem}
+          ListFooterComponent={showTypingIndicator && <TypingIndicator />}
+          keyboardShouldPersistTaps="handled"
+        />
+        <Composer
+          value={input}
+          onValueChange={setInput}
+          onSend={onSend}
+          loading={loading}
+          placeholder="Type a message..."
+        />
       </KeyboardAvoidingView>
+      {/* --- MODIFICATION END --- */}
     </SafeAreaView>
   );
 }
@@ -336,11 +332,6 @@ const styles = StyleSheet.create({
   bubbleFooter: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 4 },
   time: { fontSize: 10, color: '#9CA3AF' },
   errorTime: { color: '#FCA5A5' },
-  inputRow: { flexDirection: 'row', padding: 8, backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#E5E7EB' },
-  input: { flex: 1, padding: 12, backgroundColor: '#F3F4F6', borderRadius: 20, marginRight: 8, maxHeight: 100 },
-  sendBtn: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, justifyContent: 'center' },
-  sendDisabled: { backgroundColor: '#A5B4FC' },
-  // --- MODIFICATION START: New styles for single-line agent action pill ---
   agentPillContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,7 +341,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    alignSelf: 'flex-start', // Prevent stretching
+    alignSelf: 'flex-start',
     maxWidth: '80%',
   },
   agentPillSpinner: {
@@ -363,7 +354,6 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     fontSize: 14,
     fontWeight: '500',
-    flexShrink: 1, // Allow text to shrink if the container is constrained
+    flexShrink: 1,
   },
-  // --- MODIFICATION END ---
 });

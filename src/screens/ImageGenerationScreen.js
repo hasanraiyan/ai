@@ -1,12 +1,10 @@
 // src/screens/ImageGenerationScreen.js
-// FINAL VERSION: Implements the direct-to-modal UX for generated images.
 
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
     View,
-    TextInput,
     TouchableOpacity,
     ScrollView,
     ActivityIndicator,
@@ -14,7 +12,6 @@ import {
     StatusBar,
     KeyboardAvoidingView,
     Keyboard,
-    Animated,
     UIManager,
     Image as RNImage,
     Modal,
@@ -35,6 +32,7 @@ import { models } from '../constants/models';
 import { useTheme, spacing, typography } from '../utils/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import ToggleSwitch from '../components/ToggleSwitch';
+import Composer from '../components/Composer';
 
 const { width: screenWidth } = Dimensions.get('window');
 const MAX_IMAGES = 6;
@@ -151,10 +149,9 @@ export default function ImageGenerationScreen({ navigation }) {
         
         try {
             const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload);
-            // *** THE KEY CHANGE IS HERE ***
             if (res.success && res.imageUrls?.length) {
-                setUrls(res.imageUrls); // Store the URLs
-                openModal(0); // Immediately open the modal to show the results
+                setUrls(res.imageUrls);
+                openModal(0);
             } else {
                 Alert.alert('Generation Failed', res.reason || 'An unknown error occurred.');
             }
@@ -166,47 +163,47 @@ export default function ImageGenerationScreen({ navigation }) {
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
             <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
+            {/* --- MODIFICATION START --- */}
             <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
-            
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flexContainer}>
-                <ScrollView
-                    style={{ flex: 1 }}
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                >
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}><Ionicons name="color-palette-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Choose a Style</Text></View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                            {imageCategories.map(category => <StyleCategoryCard key={category.id} category={category} isSelected={selectedCategory.id === category.id} onPress={() => setSelectedCategory(category)} disabled={anyLoading} />)}
-                        </ScrollView>
-                    </View>
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}><Ionicons name="options-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Generation Settings</Text></View>
-                        <View style={styles.card}><Text style={styles.label}>Image Generation Model</Text><ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
-                        <View style={styles.card}><Text style={styles.label}>Aspect Ratio</Text><ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
-                        <View style={styles.card}><Text style={styles.label}>Number of Images</Text><ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" /></View>
-                    </View>
-                    
-                    {/* *** THE PREVIEW CARD IS NO LONGER RENDERED HERE *** */}
-                    
-                </ScrollView>
-                <View style={styles.composerContainer}>
-                     <View style={styles.inputContainer}>
-                        <TextInput style={styles.promptInput} placeholder="A majestic dragon soaring through clouds..." placeholderTextColor={theme.colors.subtext} multiline value={prompt} onChangeText={setPrompt} editable={!anyLoading} />
-                        <TouchableOpacity style={[styles.generateBtn, (!prompt.trim() || anyLoading) && styles.generateBtnDisabled]} onPress={handleGenerate} disabled={!prompt.trim() || anyLoading}>
-                            {loading ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
-                        </TouchableOpacity>
-                    </View>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={{ flex: 1 }}>
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}><Ionicons name="color-palette-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Choose a Style</Text></View>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                                {imageCategories.map(category => <StyleCategoryCard key={category.id} category={category} isSelected={selectedCategory.id === category.id} onPress={() => setSelectedCategory(category)} disabled={anyLoading} />)}
+                            </ScrollView>
+                        </View>
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}><Ionicons name="options-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Generation Settings</Text></View>
+                            <View style={styles.card}><Text style={styles.label}>Image Generation Model</Text><ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
+                            <View style={styles.card}><Text style={styles.label}>Aspect Ratio</Text><ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
+                            <View style={styles.card}><Text style={styles.label}>Number of Images</Text><ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" /></View>
+                        </View>
+                    </ScrollView>
                 </View>
+                <Composer
+                    value={prompt}
+                    onValueChange={setPrompt}
+                    onSend={handleGenerate}
+                    loading={anyLoading}
+                    placeholder="A majestic dragon soaring through clouds..."
+                />
             </KeyboardAvoidingView>
+            {/* --- MODIFICATION END --- */}
         </SafeAreaView>
     );
 }
 
 const getStyles = (theme) => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
-    flexContainer: { flex: 1 },
     scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg, flexGrow: 1 },
     section: { marginBottom: spacing.lg },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
@@ -221,11 +218,6 @@ const getStyles = (theme) => StyleSheet.create({
     categoryOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: spacing.sm, backgroundColor: 'rgba(0,0,0,0.3)' },
     categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '700' },
     categorySelectedBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-    composerContainer: { padding: spacing.md, backgroundColor: theme.colors.background, borderTopWidth: 1, borderColor: theme.colors.border },
-    inputContainer: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: theme.colors.card, borderRadius: 24, borderWidth: 1, borderColor: theme.colors.border, paddingLeft: spacing.md, paddingRight: spacing.xs, paddingVertical: spacing.xs },
-    promptInput: { flex: 1, fontSize: typography.body, color: theme.colors.text, minHeight: 40, maxHeight: 120, paddingVertical: Platform.OS === 'ios' ? spacing.sm : 0 },
-    generateBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.accent, justifyContent: 'center', alignItems: 'center', marginLeft: spacing.sm },
-    generateBtnDisabled: { backgroundColor: theme.colors.subtext, opacity: 0.6 },
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
     modalPage: { width: screenWidth, height: '100%', justifyContent: 'center', alignItems: 'center' },
     modalImage: { width: '100%', height: '80%' },

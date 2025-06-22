@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   View,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -28,14 +27,13 @@ import { processLanguageRequest } from '../agents/languageAgent';
 import { supportedLanguages } from '../constants/languages';
 import ScreenHeader from '../components/ScreenHeader';
 import ToggleSwitch from '../components/ToggleSwitch';
-import LanguageSettings from '../components/LanguageSettings'; // <-- IMPORTED
+import LanguageSettings from '../components/LanguageSettings';
 import { useTheme, spacing, typography } from '../utils/theme';
+import Composer from '../components/Composer';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-// --- Internal Components ---
 
 const ListenButton = ({ text, langCode }) => {
   const theme = useTheme();
@@ -82,8 +80,6 @@ const ResultCard = ({ title, icon, children, color, isRTL, listenText, listenLan
     </View>
   );
 };
-
-// --- Main Screen Component ---
 
 export default function LanguageTutorScreen({ navigation }) {
   const theme = useTheme();
@@ -145,7 +141,6 @@ export default function LanguageTutorScreen({ navigation }) {
   }, [sourceLangCode, targetLangCode]);
 
   const renderResult = () => {
-    // ... (renderResult logic remains the same)
     const sourceLangObj = supportedLanguages.find(l => l.code === sourceLangCode) || {};
     const targetLangObj = supportedLanguages.find(l => l.code === targetLangCode) || {};
 
@@ -177,7 +172,6 @@ export default function LanguageTutorScreen({ navigation }) {
       </View>
     );
 
-    // Tutor Mode
     if (mode === 'Tutor') {
       const tutorText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
       return (
@@ -187,7 +181,6 @@ export default function LanguageTutorScreen({ navigation }) {
       );
     }
 
-    // Translate Mode
     if (result.translation) {
       const { translation, inputAnalysis, formality, culturalNotes } = result;
       return (
@@ -218,43 +211,48 @@ export default function LanguageTutorScreen({ navigation }) {
       );
     }
 
-    // Fallback for unexpected response
     return <ResultCard title="Unexpected Response" icon="alert-circle" color="#EF4444"><Text style={[styles.bodyText, { color: colors.text }]}>{JSON.stringify(result, null, 2)}</Text></ResultCard>;
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={scheme === 'dark' ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScreenHeader navigation={navigation} title="Language Lab" subtitle="AI-powered learning assistant" />
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-          <View style={styles.section}>
-            <ToggleSwitch
-              options={[{ key: 'Translate', label: 'Translate', icon: 'language-outline' }, { key: 'Tutor', label: 'Tutor', icon: 'school-outline' }]}
-              selected={mode} onSelect={setMode} disabled={loading}
-            />
-          </View>
-          <View style={styles.section}>
-            <LanguageSettings // <-- USING THE IMPORTED COMPONENT
-              sourceLangCode={sourceLangCode}
-              targetLangCode={targetLangCode}
-              onSwap={swapLanguages}
-              onSelectSource={setSourceLangCode}
-              onSelectTarget={setTargetLangCode}
-              disabled={loading}
-            />
-          </View>
-          {renderResult()}
-        </ScrollView>
-        <View style={[styles.composerContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <View style={[styles.composerInner, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <TextInput style={[styles.input, { color: colors.text }]} placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'} placeholderTextColor={colors.subtext} multiline value={inputText} onChangeText={setInputText} editable={!loading} />
-            <TouchableOpacity onPress={handleProcess} disabled={!inputText.trim() || loading} style={[styles.sendButton, (!inputText.trim() || loading) && styles.disabled]}>
-              <Ionicons name="arrow-up" size={24} color={'#FFFFFF'} />
-            </TouchableOpacity>
-          </View>
+      {/* --- MODIFICATION START --- */}
+      <ScreenHeader navigation={navigation} title="Language Lab" subtitle="AI-powered learning assistant" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+            <View style={styles.section}>
+              <ToggleSwitch
+                options={[{ key: 'Translate', label: 'Translate', icon: 'language-outline' }, { key: 'Tutor', label: 'Tutor', icon: 'school-outline' }]}
+                selected={mode} onSelect={setMode} disabled={loading}
+              />
+            </View>
+            <View style={styles.section}>
+              <LanguageSettings
+                sourceLangCode={sourceLangCode}
+                targetLangCode={targetLangCode}
+                onSwap={swapLanguages}
+                onSelectSource={setSourceLangCode}
+                onSelectTarget={setTargetLangCode}
+                disabled={loading}
+              />
+            </View>
+            {renderResult()}
+          </ScrollView>
         </View>
+        <Composer
+          value={inputText}
+          onValueChange={setInputText}
+          onSend={handleProcess}
+          loading={loading}
+          placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'}
+        />
       </KeyboardAvoidingView>
+      {/* --- MODIFICATION END --- */}
     </SafeAreaView>
   );
 }
@@ -263,7 +261,6 @@ const useStyles = ({ colors }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollContainer: { padding: spacing.md, paddingBottom: spacing.xl },
   section: { marginBottom: spacing.lg },
-  disabled: { opacity: 0.5 },
   stateContainer: { alignItems: 'center', paddingVertical: spacing.xl * 2, gap: spacing.md },
   stateIcon: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
   stateTitle: { ...typography.h2, fontWeight: '700', textAlign: 'center' },
@@ -286,57 +283,4 @@ const useStyles = ({ colors }) => StyleSheet.create({
   formalityLabel: { fontWeight: '600' },
   culturalText: { ...typography.body, lineHeight: 24 },
   divider: { height: 1, marginVertical: spacing.md },
-  composerContainer: {
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-  },
-
-  composerInner: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2, // Android shadow
-  },
-
-  input: {
-    flex: 1,
-    ...typography.body,
-    height: 44, // Fixed height for vertical centering
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 0, // remove vertical padding
-    textAlignVertical: 'center', // needed for Android
-    color: colors.text,
-  },
-
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-    marginLeft: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-
-  sendIcon: {
-    tintColor: '#fff',
-    width: 20,
-    height: 20,
-  }
 });
