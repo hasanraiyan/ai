@@ -5,10 +5,32 @@ import * as FileSystem from 'expo-file-system';
 import { encode as btoa } from 'base-64';
 import { IS_DEBUG } from '../constants';
 
+// --- DATE HELPER FUNCTIONS FOR REPORTING ---
+const getPeriodRange = (period) => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    switch (period?.toLowerCase()) {
+        case 'today':
+            return { start: startOfDay, end: endOfDay };
+        case 'this week':
+            const firstDayOfWeek = new Date(startOfDay);
+            firstDayOfWeek.setDate(startOfDay.getDate() - now.getDay());
+            return { start: firstDayOfWeek, end: endOfDay };
+        case 'this month':
+            const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            return { start: firstDayOfMonth, end: endOfDay };
+        case 'this year':
+            const firstDayOfYear = new Date(now.getFullYear(), 0, 1);
+            return { start: firstDayOfYear, end: endOfDay };
+        default: // Default to all time if period is unrecognized or null
+            return { start: new Date(0), end: now };
+    }
+};
+
 /**
- * NEW: Fetches real-time search suggestions from DuckDuckGo.
- * @param {string} query - The search term from the user.
- * @returns {Promise<string[]>} A promise that resolves to an array of suggestion strings.
+ * Fetches real-time search suggestions from DuckDuckGo.
  */
 export const getSearchSuggestions = async (query) => {
   if (!query || query.trim().length < 2) {
@@ -16,10 +38,7 @@ export const getSearchSuggestions = async (query) => {
   }
   try {
     const response = await axios.get(`https://duckduckgo.com/ac/?q=${encodeURIComponent(query)}&format=json`);
-    // The response is an array of objects like { phrase: "suggestion" }
-    console.log("Search suggestions response:", response.data);
-
-    return response.data.map(item => item.phrase).slice(0, 5); // Return top 5 suggestions
+    return response.data.map(item => item.phrase).slice(0, 5);
   } catch (error) {
     console.warn("Could not fetch search suggestions:", error);
     return [];
@@ -28,11 +47,6 @@ export const getSearchSuggestions = async (query) => {
 
 /**
  * A collection of tool metadata for discovery.
- * This tells the Manager Agent what tools are available.
- * 
- * CHANGE: The 'output_format' for all tools now follows a standardized pattern:
- * { success: boolean, message: string, data: object | null }
- * This ensures consistent and predictable results for the AI to process.
  */
 export const toolMetadata = [
   {
@@ -55,20 +69,36 @@ export const toolMetadata = [
     capabilities: ["prompt", "metadata"],
     input_format: { prompt: "string", metadata: "object" },
     output_format: { success: "boolean", message: "string", data: { imageUrl: "string", localUri: "string" } }
+  },
+  {
+    agent_id: "add_transaction",
+    description: "Adds a new income or expense transaction. Use this to record financial activities. The AI must infer the category (e.g., 'Food', 'Transport', 'Salary', 'Bills', 'Entertainment', 'Other').",
+    capabilities: ["type", "amount", "category", "description"],
+    input_format: {
+        type: "string ('income' or 'expense')",
+        amount: "number",
+        category: "string",
+        description: "string (a brief description of the transaction)"
+    },
+    output_format: { success: "boolean", message: "string", data: null }
+  },
+  {
+    agent_id: "get_financial_report",
+    description: "Generates a financial summary for a given period. Valid periods are 'today', 'this week', 'this month', 'this year', or 'all time'.",
+    capabilities: ["period"],
+    input_format: { period: "string" },
+    output_format: { success: "boolean", message: "string", data: { report: "string (Markdown formatted)" } }
   }
 ];
 
-/**
- * Returns the metadata for all available tools.
- */
 export const getAvailableTools = () => toolMetadata;
 
 /**
  * Tool Implementations
- * CHANGE: All tool implementations are updated to return the new standardized response object.
  */
 const tools = {
-  search_web: async ({ query }, tavilyApiKey) => {
+  // --- FIX: Correctly destructure tavilyApiKey from the context object ---
+  search_web: async ({ query }, { tavilyApiKey }) => {
     console.log(`TOOL: Searching Tavily for "${query}"`);
     if (!tavilyApiKey) {
       const errorMsg = "Error: Tavily API key is not configured. Please add it in the settings.";
@@ -88,11 +118,8 @@ const tools = {
       
       if (IS_DEBUG) {
           console.log("Tavily Search Response:", response.data);
-          console.log("Tavily Search Answer:", answer);
-          console.log("Tavily Search Results:", results);
       }
       
-      // Construct a concise summary for the AI
       let summary = `**Search Answer:**\n${answer || 'No direct answer found.'}\n\n**Top Results:**\n`;
       if (results && results.length > 0) {
         summary += results.map(res => `- [${res.title}](${res.url}): ${res.content}`).join('\n');
@@ -112,7 +139,6 @@ const tools = {
   calculator: async ({ expression }) => {
     console.log(`TOOL: Calculating "${expression}"`);
     try {
-      // A safer alternative to eval for simple math. For complex cases, a library like math.js is better.
       const result = new Function(`return ${expression}`)(); 
       if (typeof result !== 'number' || !isFinite(result)) {
         throw new Error("Invalid mathematical expression.");
@@ -151,34 +177,73 @@ const tools = {
 
     try {
       const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
-
-      if (downloadResult.status !== 200) {
-        throw new Error(`Image download failed with status ${downloadResult.status}`);
-      }
-
-      const dataToSave = {
-        ...metadata,
-        fullPrompt: prompt,
-        creationTimestamp: Date.now(),
-        size: { width, height },
-        imageUrl: imageUrl,
-      };
-      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
-
-      console.log('Image saved to:', downloadResult.uri);
+      if (downloadResult.status !== 200) throw new Error(`Image download failed with status ${downloadResult.status}`);
       
-      return {
-        success: true,
-        message: 'Image generated successfully and is now available in the gallery.',
-        data: { imageUrl: imageUrl, localUri: downloadResult.uri }
-      };
-
+      const dataToSave = { ...metadata, fullPrompt: prompt, creationTimestamp: Date.now(), size: { width, height }, imageUrl: imageUrl };
+      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
+      
+      return { success: true, message: 'Image generated successfully and is now available in the gallery.', data: { imageUrl, localUri: downloadResult.uri } };
     } catch (err) {
       const errorMsg = `Image generation failed: ${err.message}`;
-      console.error(errorMsg);
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
       await FileSystem.deleteAsync(metadataUri, { idempotent: true });
       return { success: false, message: 'Failed to fetch or save the image.', data: null };
+    }
+  },
+
+  add_transaction: async (transactionData, { addTransaction }) => {
+    console.log(`TOOL: Adding transaction:`, transactionData);
+    if (!addTransaction) return { success: false, message: "Internal error: addTransaction function not available.", data: null };
+    if (!transactionData.type || !transactionData.amount || !transactionData.category) return { success: false, message: "Transaction failed: Missing required fields (type, amount, category).", data: null };
+    
+    try {
+        addTransaction(transactionData);
+        return { success: true, message: "Transaction added successfully.", data: null };
+    } catch (e) {
+        return { success: false, message: `Failed to add transaction: ${e.message}`, data: null };
+    }
+  },
+
+  get_financial_report: async ({ period }, { getTransactions }) => {
+    console.log(`TOOL: Generating report for period: "${period}"`);
+    if (!getTransactions) return { success: false, message: "Internal error: getTransactions function not available.", data: null };
+    
+    try {
+        const allTransactions = getTransactions();
+        const { start, end } = getPeriodRange(period);
+        const filtered = allTransactions.filter(t => new Date(t.date) >= start && new Date(t.date) <= end);
+
+        if (filtered.length === 0) return { success: true, message: "Report generated.", data: { report: `You have no transactions recorded for **${period}**.` } };
+
+        let totalIncome = 0;
+        let totalExpense = 0;
+        const expenseCategories = {};
+
+        filtered.forEach(tx => {
+            const amount = Number(tx.amount); // Ensure amount is a number
+            if (tx.type === 'income') totalIncome += tx.amount;
+            else {
+                totalExpense += amount;
+                const cat = tx.category || 'Uncategorized';
+                expenseCategories[cat] = (expenseCategories[cat] || 0) + amount;
+            }
+        });
+
+        const net = totalIncome - totalExpense;
+        let report = `### Financial Report for: **${period}**\n\n| Metric | Amount |\n|:---|:---|\n| **Total Income** | **Rs${(totalIncome || 0).toFixed(2)}** |\n| **Total Expense** | **Rs${(totalExpense || 0).toFixed(2)}** |\n| **Net Flow** | **Rs${(net || 0).toFixed(2)}** |\n\n`;
+        
+        if (totalExpense > 0) {
+            report += `#### Expense Breakdown:\n`;
+            const sortedCategories = Object.entries(expenseCategories).sort(([, a], [, b]) => b - a);
+            sortedCategories.forEach(([category, amount]) => {
+                const percentage = (amount / totalExpense * 100).toFixed(1);
+                report += `- **${category}:** $${amount.toFixed(2)} (${percentage}%)\n`;
+            });
+        }
+
+        return { success: true, message: "Report generated successfully.", data: { report } };
+    } catch (e) {
+        return { success: false, message: `Failed to generate report: ${e.message}`, data: null };
     }
   }
 };
@@ -186,21 +251,17 @@ const tools = {
 export const toolImplementations = tools;
 
 /**
- * Tool Dispatcher: Executes tools based on a toolCall object.
+ * Tool Dispatcher
  */
-export const toolDispatcher = async ({ toolCall, tavilyApiKey }) => {
+export const toolDispatcher = async ({ toolCall, context = {} }) => {
   const toolPromises = [];
   const results = {};
 
   for (const toolName in toolCall) {
-    if (toolCall.hasOwnProperty(toolName) && tools[toolName]) {
-      // Pass the specific key only to the tool that needs it
-      const apiKeyForTool = toolName === 'search_web' ? tavilyApiKey : undefined;
-      
-      const promise = tools[toolName](toolCall[toolName], apiKeyForTool)
-        .then(result => {
-          results[toolName] = result;
-        });
+    if (toolCall.hasOwnProperty(toolName) && tools[toolName] && toolName !== 'tools-required') {
+      const promise = tools[toolName](toolCall[toolName], context)
+        .then(result => { results[toolName] = result; })
+        .catch(err => { results[toolName] = { success: false, message: `Tool ${toolName} threw an exception: ${err.message}`, data: null }; });
       toolPromises.push(promise);
     }
   }

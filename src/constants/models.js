@@ -44,7 +44,7 @@ export const models = [
         isChatModel: true,
         isTitleModel: true,
         isAgentModel: true,
-        supported_tools: ['search_web', 'calculator', 'image_generator']
+        supported_tools: ['search_web', 'calculator', 'image_generator','add_transaction','get_financial_report']
     },
     {
         id: 'gemini-2.0-flash',

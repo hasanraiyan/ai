@@ -15,9 +15,11 @@ import Toast from 'react-native-toast-message';
 import { SettingsContext } from './src/contexts/SettingsContext';
 import { ThreadsContext } from './src/contexts/ThreadsContext';
 import { CharactersContext } from './src/contexts/CharactersContext';
+import { FinanceContext } from './src/contexts/FinanceContext'; // --- NEW ---
 import { useSettings } from './src/hooks/useSettings';
 import { useThreads } from './src/hooks/useThreads';
 import { useCharacters } from './src/hooks/useCharacters';
+import { useFinance } from './src/hooks/useFinance'; // --- NEW ---
 
 import ThreadsList from './src/screens/ThreadsList';
 import ChatThread from './src/screens/ChatThread';
@@ -34,11 +36,12 @@ const Drawer = createDrawerNavigator();
 
 export default function App() {
   const settingsValue = useSettings();
-  // --- FIX: Remove the systemPrompt dependency ---
   const threadsValue = useThreads(); 
   const charactersValue = useCharacters();
+  const financeValue = useFinance(); // --- NEW ---
 
-  const ready = settingsValue.settingsReady && threadsValue.threadsReady && charactersValue.charactersReady;
+  // --- MODIFIED: Added financeReady to the check ---
+  const ready = settingsValue.settingsReady && threadsValue.threadsReady && charactersValue.charactersReady && financeValue.financeReady;
 
   if (!ready) {
     return (
@@ -55,23 +58,25 @@ export default function App() {
       <SettingsContext.Provider value={settingsValue}>
         <CharactersContext.Provider value={charactersValue}>
           <ThreadsContext.Provider value={threadsValue}>
-            <StatusBar barStyle="dark-content" />
-            <NavigationContainer>
-              <Drawer.Navigator
-                drawerContent={props => <CustomDrawerContent {...props} />}
-                screenOptions={{ headerShown: false, drawerType: 'slide' }}
-              >
-                <Drawer.Screen name="Threads" component={ThreadsList} options={{ title: 'Dashboard' }} />
-                <Drawer.Screen name="Chat" component={ChatThread} />
-                <Drawer.Screen name="Characters" component={CharacterSelectScreen} options={{ title: 'Characters' }} />
-                <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
-                <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
-                <Drawer.Screen name="Gallery" component={GalleryScreen} />
-                <Drawer.Screen name="Settings" component={SettingsScreen} />
-                <Drawer.Screen name="AllThreads" component={AllThreadsScreen} options={{ drawerItemStyle: { height: 0 } }} />
-                <Drawer.Screen name="CharacterEditor" component={CharacterEditorScreen} options={{ drawerItemStyle: { height: 0 } }} />
-              </Drawer.Navigator>
-            </NavigationContainer>
+            <FinanceContext.Provider value={financeValue}> {/* --- NEW --- */}
+              <StatusBar barStyle="dark-content" />
+              <NavigationContainer>
+                <Drawer.Navigator
+                  drawerContent={props => <CustomDrawerContent {...props} />}
+                  screenOptions={{ headerShown: false, drawerType: 'slide' }}
+                >
+                  <Drawer.Screen name="Threads" component={ThreadsList} options={{ title: 'Dashboard' }} />
+                  <Drawer.Screen name="Chat" component={ChatThread} />
+                  <Drawer.Screen name="Characters" component={CharacterSelectScreen} options={{ title: 'Characters' }} />
+                  <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
+                  <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
+                  <Drawer.Screen name="Gallery" component={GalleryScreen} />
+                  <Drawer.Screen name="Settings" component={SettingsScreen} />
+                  <Drawer.Screen name="AllThreads" component={AllThreadsScreen} options={{ drawerItemStyle: { height: 0 } }} />
+                  <Drawer.Screen name="CharacterEditor" component={CharacterEditorScreen} options={{ drawerItemStyle: { height: 0 } }} />
+                </Drawer.Navigator>
+              </NavigationContainer>
+            </FinanceContext.Provider>
           </ThreadsContext.Provider>
         </CharactersContext.Provider>
       </SettingsContext.Provider>

@@ -13,6 +13,7 @@ import { debounce } from 'lodash';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { CharactersContext } from '../contexts/CharactersContext';
+import { FinanceContext } from '../contexts/FinanceContext';
 import { sendMessageToAI } from '../services/aiService';
 import { getSearchSuggestions } from '../services/tools';
 import { generateFollowUpSuggestions } from '../agents/followUpAgent';
@@ -80,6 +81,7 @@ export default function ChatThread({ navigation, route }) {
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
+  const { addTransaction, getTransactions } = useContext(FinanceContext);
 
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const currentCharacter = useMemo(() => characters.find(c => c.id === thread.characterId), [characters, thread.characterId]);
@@ -87,7 +89,7 @@ export default function ChatThread({ navigation, route }) {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('chat'); // This will be automatically set for characters
+  const [mode, setMode] = useState('chat');
   const [suggestions, setSuggestions] = useState([]);
   const [followUpSuggestions, setFollowUpSuggestions] = useState([]);
   const [showFollowUps, setShowFollowUps] = useState(false);
@@ -110,13 +112,11 @@ export default function ChatThread({ navigation, route }) {
     const isAlreadyTitled = thread?.name && thread.name !== 'Chat';
     titled.current = isAlreadyTitled;
 
-    // When thread changes, reset mode to default chat before logic runs
     if (!currentCharacter) {
       setMode('chat');
     }
   }, [threadId, currentCharacter]);
 
-  // Central logic to determine mode and system prompt for the entire session
   useEffect(() => {
     if (!thread || !thread.messages || thread.messages.length === 0) return;
 
@@ -124,7 +124,6 @@ export default function ChatThread({ navigation, route }) {
     let finalMode = 'chat';
 
     if (currentCharacter) {
-      // --- Character is active, logic is automatic ---
       const hasTools = currentCharacter.supportedTools && currentCharacter.supportedTools.length > 0;
       finalMode = hasTools ? 'agent' : 'chat';
 
@@ -134,12 +133,8 @@ export default function ChatThread({ navigation, route }) {
           return acc;
         }, {});
 
-        console.log(characterEnabledTools)
-        console.log(agentModelName)
-        // console.table()
-        const toolInstructions = generateAgentPrompt(characterEnabledTools, agentModelName);
+        const agentInstructions = generateAgentPrompt(characterEnabledTools, agentModelName);
 
-        // Create the powerful hybrid prompt combining persona and tool instructions
         finalSystemPrompt = `
 You are a character with a specific persona. Adhere to it strictly.
 --- START PERSONA ---
@@ -148,34 +143,26 @@ ${currentCharacter.systemPrompt}
 
 In addition to your persona, you have access to tools to perform tasks.
 --- START TOOL INSTRUCTIONS ---
-${toolInstructions}
+${agentInstructions}
 --- END TOOL INSTRUCTIONS ---
         `.trim();
       } else {
         finalSystemPrompt = currentCharacter.systemPrompt;
       }
     } else {
-      // --- Generic chat, respect user-toggled mode ---
-      finalMode = mode; // Keep the user-selected mode
+      finalMode = mode;
       if (mode === 'agent') {
         finalSystemPrompt = agentSystemPrompt;
       }
     }
+    
+    setMode(finalMode);
 
-    console.log("=====================================================================")
-    console.log("=====================================================================")
-    console.log(finalSystemPrompt)
-    console.log("=====================================================================")
-    console.log("=====================================================================")
-
-    setMode(finalMode); // Set the determined mode for the session's logic
-
-    // Update the hidden system message in the thread to ensure persistence and correctness
     const systemMessageIndex = thread.messages.findIndex(m => m.id.startsWith('u-system-'));
     if (systemMessageIndex !== -1 && thread.messages[systemMessageIndex].text !== finalSystemPrompt) {
       const updatedMessages = [...thread.messages];
       updatedMessages[systemMessageIndex] = { ...updatedMessages[systemMessageIndex], text: finalSystemPrompt };
-      updateThreadMessages(thread.id, updatedMessages, true); // `true` prevents reordering
+      updateThreadMessages(thread.id, updatedMessages, true);
     }
   }, [threadId, currentCharacter, mode, systemPrompt, agentSystemPrompt, agentModelName, thread.messages, updateThreadMessages]);
 
@@ -199,13 +186,13 @@ ${toolInstructions}
   );
 
   useEffect(() => {
-    if (mode === 'agent') debouncedFetchSuggestions(input);
+    if (mode === 'agent' && !currentCharacter) debouncedFetchSuggestions(input);
     else if (suggestions.length > 0) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setSuggestions([]);
     }
     return () => debouncedFetchSuggestions.cancel();
-  }, [input, mode, debouncedFetchSuggestions, suggestions.length]);
+  }, [input, mode, debouncedFetchSuggestions, suggestions.length, currentCharacter]);
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isGlobalAgentModeSupported) {
@@ -235,12 +222,10 @@ ${toolInstructions}
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.filter(m => !m.isHidden).length === 0;
 
-    // The history already contains the correct, up-to-date system prompt
     const historyForAPI = [...thread.messages];
     let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
 
-    // The 'mode' state is now the single source of truth for the session's logic
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
 
     let thinkingMessageId = null;
@@ -260,9 +245,13 @@ ${toolInstructions}
         modelName: modelForRequest,
         historyMessages: historyForAPI,
         newMessageText: text,
-        isAgentMode: mode === 'agent', // The mode determines the service's logic
+        isAgentMode: mode === 'agent',
         onToolCall: handleToolCall,
-        tavilyApiKey: tavilyApiKey
+        tavilyApiKey: tavilyApiKey,
+        financeContext: {
+          addTransaction,
+          getTransactions,
+        },
       });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
@@ -450,7 +439,6 @@ ${toolInstructions}
         {currentCharacter && <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />}
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
 
-        {/* Only show the toggle if it's a generic chat, not a character chat */}
         {!currentCharacter && (
           <ModeToggle
             mode={mode}
