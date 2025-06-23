@@ -28,6 +28,10 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// FIX: Use a reliable height for the iOS keyboard offset.
+const CHAT_HEADER_HEIGHT = 70;
+
+
 const AiAvatar = ({ characterId }) => {
   const { characters } = useContext(CharactersContext);
   const character = characters.find(c => c.id === characterId);
@@ -108,40 +112,30 @@ export default function ChatThread({ navigation, route }) {
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
   
-  // --- FIXED: Reset state on thread change to prevent stale data ---
-  // This is crucial because React Navigation might reuse the component instance.
   useEffect(() => {
     setInput('');
     setSuggestions([]);
-    // This specifically fixes the bug where old follow-ups appear in a new chat.
     setFollowUpSuggestions([]);
     setShowFollowUps(false);
     setActiveSuggestionTrigger(null);
-    setMode('chat'); // Default to 'chat' mode for a clean slate.
-
-    // Check if the thread is already titled to prevent re-generating it on the first message.
+    setMode('chat');
     const isAlreadyTitled = thread?.name && thread.name !== 'Chat';
     titled.current = isAlreadyTitled;
-  }, [threadId]); // This effect runs only when the user switches to a different chat.
+  }, [threadId]);
   
   useEffect(() => {
     if (!thread || !thread.messages) return;
-
     const getSystemPromptForRequest = () => {
       if (mode === 'agent') return agentSystemPrompt;
       if (currentCharacter) return currentCharacter.systemPrompt;
       return systemPrompt;
     };
-    
     const correctSystemPrompt = getSystemPromptForRequest();
     const systemMessageIndex = thread.messages.findIndex(m => m.id.startsWith('u-system-'));
 
     if (systemMessageIndex !== -1 && thread.messages[systemMessageIndex].text !== correctSystemPrompt) {
       const updatedMessages = [...thread.messages];
-      updatedMessages[systemMessageIndex] = {
-        ...updatedMessages[systemMessageIndex],
-        text: correctSystemPrompt,
-      };
+      updatedMessages[systemMessageIndex] = { ...updatedMessages[systemMessageIndex], text: correctSystemPrompt };
       updateThreadMessages(threadId, updatedMessages, true);
     }
   }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
@@ -149,41 +143,27 @@ export default function ChatThread({ navigation, route }) {
   const debouncedFetchSuggestions = useCallback(
     debounce(async (text) => {
       const triggers = ["search for ", "what is ", "who is ", "search "];
-      let query = '';
-      let triggerFound = null;
-
+      let query = '', triggerFound = null;
       for (const t of triggers) {
-        if (text.toLowerCase().startsWith(t)) {
-          query = text.substring(t.length);
-          triggerFound = t;
-          break;
-        }
+        if (text.toLowerCase().startsWith(t)) { query = text.substring(t.length); triggerFound = t; break; }
       }
-      
       setActiveSuggestionTrigger(triggerFound);
-
       if (triggerFound && query.length > 2) {
         const results = await getSearchSuggestions(query);
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSuggestions(results);
       } else {
-        if (suggestions.length > 0) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        }
+        if (suggestions.length > 0) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSuggestions([]);
       }
-    }, 300),
-    [suggestions.length]
+    }, 300), [suggestions.length]
   );
 
   useEffect(() => {
-    if (mode === 'agent') {
-      debouncedFetchSuggestions(input);
-    } else {
-      if (suggestions.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setSuggestions([]);
-      }
+    if (mode === 'agent') debouncedFetchSuggestions(input);
+    else if (suggestions.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSuggestions([]);
     }
     return () => debouncedFetchSuggestions.cancel();
   }, [input, mode, debouncedFetchSuggestions, suggestions.length]);
@@ -200,7 +180,6 @@ export default function ChatThread({ navigation, route }) {
 
   const handleGenerateTitle = async (firstUserText) => {
     if (thread.characterId) return;
-
     try {
       const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText);
       if (title) renameThread(threadId, title);
@@ -213,15 +192,12 @@ export default function ChatThread({ navigation, route }) {
       return;
     }
     setLoading(true);
-
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.filter(m => !m.isHidden).length === 0;
-
     const historyForAPI = [...thread.messages];
     let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
-    
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
 
     let thinkingMessageId = null;
@@ -235,20 +211,11 @@ export default function ChatThread({ navigation, route }) {
       scrollToBottom();
     };
     try {
-      const reply = await sendMessageToAI({
-        apiKey,
-        modelName: modelForRequest,
-        historyMessages: historyForAPI,
-        newMessageText: text,
-        isAgentMode: mode === 'agent',
-        onToolCall: handleToolCall,
-        tavilyApiKey: tavilyApiKey
-      });
+      const reply = await sendMessageToAI({ apiKey, modelName: modelForRequest, historyMessages: historyForAPI, newMessageText: text, isAgentMode: mode === 'agent', onToolCall: handleToolCall, tavilyApiKey: tavilyApiKey });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
-      
       setLoading(false);
       setTimeout(scrollToBottom, 100);
 
@@ -265,7 +232,6 @@ export default function ChatThread({ navigation, route }) {
           }
         }
       })();
-
     } catch (e) {
       const errorText = e.message.includes('API Key Missing') ? e.message : 'An error occurred while fetching the response.';
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
@@ -293,12 +259,11 @@ export default function ChatThread({ navigation, route }) {
     setInput('');
     if (followUpSuggestions.length > 0) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setFollowUpSuggestions([]);
-      setShowFollowUps(false);
+      setFollowUpSuggestions([]); setShowFollowUps(false);
     }
     if (suggestions.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setSuggestions([]);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSuggestions([]);
     }
     Keyboard.dismiss();
     sendAI(trimmed);
@@ -310,31 +275,26 @@ export default function ChatThread({ navigation, route }) {
     Keyboard.dismiss();
     setInput('');
     if (followUpSuggestions.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setFollowUpSuggestions([]);
-        setShowFollowUps(false);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setFollowUpSuggestions([]); setShowFollowUps(false);
     }
     if (suggestions.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setSuggestions([]);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSuggestions([]);
     }
     sendAI(fullQuery);
   };
 
   const handleFollowUpTap = (suggestionText) => {
-      Keyboard.dismiss();
-      if (followUpSuggestions.length > 0) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setFollowUpSuggestions([]);
-        setShowFollowUps(false);
-      }
-      sendAI(suggestionText);
+    Keyboard.dismiss();
+    if (followUpSuggestions.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setFollowUpSuggestions([]); setShowFollowUps(false);
+    }
+    sendAI(suggestionText);
   };
 
-  const onLinkPress = (url) => {
-    Linking.openURL(url).catch(() => { });
-    return false;
-  };
+  const onLinkPress = (url) => { Linking.openURL(url).catch(() => {}); return false; };
 
   const markdownImageRules = {
     image: node => {
@@ -349,10 +309,7 @@ export default function ChatThread({ navigation, route }) {
     const pinActionText = isPinned ? 'Unpin Message' : 'Pin Message';
     Alert.alert('Message Options', '',
       [
-        { text: 'Copy Text', onPress: () => {
-            Clipboard.setString(message.text);
-            if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT);
-          }},
+        { text: 'Copy Text', onPress: () => { Clipboard.setString(message.text); if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT); }},
         { text: pinActionText, onPress: () => isPinned ? unpinMessage(message.id) : pinMessage(threadId, message) },
         { text: 'Cancel', style: 'cancel' }
       ]
@@ -411,22 +368,11 @@ export default function ChatThread({ navigation, route }) {
     if (suggestions.length === 0) return null;
     return (
         <View style={styles.suggestionsContainer}>
-            <FlatList
-                data={suggestions}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item, index) => `${item}-${index}`}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.suggestionPill}
-                        onPress={() => handleSuggestionTap(item)}
-                    >
-                        <Ionicons name="search-outline" size={14} color="#6366F1" />
-                        <Text style={styles.suggestionText}>{item}</Text>
-                    </TouchableOpacity>
-                )}
-                contentContainerStyle={{ paddingHorizontal: 12 }}
-            />
+            <FlatList data={suggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `${item}-${index}`} renderItem={({ item }) => (
+                <TouchableOpacity style={styles.suggestionPill} onPress={() => handleSuggestionTap(item)}>
+                    <Ionicons name="search-outline" size={14} color="#6366F1" /><Text style={styles.suggestionText}>{item}</Text>
+                </TouchableOpacity>
+            )} contentContainerStyle={{ paddingHorizontal: 12 }} />
         </View>
     );
   };
@@ -435,22 +381,11 @@ export default function ChatThread({ navigation, route }) {
     if (loading || !showFollowUps || followUpSuggestions.length === 0) return null;
     return (
         <View style={styles.suggestionsContainer}>
-            <FlatList
-                data={followUpSuggestions}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item, index) => `followup-${index}`}
-                renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.followUpPill}
-                        onPress={() => handleFollowUpTap(item)}
-                    >
-                        <Ionicons name="sparkles-outline" size={14} color="#059669" />
-                        <Text style={styles.followUpText}>{item}</Text>
-                    </TouchableOpacity>
-                )}
-                contentContainerStyle={{ paddingHorizontal: 12 }}
-            />
+            <FlatList data={followUpSuggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `followup-${index}`} renderItem={({ item }) => (
+                <TouchableOpacity style={styles.followUpPill} onPress={() => handleFollowUpTap(item)}>
+                    <Ionicons name="sparkles-outline" size={14} color="#059669" /><Text style={styles.followUpText}>{item}</Text>
+                </TouchableOpacity>
+            )} contentContainerStyle={{ paddingHorizontal: 12 }} />
         </View>
     );
   };
@@ -458,6 +393,7 @@ export default function ChatThread({ navigation, route }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      {/* FIX: The header is now correctly placed here. */}
       <View style={styles.chatHeader}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color="#475569" /></TouchableOpacity>
         {currentCharacter && <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />}
@@ -466,9 +402,11 @@ export default function ChatThread({ navigation, route }) {
       </View>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={CHAT_HEADER_HEIGHT}
       >
         <FlatList
+          style={{ flex: 1 }}
           ref={listRef}
           data={displayMessages}
           keyExtractor={i => i.id}
@@ -491,13 +429,23 @@ export default function ChatThread({ navigation, route }) {
   );
 }
 
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F9FAFB' },
-  chatHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF' },
+  chatHeader: { 
+    height: CHAT_HEADER_HEIGHT, // Give the header a fixed height for the offset
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 8, 
+    paddingHorizontal: 12, 
+    borderBottomWidth: 1, 
+    borderColor: '#E5E7EB', 
+    backgroundColor: '#FFF' 
+  },
   headerIconButton: { padding: 8 },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, marginLeft: 8 },
   chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
-  chatContent: { padding: 12, paddingBottom: 20, paddingTop: 8 },
+  chatContent: { flexGrow: 1, padding: 12, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, maxWidth: '80%' },
   userText: { color: '#FFF', fontSize: 16 },
@@ -510,75 +458,13 @@ const styles = StyleSheet.create({
   bubbleFooter: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 4 },
   time: { fontSize: 10, color: '#9CA3AF' },
   errorTime: { color: '#FCA5A5' },
-  agentPillContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-  },
-  agentPillSpinner: {
-    marginRight: 8,
-  },
-  agentPillIcon: {
-    marginRight: 6,
-  },
-  agentPillText: {
-    color: '#4B5563',
-    fontSize: 14,
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  suggestionsContainer: {
-    height: 50,
-    justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    paddingVertical: 4,
-  },
-  suggestionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  suggestionText: {
-    color: '#4F46E5',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6
-  },
-  followUpPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  followUpText: {
-    color: '#065F46',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6
-  },
+  agentPillContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start', maxWidth: '80%' },
+  agentPillSpinner: { marginRight: 8 },
+  agentPillIcon: { marginRight: 6 },
+  agentPillText: { color: '#4B5563', fontSize: 14, fontWeight: '500', flexShrink: 1 },
+  suggestionsContainer: { height: 50, justifyContent: 'center', borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#F9FAFB', paddingVertical: 4 },
+  suggestionPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginRight: 10, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
+  suggestionText: { color: '#4F46E5', fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  followUpPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginRight: 10, borderWidth: 1, borderColor: '#A7F3D0' },
+  followUpText: { color: '#065F46', fontSize: 14, fontWeight: '600', marginLeft: 6 },
 });

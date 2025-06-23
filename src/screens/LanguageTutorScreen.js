@@ -35,6 +35,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// --- FIX: Use a reliable height for the iOS keyboard offset. ---
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 60 : 0;
+
 const ListenButton = ({ text, langCode }) => {
   const theme = useTheme();
   const styles = useStyles(theme);
@@ -217,33 +220,36 @@ export default function LanguageTutorScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={scheme === 'dark' ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      {/* --- MODIFICATION START --- */}
       <ScreenHeader navigation={navigation} title="Language Lab" subtitle="AI-powered learning assistant" />
+      {/* --- FIX: This is the final, correct structure for keyboard handling --- */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={HEADER_HEIGHT}
       >
-        <View style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-            <View style={styles.section}>
-              <ToggleSwitch
-                options={[{ key: 'Translate', label: 'Translate', icon: 'language-outline' }, { key: 'Tutor', label: 'Tutor', icon: 'school-outline' }]}
-                selected={mode} onSelect={setMode} disabled={loading}
-              />
-            </View>
-            <View style={styles.section}>
-              <LanguageSettings
-                sourceLangCode={sourceLangCode}
-                targetLangCode={targetLangCode}
-                onSwap={swapLanguages}
-                onSelectSource={setSourceLangCode}
-                onSelectTarget={setTargetLangCode}
-                disabled={loading}
-              />
-            </View>
-            {renderResult()}
-          </ScrollView>
-        </View>
+        <ScrollView
+          style={{ flex: 1 }} // This makes the list take up the available space
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.section}>
+            <ToggleSwitch
+              options={[{ key: 'Translate', label: 'Translate', icon: 'language-outline' }, { key: 'Tutor', label: 'Tutor', icon: 'school-outline' }]}
+              selected={mode} onSelect={setMode} disabled={loading}
+            />
+          </View>
+          <View style={styles.section}>
+            <LanguageSettings
+              sourceLangCode={sourceLangCode}
+              targetLangCode={targetLangCode}
+              onSwap={swapLanguages}
+              onSelectSource={setSourceLangCode}
+              onSelectTarget={setTargetLangCode}
+              disabled={loading}
+            />
+          </View>
+          {renderResult()}
+        </ScrollView>
         <Composer
           value={inputText}
           onValueChange={setInputText}
@@ -252,16 +258,15 @@ export default function LanguageTutorScreen({ navigation }) {
           placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'}
         />
       </KeyboardAvoidingView>
-      {/* --- MODIFICATION END --- */}
     </SafeAreaView>
   );
 }
 
 const useStyles = ({ colors }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scrollContainer: { padding: spacing.md, paddingBottom: spacing.xl },
+  scrollContainer: { flexGrow: 1, padding: spacing.md },
   section: { marginBottom: spacing.lg },
-  stateContainer: { alignItems: 'center', paddingVertical: spacing.xl * 2, gap: spacing.md },
+  stateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl * 2, gap: spacing.md },
   stateIcon: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
   stateTitle: { ...typography.h2, fontWeight: '700', textAlign: 'center' },
   stateSubtitle: { ...typography.body, textAlign: 'center', lineHeight: 20 },

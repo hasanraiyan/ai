@@ -39,6 +39,9 @@ const MAX_IMAGES = 6;
 const DEFAULT_NUM_IMAGES = 2;
 const DEFAULT_MODEL_NAME = 'gemma-3-27b-it';
 
+// --- FIX: Use a reliable height for the iOS keyboard offset. ---
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 60 : 0;
+
 const aspectRatioOptions = [ { key: '1:1', label: 'Square', icon: 'square-outline' }, { key: '16:9', label: 'Landscape', icon: 'tablet-landscape-outline' }, { key: '9:16', label: 'Portrait', icon: 'tablet-portrait-outline' } ];
 const imageModelOptions = [ { key: 'flux', label: 'Flux Pro', icon: 'flash-outline' }, { key: 'turbo', label: 'Turbo', icon: 'rocket-outline' } ];
 const numImagesOptions = Array.from({ length: MAX_IMAGES }, (_, i) => i + 1).map(num => ({ key: num, label: `${num}` }));
@@ -47,7 +50,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// --- Reusable Components ---
+// --- Reusable Components (Unchanged) ---
 
 const DashboardSection = React.memo(({ title, children, icon }) => {
   const { colors } = useTheme();
@@ -179,7 +182,6 @@ export default function ImageGenerationScreen({ navigation }) {
         setLoading(true);
 
         const finalPrompt = selectedCategory.id !== 'none' ? `Image Description: ${prompt.trim()}. Style Description: ${selectedCategory.description}` : prompt.trim();
-        console.log('Final Prompt:', finalPrompt);
         const getDimensions = ratio => ({ '16:9': { width: 768, height: 432 }, '9:16': { width: 432, height: 768 } }[ratio] || { width: 512, height: 512 });
         const { width, height } = getDimensions(aspectRatio);
         const metadataPayload = { prompt: prompt.trim(), styleId: selectedCategory.id, styleName: selectedCategory.name, modelUsed: modelToUse, imageGenModel: imageModel, batchSize: numImages, aspectRatio, width, height };
@@ -201,49 +203,49 @@ export default function ImageGenerationScreen({ navigation }) {
             <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
             <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
             <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
+            {/* --- FIX: This is the final, correct structure for keyboard handling --- */}
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100} // Adjust as needed
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={HEADER_HEIGHT}
             >
-                <View style={{ flex: 1 }}>
-                    <ScrollView
-                        contentContainerStyle={styles.scrollContainer}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <DashboardSection title="Choose a Style" icon="color-palette-outline">
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalListContainer}>
-                                {imageCategories.map(category =>
-                                    <StyleCategoryCard
-                                        key={category.id}
-                                        category={category}
-                                        isSelected={selectedCategory.id === category.id}
-                                        onPress={() => setSelectedCategory(category)}
-                                        disabled={anyLoading}
-                                    />
-                                )}
-                            </ScrollView>
-                        </DashboardSection>
+                <ScrollView
+                    style={{ flex: 1 }} // This makes the list take up the available space
+                    contentContainerStyle={styles.scrollContainer}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <DashboardSection title="Choose a Style" icon="color-palette-outline">
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalListContainer}>
+                            {imageCategories.map(category =>
+                                <StyleCategoryCard
+                                    key={category.id}
+                                    category={category}
+                                    isSelected={selectedCategory.id === category.id}
+                                    onPress={() => setSelectedCategory(category)}
+                                    disabled={anyLoading}
+                                />
+                            )}
+                        </ScrollView>
+                    </DashboardSection>
 
-                        <DashboardSection title="Generation Settings" icon="options-outline">
-                            <View style={styles.verticalListContainer}>
-                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Image Generation Model</Text>
-                                    <ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
-                                </View>
-                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Aspect Ratio</Text>
-                                    <ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
-                                </View>
-                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 0 }]}>
-                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Number of Images</Text>
-                                    <ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" />
-                                </View>
+                    <DashboardSection title="Generation Settings" icon="options-outline">
+                        <View style={styles.verticalListContainer}>
+                            <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                <Text style={[styles.settingsLabel, { color: colors.text }]}>Image Generation Model</Text>
+                                <ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
                             </View>
-                        </DashboardSection>
-                    </ScrollView>
-                </View>
+                            <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                <Text style={[styles.settingsLabel, { color: colors.text }]}>Aspect Ratio</Text>
+                                <ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
+                            </View>
+                            <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 0 }]}>
+                                <Text style={[styles.settingsLabel, { color: colors.text }]}>Number of Images</Text>
+                                <ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" />
+                            </View>
+                        </View>
+                    </DashboardSection>
+                </ScrollView>
                 <Composer
                     value={prompt}
                     onValueChange={setPrompt}
@@ -259,31 +261,21 @@ export default function ImageGenerationScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     scrollContainer: { paddingTop: spacing.md, paddingBottom: spacing.lg },
-
-    // Section Layout
     sectionContainer: { marginBottom: spacing.xl, },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.md },
     sectionTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     sectionIconContainer: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
     sectionTitle: { ...typography.h2, fontWeight: '700' },
-
-    // List Containers
     horizontalListContainer: { paddingHorizontal: spacing.md, gap: spacing.sm, paddingBottom: spacing.sm },
     verticalListContainer: { marginHorizontal: spacing.md, gap: spacing.md },
-
-    // Card: Style Category
     categoryCard: { width: 120, height: 150, borderRadius: 12, borderWidth: 2, overflow: 'hidden' },
     categoryCardDisabled: { opacity: 0.5 },
     categoryImage: { width: '100%', height: '100%' },
     categoryOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: spacing.sm, backgroundColor: 'rgba(0,0,0,0.3)' },
     categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '700' },
     categorySelectedBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-
-    // Card: Settings
     settingsCard: { borderRadius: 16, padding: spacing.md, borderWidth: 1, },
     settingsLabel: { ...typography.body, fontWeight: '600' },
-
-    // Image Gallery Modal
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
     modalPage: { width: screenWidth, height: '100%', justifyContent: 'center', alignItems: 'center' },
     modalImage: { width: '100%', height: '80%' },
