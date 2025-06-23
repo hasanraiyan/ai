@@ -47,17 +47,54 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// --- Reusable Components ---
+
+const DashboardSection = React.memo(({ title, children, icon }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          {icon && (
+            <View style={[styles.sectionIconContainer, { backgroundColor: colors.accent + '1A' }]}>
+              <Ionicons name={icon} size={20} color={colors.accent} />
+            </View>
+          )}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+});
+
 const StyleCategoryCard = ({ category, isSelected, onPress, disabled }) => {
-    const theme = useTheme(); const styles = getStyles(theme);
-    return <TouchableOpacity style={[styles.categoryCard, isSelected && styles.categoryCardSelected, disabled && styles.categoryCardDisabled]} onPress={onPress} disabled={disabled} activeOpacity={0.8}><RNImage source={{ uri: category.imageUrl }} style={styles.categoryImage} /><View style={styles.categoryOverlay}><Text style={styles.categoryText}>{category.name}</Text>{isSelected && <View style={styles.categorySelectedBadge}><Ionicons name="checkmark" size={12} color={theme.colors.accent} /></View>}</View></TouchableOpacity>;
+    const { colors } = useTheme();
+    return (
+        <TouchableOpacity
+            style={[ styles.categoryCard, { borderColor: isSelected ? colors.accent : 'transparent' }, disabled && styles.categoryCardDisabled ]}
+            onPress={onPress}
+            disabled={disabled}
+            activeOpacity={0.8}
+        >
+            <RNImage source={{ uri: category.imageUrl }} style={styles.categoryImage} />
+            <View style={styles.categoryOverlay}>
+                <Text style={styles.categoryText}>{category.name}</Text>
+                {isSelected && (
+                    <View style={styles.categorySelectedBadge}>
+                        <Ionicons name="checkmark" size={12} color={colors.accent} />
+                    </View>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
 };
 
 const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
     const [current, setCurrent] = useState(initialIndex);
     const [downloading, setDownloading] = useState(false);
     const scrollRef = useRef(null);
-    const theme = useTheme();
-    const styles = getStyles(theme);
+    const { colors } = useTheme();
 
     useEffect(() => {
         if (visible) {
@@ -110,8 +147,7 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
 };
 
 export default function ImageGenerationScreen({ navigation }) {
-    const theme = useTheme();
-    const styles = getStyles(theme);
+    const { colors } = useTheme();
     const scheme = useColorScheme();
 
     const { apiKey, agentModelName: settingsModel } = useContext(SettingsContext);
@@ -139,15 +175,15 @@ export default function ImageGenerationScreen({ navigation }) {
         if (!apiKey) { Alert.alert('API Key Required', 'Please set your API Key in Settings.', [{ text: 'Go to Settings', onPress: () => navigation.navigate('Settings') }, { text: 'Cancel' }]); return; }
         const selectedModelData = models.find(m => m.id === modelToUse);
         if (!selectedModelData?.supported_tools.includes('image_generator')) { Alert.alert("Incompatible Model", `The selected Agent Model (${selectedModelData?.name || modelToUse}) does not support image generation.`, [{ text: "OK" }]); return; }
-        
+
         setLoading(true);
-        
+
         const finalPrompt = selectedCategory.id !== 'none' ? `Image Description: ${prompt.trim()}. Style Description: ${selectedCategory.description}` : prompt.trim();
         console.log('Final Prompt:', finalPrompt);
         const getDimensions = ratio => ({ '16:9': { width: 768, height: 432 }, '9:16': { width: 432, height: 768 } }[ratio] || { width: 512, height: 512 });
         const { width, height } = getDimensions(aspectRatio);
         const metadataPayload = { prompt: prompt.trim(), styleId: selectedCategory.id, styleName: selectedCategory.name, modelUsed: modelToUse, imageGenModel: imageModel, batchSize: numImages, aspectRatio, width, height };
-        
+
         try {
             const res = await generateImage(apiKey, modelToUse, finalPrompt, numImages, metadataPayload);
             if (res.success && res.imageUrls?.length) {
@@ -161,33 +197,51 @@ export default function ImageGenerationScreen({ navigation }) {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
             <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
-            {/* --- MODIFICATION START --- */}
             <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100} // Adjust as needed
             >
                 <View style={{ flex: 1 }}>
                     <ScrollView
-                        contentContainerStyle={styles.scrollContent}
+                        contentContainerStyle={styles.scrollContainer}
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                     >
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}><Ionicons name="color-palette-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Choose a Style</Text></View>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                                {imageCategories.map(category => <StyleCategoryCard key={category.id} category={category} isSelected={selectedCategory.id === category.id} onPress={() => setSelectedCategory(category)} disabled={anyLoading} />)}
+                        <DashboardSection title="Choose a Style" icon="color-palette-outline">
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalListContainer}>
+                                {imageCategories.map(category =>
+                                    <StyleCategoryCard
+                                        key={category.id}
+                                        category={category}
+                                        isSelected={selectedCategory.id === category.id}
+                                        onPress={() => setSelectedCategory(category)}
+                                        disabled={anyLoading}
+                                    />
+                                )}
                             </ScrollView>
-                        </View>
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}><Ionicons name="options-outline" size={20} color={theme.colors.accent} /><Text style={styles.sectionTitle}>Generation Settings</Text></View>
-                            <View style={styles.card}><Text style={styles.label}>Image Generation Model</Text><ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
-                            <View style={styles.card}><Text style={styles.label}>Aspect Ratio</Text><ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} /></View>
-                            <View style={styles.card}><Text style={styles.label}>Number of Images</Text><ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" /></View>
-                        </View>
+                        </DashboardSection>
+
+                        <DashboardSection title="Generation Settings" icon="options-outline">
+                            <View style={styles.verticalListContainer}>
+                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Image Generation Model</Text>
+                                    <ToggleSwitch options={imageModelOptions} selected={imageModel} onSelect={setImageModel} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
+                                </View>
+                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Aspect Ratio</Text>
+                                    <ToggleSwitch options={aspectRatioOptions} selected={aspectRatio} onSelect={setAspectRatio} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} />
+                                </View>
+                                <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 0 }]}>
+                                    <Text style={[styles.settingsLabel, { color: colors.text }]}>Number of Images</Text>
+                                    <ToggleSwitch options={numImagesOptions} selected={numImages} onSelect={setNumImages} disabled={anyLoading} containerStyle={{ marginTop: spacing.sm }} size="small" />
+                                </View>
+                            </View>
+                        </DashboardSection>
                     </ScrollView>
                 </View>
                 <Composer
@@ -198,27 +252,38 @@ export default function ImageGenerationScreen({ navigation }) {
                     placeholder="A majestic dragon soaring through clouds..."
                 />
             </KeyboardAvoidingView>
-            {/* --- MODIFICATION END --- */}
         </SafeAreaView>
     );
 }
 
-const getStyles = (theme) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.colors.background },
-    scrollContent: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg, flexGrow: 1 },
-    section: { marginBottom: spacing.lg },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-    sectionTitle: { fontSize: typography.h2, fontWeight: '700', color: theme.colors.text, marginLeft: spacing.sm },
-    card: { backgroundColor: theme.colors.card, borderRadius: 12, padding: spacing.md, marginBottom: 16, borderWidth: 1, borderColor: theme.colors.border },
-    label: { fontSize: 16, fontWeight: '600', color: theme.colors.text, marginBottom: spacing.sm },
-    categoryScroll: { paddingBottom: spacing.sm },
-    categoryCard: { width: 120, height: 150, borderRadius: 12, marginRight: spacing.sm, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
-    categoryCardSelected: { borderColor: theme.colors.accent },
+const styles = StyleSheet.create({
+    container: { flex: 1 },
+    scrollContainer: { paddingTop: spacing.md, paddingBottom: spacing.lg },
+
+    // Section Layout
+    sectionContainer: { marginBottom: spacing.xl, },
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.md },
+    sectionTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    sectionIconContainer: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    sectionTitle: { ...typography.h2, fontWeight: '700' },
+
+    // List Containers
+    horizontalListContainer: { paddingHorizontal: spacing.md, gap: spacing.sm, paddingBottom: spacing.sm },
+    verticalListContainer: { marginHorizontal: spacing.md, gap: spacing.md },
+
+    // Card: Style Category
+    categoryCard: { width: 120, height: 150, borderRadius: 12, borderWidth: 2, overflow: 'hidden' },
     categoryCardDisabled: { opacity: 0.5 },
     categoryImage: { width: '100%', height: '100%' },
     categoryOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: spacing.sm, backgroundColor: 'rgba(0,0,0,0.3)' },
     categoryText: { color: '#fff', fontSize: typography.small, fontWeight: '700' },
     categorySelectedBadge: { position: 'absolute', top: spacing.sm, right: spacing.sm, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+
+    // Card: Settings
+    settingsCard: { borderRadius: 16, padding: spacing.md, borderWidth: 1, },
+    settingsLabel: { ...typography.body, fontWeight: '600' },
+
+    // Image Gallery Modal
     modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
     modalPage: { width: screenWidth, height: '100%', justifyContent: 'center', alignItems: 'center' },
     modalImage: { width: '100%', height: '80%' },
