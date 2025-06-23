@@ -26,32 +26,35 @@ export const getSearchSuggestions = async (query) => {
   }
 };
 
-
 /**
- * A collection of mock tool metadata for discovery.
+ * A collection of tool metadata for discovery.
  * This tells the Manager Agent what tools are available.
+ * 
+ * CHANGE: The 'output_format' for all tools now follows a standardized pattern:
+ * { success: boolean, message: string, data: object | null }
+ * This ensures consistent and predictable results for the AI to process.
  */
 export const toolMetadata = [
   {
     agent_id: "search_web",
-    description: "Performs a web search using the Tavily API for real-time information. Requires a Tavily API key to be set by the user.",
+    description: "Performs a web search using the Tavily API for real-time information. ",
     capabilities: ["query"],
     input_format: { query: "string" },
-    output_format: { result: "string" }
+    output_format: { success: "boolean", message: "string", data: { summary: "string" } }
   },
   {
     agent_id: "calculator",
     description: "Evaluates a mathematical expression. Use for calculations.",
     capabilities: ["expression"],
     input_format: { expression: "string" },
-    output_format: { result: "number or string error" }
+    output_format: { success: "boolean", message: "string", data: { result: "number or string" } }
   },
   {
     agent_id: "image_generator",
     description: "Generates an image based on a descriptive prompt and saves it to the device's local storage.",
     capabilities: ["prompt", "metadata"],
     input_format: { prompt: "string", metadata: "object" },
-    output_format: { image_generated: "boolean", message: "string", imageUrl: "string", localUri: "string" }
+    output_format: { success: "boolean", message: "string", data: { imageUrl: "string", localUri: "string" } }
   }
 ];
 
@@ -62,13 +65,15 @@ export const getAvailableTools = () => toolMetadata;
 
 /**
  * Tool Implementations
+ * CHANGE: All tool implementations are updated to return the new standardized response object.
  */
 const tools = {
   search_web: async ({ query }, tavilyApiKey) => {
     console.log(`TOOL: Searching Tavily for "${query}"`);
     if (!tavilyApiKey) {
-      console.error("Tavily API key is missing.");
-      return { result: "Error: Tavily API key is not configured. Please add it in the settings." };
+      const errorMsg = "Error: Tavily API key is not configured. Please add it in the settings.";
+      console.error(errorMsg);
+      return { success: false, message: errorMsg, data: null };
     }
     try {
       const response = await axios.post('https://api.tavily.com/search', {
@@ -81,11 +86,12 @@ const tools = {
       
       const { answer, results } = response.data;
       
-      { IS_DEBUG && console.log("Tavily Search Response:", response.data); }
-      {
-        IS_DEBUG && console.log("Tavily Search Answer:", answer);
-        IS_DEBUG && console.log("Tavily Search Results:", results);
+      if (IS_DEBUG) {
+          console.log("Tavily Search Response:", response.data);
+          console.log("Tavily Search Answer:", answer);
+          console.log("Tavily Search Results:", results);
       }
+      
       // Construct a concise summary for the AI
       let summary = `**Search Answer:**\n${answer || 'No direct answer found.'}\n\n**Top Results:**\n`;
       if (results && results.length > 0) {
@@ -94,21 +100,28 @@ const tools = {
         summary += "No web results found.";
       }
       
-      return { result: summary };
+      return { success: true, message: "Web search completed successfully.", data: { summary } };
 
     } catch (error) {
+      const errorMsg = "Error: Failed to perform web search. The API key might be invalid or the service may be unavailable.";
       console.error("Tavily search failed:", error.response ? error.response.data : error.message);
-      return { result: "Error: Failed to perform web search. The API key might be invalid or the service may be unavailable." };
+      return { success: false, message: errorMsg, data: null };
     }
   },
 
   calculator: async ({ expression }) => {
     console.log(`TOOL: Calculating "${expression}"`);
     try {
-      const result = eval(expression);
-      return { result };
+      // A safer alternative to eval for simple math. For complex cases, a library like math.js is better.
+      const result = new Function(`return ${expression}`)(); 
+      if (typeof result !== 'number' || !isFinite(result)) {
+        throw new Error("Invalid mathematical expression.");
+      }
+      return { success: true, message: `Calculation result: ${result}`, data: { result } };
     } catch (e) {
-      return { result: `Error evaluating expression: ${e.message}` };
+      const errorMsg = `Error evaluating expression: ${e.message}`;
+      console.error(errorMsg);
+      return { success: false, message: errorMsg, data: null };
     }
   },
 
@@ -140,7 +153,7 @@ const tools = {
       const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
 
       if (downloadResult.status !== 200) {
-        throw new Error('Image download failed');
+        throw new Error(`Image download failed with status ${downloadResult.status}`);
       }
 
       const dataToSave = {
@@ -153,20 +166,19 @@ const tools = {
       await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
 
       console.log('Image saved to:', downloadResult.uri);
-      console.log('Metadata saved to:', metadataUri);
       
       return {
-        image_generated: true,
-        imageUrl: imageUrl,
-        localUri: downloadResult.uri,
-        message: 'Image generated successfully. You can view it in the gallery.'
+        success: true,
+        message: 'Image generated successfully and is now available in the gallery.',
+        data: { imageUrl: imageUrl, localUri: downloadResult.uri }
       };
 
     } catch (err) {
-      console.error('Image generation failed:', err.message);
+      const errorMsg = `Image generation failed: ${err.message}`;
+      console.error(errorMsg);
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
       await FileSystem.deleteAsync(metadataUri, { idempotent: true });
-      return { image_generated: false, error: 'Failed to fetch or save image' };
+      return { success: false, message: 'Failed to fetch or save the image.', data: null };
     }
   }
 };

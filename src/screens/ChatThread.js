@@ -112,7 +112,7 @@ export default function ChatThread({ navigation, route }) {
 
     // When thread changes, reset mode to default chat before logic runs
     if (!currentCharacter) {
-        setMode('chat');
+      setMode('chat');
     }
   }, [threadId, currentCharacter]);
 
@@ -121,7 +121,7 @@ export default function ChatThread({ navigation, route }) {
     if (!thread || !thread.messages || thread.messages.length === 0) return;
 
     let finalSystemPrompt = systemPrompt;
-    let finalMode = 'chat'; 
+    let finalMode = 'chat';
 
     if (currentCharacter) {
       // --- Character is active, logic is automatic ---
@@ -133,8 +133,12 @@ export default function ChatThread({ navigation, route }) {
           acc[toolId] = true;
           return acc;
         }, {});
+
+        console.log(characterEnabledTools)
+        console.log(agentModelName)
+        // console.table()
         const toolInstructions = generateAgentPrompt(characterEnabledTools, agentModelName);
-        
+
         // Create the powerful hybrid prompt combining persona and tool instructions
         finalSystemPrompt = `
 You are a character with a specific persona. Adhere to it strictly.
@@ -157,6 +161,12 @@ ${toolInstructions}
         finalSystemPrompt = agentSystemPrompt;
       }
     }
+
+    console.log("=====================================================================")
+    console.log("=====================================================================")
+    console.log(finalSystemPrompt)
+    console.log("=====================================================================")
+    console.log("=====================================================================")
 
     setMode(finalMode); // Set the determined mode for the session's logic
 
@@ -224,7 +234,7 @@ ${toolInstructions}
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.filter(m => !m.isHidden).length === 0;
-    
+
     // The history already contains the correct, up-to-date system prompt
     const historyForAPI = [...thread.messages];
     let newMessages = [...historyForAPI, userMsg];
@@ -336,7 +346,7 @@ ${toolInstructions}
     sendAI(suggestionText);
   };
 
-  const onLinkPress = (url) => { Linking.openURL(url).catch(() => {}); return false; };
+  const onLinkPress = (url) => { Linking.openURL(url).catch(() => { }); return false; };
 
   const markdownImageRules = {
     image: node => {
@@ -351,7 +361,7 @@ ${toolInstructions}
     const pinActionText = isPinned ? 'Unpin Message' : 'Pin Message';
     Alert.alert('Message Options', '',
       [
-        { text: 'Copy Text', onPress: () => { Clipboard.setString(message.text); if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT); }},
+        { text: 'Copy Text', onPress: () => { Clipboard.setString(message.text); if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT); } },
         { text: pinActionText, onPress: () => isPinned ? unpinMessage(message.id) : pinMessage(threadId, message) },
         { text: 'Cancel', style: 'cancel' }
       ]
@@ -405,30 +415,30 @@ ${toolInstructions}
   const displayMessages = thread.messages.filter(m => !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
-  
+
   const renderSuggestions = () => {
     if (suggestions.length === 0) return null;
     return (
-        <View style={styles.suggestionsContainer}>
-            <FlatList data={suggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `${item}-${index}`} renderItem={({ item }) => (
-                <TouchableOpacity style={styles.suggestionPill} onPress={() => handleSuggestionTap(item)}>
-                    <Ionicons name="search-outline" size={14} color="#6366F1" /><Text style={styles.suggestionText}>{item}</Text>
-                </TouchableOpacity>
-            )} contentContainerStyle={{ paddingHorizontal: 12 }} />
-        </View>
+      <View style={styles.suggestionsContainer}>
+        <FlatList data={suggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `${item}-${index}`} renderItem={({ item }) => (
+          <TouchableOpacity style={styles.suggestionPill} onPress={() => handleSuggestionTap(item)}>
+            <Ionicons name="search-outline" size={14} color="#6366F1" /><Text style={styles.suggestionText}>{item}</Text>
+          </TouchableOpacity>
+        )} contentContainerStyle={{ paddingHorizontal: 12 }} />
+      </View>
     );
   };
 
   const renderFollowUpSuggestions = () => {
     if (loading || !showFollowUps || followUpSuggestions.length === 0) return null;
     return (
-        <View style={styles.suggestionsContainer}>
-            <FlatList data={followUpSuggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `followup-${index}`} renderItem={({ item }) => (
-                <TouchableOpacity style={styles.followUpPill} onPress={() => handleFollowUpTap(item)}>
-                    <Ionicons name="sparkles-outline" size={14} color="#059669" /><Text style={styles.followUpText}>{item}</Text>
-                </TouchableOpacity>
-            )} contentContainerStyle={{ paddingHorizontal: 12 }} />
-        </View>
+      <View style={styles.suggestionsContainer}>
+        <FlatList data={followUpSuggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `followup-${index}`} renderItem={({ item }) => (
+          <TouchableOpacity style={styles.followUpPill} onPress={() => handleFollowUpTap(item)}>
+            <Ionicons name="sparkles-outline" size={14} color="#059669" /><Text style={styles.followUpText}>{item}</Text>
+          </TouchableOpacity>
+        )} contentContainerStyle={{ paddingHorizontal: 12 }} />
+      </View>
     );
   };
 
@@ -439,7 +449,7 @@ ${toolInstructions}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color="#475569" /></TouchableOpacity>
         {currentCharacter && <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />}
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
-        
+
         {/* Only show the toggle if it's a generic chat, not a character chat */}
         {!currentCharacter && (
           <ModeToggle
@@ -480,15 +490,15 @@ ${toolInstructions}
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F9FAFB' },
-  chatHeader: { 
+  chatHeader: {
     height: CHAT_HEADER_HEIGHT,
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 8, 
-    paddingHorizontal: 12, 
-    borderBottomWidth: 1, 
-    borderColor: '#E5E7EB', 
-    backgroundColor: '#FFF' 
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFF'
   },
   headerIconButton: { padding: 8 },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, marginLeft: 8 },
