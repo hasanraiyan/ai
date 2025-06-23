@@ -66,6 +66,8 @@ const DashboardSection = React.memo(({ title, children, onSeeAll, seeAllLabel = 
 const QuickActions = ({ navigation }) => {
   const { colors } = useTheme();
   const actions = useMemo(() => [
+    // --- MODIFIED: Added Finance screen to quick actions ---
+    { title: 'Finance Overview', icon: 'wallet-outline', screen: 'Finance', description: 'Track your money flow', color: '#6366F1' },
     { title: 'Generate Image', icon: 'image-outline', screen: 'ImageGeneration', description: 'Create stunning AI art', color: '#FF6B6B' },
     { title: 'Language Tutor', icon: 'language-outline', screen: 'LanguageTutor', description: 'Practice new languages', color: '#4ECDC4' },
   ], []);
@@ -139,7 +141,6 @@ const SelectableCharacters = ({ navigation }) => {
         contentContainerStyle={styles.horizontalListContainer}
         keyExtractor={item => item.id}
         renderItem={({ item }) => {
-          // --- FIX: Handle both local ('require') and remote ('uri') image sources correctly ---
           const imageSource = typeof item.avatarUrl === 'string'
             ? { uri: item.avatarUrl }
             : item.avatarUrl;
@@ -155,7 +156,6 @@ const SelectableCharacters = ({ navigation }) => {
                   source={imageSource}
                   style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
                 />
-                {/* --- FIX: Only show the star for the primary 'Arya' AI --- */}
                 {item.id === 'default-ai' && (
                   <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
                     <Ionicons name="star" size={10} color="#fff" />
@@ -437,12 +437,15 @@ export default function ThreadsList({ navigation }) {
         <RecentConversations navigation={navigation} />
       </ScrollView>
 
+      {/* --- FIX APPLIED HERE --- */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.fabBg }]}
         onPress={handleCreateGenericThread}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={32} style={styles.fabText} />
+        <Text style={styles.fabText}>
+          <Ionicons name="add" size={32} />
+        </Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -483,7 +486,6 @@ const styles = StyleSheet.create({
   // Card: Characters
   charCard: { alignItems: 'center', width: 90, padding: spacing.sm, borderRadius: 16, borderWidth: 1, gap: spacing.sm },
   charAvatar: { width: 60, height: 60, borderRadius: 30 },
-  // --- FIX: Removed 'display: none' so the badge can appear ---
   charBadge: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
   charName: { ...typography.small, fontWeight: '600', textAlign: 'center' },
 

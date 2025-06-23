@@ -31,12 +31,13 @@ import CustomDrawerContent from './src/navigation/CustomDrawerContent';
 import CharacterSelectScreen from './src/screens/CharacterSelectScreen';
 import CharacterEditorScreen from './src/screens/CharacterEditorScreen';
 import LanguageTutorScreen from './src/screens/LanguageTutorScreen';
+import FinanceScreen from './src/screens/FinanceScreen'; // --- NEW ---
 
 const Drawer = createDrawerNavigator();
 
 export default function App() {
   const settingsValue = useSettings();
-  const threadsValue = useThreads(); 
+  const threadsValue = useThreads();
   const charactersValue = useCharacters();
   const financeValue = useFinance(); // --- NEW ---
 
@@ -68,6 +69,7 @@ export default function App() {
                   <Drawer.Screen name="Threads" component={ThreadsList} options={{ title: 'Dashboard' }} />
                   <Drawer.Screen name="Chat" component={ChatThread} />
                   <Drawer.Screen name="Characters" component={CharacterSelectScreen} options={{ title: 'Characters' }} />
+                  <Drawer.Screen name="Finance" component={FinanceScreen} options={{ title: 'Finance' }} />
                   <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
                   <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
                   <Drawer.Screen name="Gallery" component={GalleryScreen} />
