@@ -17,6 +17,8 @@ export const getSearchSuggestions = async (query) => {
   try {
     const response = await axios.get(`https://duckduckgo.com/ac/?q=${encodeURIComponent(query)}&format=json`);
     // The response is an array of objects like { phrase: "suggestion" }
+    console.log("Search suggestions response:", response.data);
+
     return response.data.map(item => item.phrase).slice(0, 5); // Return top 5 suggestions
   } catch (error) {
     console.warn("Could not fetch search suggestions:", error);

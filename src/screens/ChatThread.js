@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useContext, useCallback } from 'rea
 import {
   StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
   Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
-  ActivityIndicator, Image, TouchableOpacity
+  ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -14,7 +14,7 @@ import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { CharactersContext } from '../contexts/CharactersContext';
 import { sendMessageToAI } from '../services/aiService';
-import { getSearchSuggestions } from '../services/tools'; // --- NEW IMPORT ---
+import { getSearchSuggestions } from '../services/tools';
 import { generateChatTitle } from '../agents/chatTitleAgent';
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle';
@@ -22,6 +22,10 @@ import { markdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
 import { ImageWithLoader } from '../components/imageSkeleton';
 import Composer from '../components/Composer';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const AiAvatar = ({ characterId }) => {
   const { characters } = useContext(CharactersContext);
@@ -90,8 +94,8 @@ export default function ChatThread({ navigation, route }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('chat');
-  const [suggestions, setSuggestions] = useState([]); // --- NEW STATE ---
-  const [activeSuggestionTrigger, setActiveSuggestionTrigger] = useState(null); // --- NEW STATE ---
+  const [suggestions, setSuggestions] = useState([]);
+  const [activeSuggestionTrigger, setActiveSuggestionTrigger] = useState(null);
   const listRef = useRef(null);
   const titled = useRef(false);
   const inputRef = useRef(null);
@@ -123,39 +127,52 @@ export default function ChatThread({ navigation, route }) {
     }
   }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
 
-  // --- NEW: LOGIC FOR FETCHING SEARCH SUGGESTIONS ---
-  const fetchSuggestions = async (text) => {
-    const triggers = ["search for ", "what is ", "who is ", "search "];
-    let query = '';
-    let triggerFound = null;
 
-    for (const t of triggers) {
-      if (text.toLowerCase().startsWith(t)) {
-        query = text.substring(t.length);
-        triggerFound = t;
-        break;
+  // --- CORRECTED SUGGESTION LOGIC ---
+  const debouncedFetchSuggestions = useCallback(
+    debounce(async (text) => {
+      const triggers = ["search for ", "what is ", "who is ", "search "];
+      let query = '';
+      let triggerFound = null;
+
+      for (const t of triggers) {
+        if (text.toLowerCase().startsWith(t)) {
+          query = text.substring(t.length);
+          triggerFound = t;
+          break;
+        }
       }
-    }
-    setActiveSuggestionTrigger(triggerFound);
+      
+      setActiveSuggestionTrigger(triggerFound);
 
-    if (triggerFound && query.length > 2) {
-      const results = await getSearchSuggestions(query);
-      setSuggestions(results);
-    } else {
-      setSuggestions([]);
-    }
-  };
-
-  const debouncedFetchSuggestions = useCallback(debounce(fetchSuggestions, 300), []);
+      if (triggerFound && query.length > 2) {
+        const results = await getSearchSuggestions(query);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setSuggestions(results);
+      } else {
+        if (suggestions.length > 0) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        }
+        setSuggestions([]);
+      }
+    }, 300),
+    [suggestions.length] // Dependency on suggestions.length ensures it can hide suggestions correctly.
+  );
 
   useEffect(() => {
     if (mode === 'agent') {
       debouncedFetchSuggestions(input);
     } else {
-      setSuggestions([]);
+      // Clear suggestions immediately if not in agent mode
+      if (suggestions.length > 0) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setSuggestions([]);
+      }
     }
-  }, [input, mode, debouncedFetchSuggestions]);
-  // --- END NEW SUGGESTION LOGIC ---
+    // Cleanup function to cancel any pending debounced calls
+    return () => debouncedFetchSuggestions.cancel();
+  }, [input, mode, debouncedFetchSuggestions, suggestions.length]);
+  // --- END CORRECTION ---
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
@@ -235,18 +252,23 @@ export default function ChatThread({ navigation, route }) {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
     setInput('');
-    setSuggestions([]);
+    if (suggestions.length > 0) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setSuggestions([]);
+    }
     Keyboard.dismiss();
     sendAI(trimmed);
   };
 
-  // --- NEW: HANDLER FOR TAPPING A SUGGESTION ---
   const handleSuggestionTap = (suggestion) => {
     if (!activeSuggestionTrigger) return;
     const fullQuery = `${activeSuggestionTrigger}${suggestion}`;
     Keyboard.dismiss();
     setInput('');
-    setSuggestions([]);
+    if (suggestions.length > 0) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setSuggestions([]);
+    }
     sendAI(fullQuery);
   };
 
@@ -326,7 +348,6 @@ export default function ChatThread({ navigation, route }) {
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
   
-  // --- NEW: RENDER SUGGESTIONS COMPONENT ---
   const renderSuggestions = () => {
     if (suggestions.length === 0) return null;
     return (
@@ -351,7 +372,6 @@ export default function ChatThread({ navigation, route }) {
     );
   };
 
-
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -374,7 +394,6 @@ export default function ChatThread({ navigation, route }) {
           ListFooterComponent={showTypingIndicator && <TypingIndicator />}
           keyboardShouldPersistTaps="handled"
         />
-        {/* --- NEW: RENDER SUGGESTIONS HERE --- */}
         {renderSuggestions()}
         <Composer
           value={input}
@@ -431,29 +450,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
-  // --- NEW STYLES FOR SUGGESTIONS ---
   suggestionsContainer: {
-    height: 44,
+    height: 50,
     justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB'
+
+    paddingVertical: 4,
   },
   suggestionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginRight: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 10,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   suggestionText: {
-    color: '#4338CA',
+    color: '#4F46E5',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     marginLeft: 6
   },
 });
