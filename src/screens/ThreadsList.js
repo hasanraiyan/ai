@@ -12,6 +12,10 @@ import {
   Platform,
   Dimensions,
   RefreshControl,
+  Alert,
+  Modal,
+  Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -264,7 +268,6 @@ const RecentImages = ({ navigation }) => {
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            // --- FIX: Pass the specific image URI to the Gallery screen ---
             onPress={() => navigation.navigate('Gallery', { initialImage: item.uri })}
             style={styles.imageCard}
             activeOpacity={0.8}
@@ -284,10 +287,48 @@ const RecentImages = ({ navigation }) => {
 };
 
 const RecentConversations = ({ navigation }) => {
-  const { threads } = useContext(ThreadsContext);
+  const { threads, renameThread, deleteThread } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
   const { colors } = useTheme();
   const recentThreads = threads.slice(0, 4);
+
+  const [selectedThread, setSelectedThread] = useState(null);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
+
+  const handleLongPress = useCallback((thread) => {
+    setSelectedThread(thread);
+    Alert.alert(
+      "Conversation Options",
+      `What would you like to do with "${thread.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => {
+            Alert.alert(
+              "Delete Conversation",
+              `Are you sure you want to permanently delete "${thread.name}"?`,
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => deleteThread(thread.id) },
+              ]
+            );
+        }},
+        { text: "Rename", onPress: () => {
+            setRenameInput(thread.name);
+            setRenameModalVisible(true);
+        }},
+      ]
+    );
+  }, [deleteThread]);
+
+  const saveRename = useCallback(() => {
+    if (selectedThread && renameInput.trim()) {
+      renameThread(selectedThread.id, renameInput.trim());
+    }
+    setRenameModalVisible(false);
+    setSelectedThread(null);
+    setRenameInput('');
+  }, [selectedThread, renameInput, renameThread]);
 
   if (recentThreads.length === 0) { return null; }
 
@@ -304,6 +345,7 @@ const RecentConversations = ({ navigation }) => {
               key={item.id}
               style={[ styles.threadCard, { backgroundColor: colors.card, borderBottomColor: colors.border, borderBottomWidth: index === recentThreads.length - 1 ? 0 : 1, }]}
               onPress={() => navigation.navigate('Chat', { threadId: item.id, name: item.name })}
+              onLongPress={() => handleLongPress(item)}
               activeOpacity={0.7}
             >
               <View style={[styles.threadIcon, { backgroundColor: character ? 'transparent' : colors.accent + '1A' }]}>
@@ -322,6 +364,29 @@ const RecentConversations = ({ navigation }) => {
           );
         })}
       </View>
+      <Modal transparent visible={renameModalVisible} animationType="fade" onRequestClose={() => setRenameModalVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setRenameModalVisible(false)}>
+          <Pressable style={[styles.renameModal, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Rename Conversation</Text>
+            <TextInput
+              style={[styles.renameInput, { backgroundColor: colors.emptyBg, color: colors.text, borderColor: colors.border }]}
+              value={renameInput}
+              onChangeText={setRenameInput}
+              placeholder="Enter new name"
+              placeholderTextColor={colors.subtext}
+              autoFocus
+            />
+            <View style={styles.renameBtns}>
+              <TouchableOpacity style={styles.modalButton} onPress={() => setRenameModalVisible(false)}>
+                <Text style={[styles.modalButtonText, { color: colors.subtext }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.accent }]} onPress={saveRename}>
+                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </DashboardSection>
   );
 };
@@ -436,4 +501,13 @@ const styles = StyleSheet.create({
   // Floating Action Button (FAB)
   fab: { position: 'absolute', margin: spacing.lg, right: 0, bottom: 0, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, },
   fabText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+
+  // --- Styles for Rename Modal ---
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.lg },
+  renameModal: { width: '100%', borderRadius: 20, padding: spacing.lg },
+  modalTitle: { fontSize: typography.h2, fontWeight: 'bold', marginBottom: spacing.lg, textAlign: 'center' },
+  renameInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: spacing.md, height: 48, fontSize: typography.body, marginBottom: spacing.lg },
+  renameBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  modalButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: 10 },
+  modalButtonText: { fontSize: typography.body, fontWeight: '600' },
 });
