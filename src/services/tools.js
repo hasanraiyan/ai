@@ -4,6 +4,27 @@ import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
 import { encode as btoa } from 'base-64';
 import { IS_DEBUG } from '../constants';
+
+/**
+ * NEW: Fetches real-time search suggestions from DuckDuckGo.
+ * @param {string} query - The search term from the user.
+ * @returns {Promise<string[]>} A promise that resolves to an array of suggestion strings.
+ */
+export const getSearchSuggestions = async (query) => {
+  if (!query || query.trim().length < 2) {
+    return [];
+  }
+  try {
+    const response = await axios.get(`https://duckduckgo.com/ac/?q=${encodeURIComponent(query)}&format=json`);
+    // The response is an array of objects like { phrase: "suggestion" }
+    return response.data.map(item => item.phrase).slice(0, 5); // Return top 5 suggestions
+  } catch (error) {
+    console.warn("Could not fetch search suggestions:", error);
+    return [];
+  }
+};
+
+
 /**
  * A collection of mock tool metadata for discovery.
  * This tells the Manager Agent what tools are available.
@@ -11,7 +32,6 @@ import { IS_DEBUG } from '../constants';
 export const toolMetadata = [
   {
     agent_id: "search_web",
-    // --- MODIFIED DESCRIPTION ---
     description: "Performs a web search using the Tavily API for real-time information. Requires a Tavily API key to be set by the user.",
     capabilities: ["query"],
     input_format: { query: "string" },
@@ -42,7 +62,6 @@ export const getAvailableTools = () => toolMetadata;
  * Tool Implementations
  */
 const tools = {
-  // --- REPLACED IMPLEMENTATION ---
   search_web: async ({ query }, tavilyApiKey) => {
     console.log(`TOOL: Searching Tavily for "${query}"`);
     if (!tavilyApiKey) {
@@ -155,7 +174,6 @@ export const toolImplementations = tools;
 /**
  * Tool Dispatcher: Executes tools based on a toolCall object.
  */
-// --- MODIFIED SIGNATURE ---
 export const toolDispatcher = async ({ toolCall, tavilyApiKey }) => {
   const toolPromises = [];
   const results = {};

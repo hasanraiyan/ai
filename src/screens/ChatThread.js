@@ -1,6 +1,6 @@
 // src/screens/ChatThread.js
 
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
 import {
   StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
   Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
@@ -9,10 +9,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
+import { debounce } from 'lodash';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { CharactersContext } from '../contexts/CharactersContext';
 import { sendMessageToAI } from '../services/aiService';
+import { getSearchSuggestions } from '../services/tools'; // --- NEW IMPORT ---
 import { generateChatTitle } from '../agents/chatTitleAgent';
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle';
@@ -88,6 +90,8 @@ export default function ChatThread({ navigation, route }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('chat');
+  const [suggestions, setSuggestions] = useState([]); // --- NEW STATE ---
+  const [activeSuggestionTrigger, setActiveSuggestionTrigger] = useState(null); // --- NEW STATE ---
   const listRef = useRef(null);
   const titled = useRef(false);
   const inputRef = useRef(null);
@@ -118,6 +122,40 @@ export default function ChatThread({ navigation, route }) {
       updateThreadMessages(threadId, updatedMessages, true);
     }
   }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
+
+  // --- NEW: LOGIC FOR FETCHING SEARCH SUGGESTIONS ---
+  const fetchSuggestions = async (text) => {
+    const triggers = ["search for ", "what is ", "who is ", "search "];
+    let query = '';
+    let triggerFound = null;
+
+    for (const t of triggers) {
+      if (text.toLowerCase().startsWith(t)) {
+        query = text.substring(t.length);
+        triggerFound = t;
+        break;
+      }
+    }
+    setActiveSuggestionTrigger(triggerFound);
+
+    if (triggerFound && query.length > 2) {
+      const results = await getSearchSuggestions(query);
+      setSuggestions(results);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const debouncedFetchSuggestions = useCallback(debounce(fetchSuggestions, 300), []);
+
+  useEffect(() => {
+    if (mode === 'agent') {
+      debouncedFetchSuggestions(input);
+    } else {
+      setSuggestions([]);
+    }
+  }, [input, mode, debouncedFetchSuggestions]);
+  // --- END NEW SUGGESTION LOGIC ---
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
@@ -197,8 +235,19 @@ export default function ChatThread({ navigation, route }) {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
     setInput('');
+    setSuggestions([]);
     Keyboard.dismiss();
     sendAI(trimmed);
+  };
+
+  // --- NEW: HANDLER FOR TAPPING A SUGGESTION ---
+  const handleSuggestionTap = (suggestion) => {
+    if (!activeSuggestionTrigger) return;
+    const fullQuery = `${activeSuggestionTrigger}${suggestion}`;
+    Keyboard.dismiss();
+    setInput('');
+    setSuggestions([]);
+    sendAI(fullQuery);
   };
 
   const onLinkPress = (url) => {
@@ -276,6 +325,32 @@ export default function ChatThread({ navigation, route }) {
   const displayMessages = thread.messages.filter(m => !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
+  
+  // --- NEW: RENDER SUGGESTIONS COMPONENT ---
+  const renderSuggestions = () => {
+    if (suggestions.length === 0) return null;
+    return (
+        <View style={styles.suggestionsContainer}>
+            <FlatList
+                data={suggestions}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item, index) => `${item}-${index}`}
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        style={styles.suggestionPill}
+                        onPress={() => handleSuggestionTap(item)}
+                    >
+                        <Ionicons name="search-outline" size={14} color="#6366F1" />
+                        <Text style={styles.suggestionText}>{item}</Text>
+                    </TouchableOpacity>
+                )}
+                contentContainerStyle={{ paddingHorizontal: 12 }}
+            />
+        </View>
+    );
+  };
+
 
   return (
     <SafeAreaView style={styles.root}>
@@ -286,7 +361,6 @@ export default function ChatThread({ navigation, route }) {
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
         {!currentCharacter && <ModeToggle mode={mode} onToggle={onToggleMode} isAgentModeSupported={isAgentModeSupported} />}
       </View>
-      {/* --- MODIFICATION START --- */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -300,6 +374,8 @@ export default function ChatThread({ navigation, route }) {
           ListFooterComponent={showTypingIndicator && <TypingIndicator />}
           keyboardShouldPersistTaps="handled"
         />
+        {/* --- NEW: RENDER SUGGESTIONS HERE --- */}
+        {renderSuggestions()}
         <Composer
           value={input}
           onValueChange={setInput}
@@ -308,7 +384,6 @@ export default function ChatThread({ navigation, route }) {
           placeholder="Type a message..."
         />
       </KeyboardAvoidingView>
-      {/* --- MODIFICATION END --- */}
     </SafeAreaView>
   );
 }
@@ -355,5 +430,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     flexShrink: 1,
+  },
+  // --- NEW STYLES FOR SUGGESTIONS ---
+  suggestionsContainer: {
+    height: 44,
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB'
+  },
+  suggestionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  suggestionText: {
+    color: '#4338CA',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6
   },
 });
