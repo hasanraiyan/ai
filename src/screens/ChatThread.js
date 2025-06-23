@@ -15,6 +15,7 @@ import { ThreadsContext } from '../contexts/ThreadsContext';
 import { CharactersContext } from '../contexts/CharactersContext';
 import { sendMessageToAI } from '../services/aiService';
 import { getSearchSuggestions } from '../services/tools';
+import { generateFollowUpSuggestions } from '../agents/followUpAgent';
 import { generateChatTitle } from '../agents/chatTitleAgent';
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle';
@@ -95,6 +96,8 @@ export default function ChatThread({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('chat');
   const [suggestions, setSuggestions] = useState([]);
+  const [followUpSuggestions, setFollowUpSuggestions] = useState([]);
+  const [showFollowUps, setShowFollowUps] = useState(false);
   const [activeSuggestionTrigger, setActiveSuggestionTrigger] = useState(null);
   const listRef = useRef(null);
   const titled = useRef(false);
@@ -127,8 +130,6 @@ export default function ChatThread({ navigation, route }) {
     }
   }, [mode, threadId, currentCharacter, systemPrompt, agentSystemPrompt, thread.messages, updateThreadMessages]);
 
-
-  // --- CORRECTED SUGGESTION LOGIC ---
   const debouncedFetchSuggestions = useCallback(
     debounce(async (text) => {
       const triggers = ["search for ", "what is ", "who is ", "search "];
@@ -156,23 +157,20 @@ export default function ChatThread({ navigation, route }) {
         setSuggestions([]);
       }
     }, 300),
-    [suggestions.length] // Dependency on suggestions.length ensures it can hide suggestions correctly.
+    [suggestions.length]
   );
 
   useEffect(() => {
     if (mode === 'agent') {
       debouncedFetchSuggestions(input);
     } else {
-      // Clear suggestions immediately if not in agent mode
       if (suggestions.length > 0) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSuggestions([]);
       }
     }
-    // Cleanup function to cancel any pending debounced calls
     return () => debouncedFetchSuggestions.cancel();
   }, [input, mode, debouncedFetchSuggestions, suggestions.length]);
-  // --- END CORRECTION ---
 
   const onToggleMode = newMode => {
     if (newMode === 'agent' && !isAgentModeSupported) {
@@ -193,11 +191,14 @@ export default function ChatThread({ navigation, route }) {
     } catch (e) { console.error('Title generation failed:', e) }
   };
 
+  // --- MODIFIED: DECOUPLE LOADING STATE FROM FOLLOW-UP GENERATION ---
   const sendAI = async (text) => {
     if (!apiKey) {
       Alert.alert('API Key Missing', 'Please set your Google AI API Key in Settings.');
       return;
     }
+    setLoading(true);
+
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg = { id: `u${Date.now()}`, text, role: 'user', ts };
     const isFirstRealMessage = thread.messages.filter(m => !m.isHidden).length === 0;
@@ -206,7 +207,6 @@ export default function ChatThread({ navigation, route }) {
     let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
     
-    setLoading(true);
     const modelForRequest = mode === 'agent' ? agentModelName : modelName;
 
     let thinkingMessageId = null;
@@ -233,25 +233,56 @@ export default function ChatThread({ navigation, route }) {
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
-      if (isFirstRealMessage && !titled.current) {
-        handleGenerateTitle(text);
-        titled.current = true;
-      }
+      
+      // --- UNBLOCK UI IMMEDIATELY ---
+      setLoading(false);
+      setTimeout(scrollToBottom, 100);
+
+      // --- RUN BACKGROUND TASKS (TITLE AND FOLLOW-UPS) ---
+      (async () => {
+        if (isFirstRealMessage && !titled.current) {
+          await handleGenerateTitle(text);
+          titled.current = true;
+        } else if (!isFirstRealMessage && mode === 'chat') {
+          const followUps = await generateFollowUpSuggestions(apiKey, titleModelName, newMessages);
+          if (followUps.length > 0) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setFollowUpSuggestions(followUps);
+            setShowFollowUps(true);
+          }
+        }
+      })();
+
     } catch (e) {
       const errorText = e.message.includes('API Key Missing') ? e.message : 'An error occurred while fetching the response.';
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push({ id: `e${Date.now()}`, text: errorText, role: 'model', error: true, ts });
       updateThreadMessages(threadId, newMessages);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Ensure loading is false on error
       setTimeout(scrollToBottom, 100);
     }
+  };
+
+  const handleInputChange = (text) => {
+    if (text.length > 0 && showFollowUps) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setShowFollowUps(false);
+    } else if (text.length === 0 && !showFollowUps && followUpSuggestions.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setShowFollowUps(true);
+    }
+    setInput(text);
   };
 
   const onSend = () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
     setInput('');
+    if (followUpSuggestions.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setFollowUpSuggestions([]);
+      setShowFollowUps(false);
+    }
     if (suggestions.length > 0) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSuggestions([]);
@@ -265,11 +296,26 @@ export default function ChatThread({ navigation, route }) {
     const fullQuery = `${activeSuggestionTrigger}${suggestion}`;
     Keyboard.dismiss();
     setInput('');
+    if (followUpSuggestions.length > 0) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setFollowUpSuggestions([]);
+        setShowFollowUps(false);
+    }
     if (suggestions.length > 0) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setSuggestions([]);
     }
     sendAI(fullQuery);
+  };
+
+  const handleFollowUpTap = (suggestionText) => {
+      Keyboard.dismiss();
+      if (followUpSuggestions.length > 0) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setFollowUpSuggestions([]);
+        setShowFollowUps(false);
+      }
+      sendAI(suggestionText);
   };
 
   const onLinkPress = (url) => {
@@ -372,6 +418,30 @@ export default function ChatThread({ navigation, route }) {
     );
   };
 
+  const renderFollowUpSuggestions = () => {
+    if (loading || !showFollowUps || followUpSuggestions.length === 0) return null;
+    return (
+        <View style={styles.suggestionsContainer}>
+            <FlatList
+                data={followUpSuggestions}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item, index) => `followup-${index}`}
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        style={styles.followUpPill}
+                        onPress={() => handleFollowUpTap(item)}
+                    >
+                        <Ionicons name="sparkles-outline" size={14} color="#059669" />
+                        <Text style={styles.followUpText}>{item}</Text>
+                    </TouchableOpacity>
+                )}
+                contentContainerStyle={{ paddingHorizontal: 12 }}
+            />
+        </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -395,9 +465,10 @@ export default function ChatThread({ navigation, route }) {
           keyboardShouldPersistTaps="handled"
         />
         {renderSuggestions()}
+        {renderFollowUpSuggestions()}
         <Composer
           value={input}
-          onValueChange={setInput}
+          onValueChange={handleInputChange}
           onSend={onSend}
           loading={loading}
           placeholder="Type a message..."
@@ -453,7 +524,9 @@ const styles = StyleSheet.create({
   suggestionsContainer: {
     height: 50,
     justifyContent: 'center',
-
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
     paddingVertical: 4,
   },
   suggestionPill: {
@@ -474,6 +547,23 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     color: '#4F46E5',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6
+  },
+  followUpPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  followUpText: {
+    color: '#065F46',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 6
