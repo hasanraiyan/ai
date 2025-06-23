@@ -108,6 +108,22 @@ export default function ChatThread({ navigation, route }) {
 
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
   
+  // --- FIXED: Reset state on thread change to prevent stale data ---
+  // This is crucial because React Navigation might reuse the component instance.
+  useEffect(() => {
+    setInput('');
+    setSuggestions([]);
+    // This specifically fixes the bug where old follow-ups appear in a new chat.
+    setFollowUpSuggestions([]);
+    setShowFollowUps(false);
+    setActiveSuggestionTrigger(null);
+    setMode('chat'); // Default to 'chat' mode for a clean slate.
+
+    // Check if the thread is already titled to prevent re-generating it on the first message.
+    const isAlreadyTitled = thread?.name && thread.name !== 'Chat';
+    titled.current = isAlreadyTitled;
+  }, [threadId]); // This effect runs only when the user switches to a different chat.
+  
   useEffect(() => {
     if (!thread || !thread.messages) return;
 
@@ -191,7 +207,6 @@ export default function ChatThread({ navigation, route }) {
     } catch (e) { console.error('Title generation failed:', e) }
   };
 
-  // --- MODIFIED: DECOUPLE LOADING STATE FROM FOLLOW-UP GENERATION ---
   const sendAI = async (text) => {
     if (!apiKey) {
       Alert.alert('API Key Missing', 'Please set your Google AI API Key in Settings.');
@@ -234,11 +249,9 @@ export default function ChatThread({ navigation, route }) {
       newMessages.push(aiMsg);
       updateThreadMessages(threadId, newMessages);
       
-      // --- UNBLOCK UI IMMEDIATELY ---
       setLoading(false);
       setTimeout(scrollToBottom, 100);
 
-      // --- RUN BACKGROUND TASKS (TITLE AND FOLLOW-UPS) ---
       (async () => {
         if (isFirstRealMessage && !titled.current) {
           await handleGenerateTitle(text);
@@ -258,7 +271,7 @@ export default function ChatThread({ navigation, route }) {
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
       newMessages.push({ id: `e${Date.now()}`, text: errorText, role: 'model', error: true, ts });
       updateThreadMessages(threadId, newMessages);
-      setLoading(false); // Ensure loading is false on error
+      setLoading(false); 
       setTimeout(scrollToBottom, 100);
     }
   };

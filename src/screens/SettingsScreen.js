@@ -1,3 +1,5 @@
+// src/screens/SettingsScreen.js
+
 import React, { useState, useContext, useMemo } from 'react';
 import {
   StyleSheet,
@@ -13,6 +15,7 @@ import {
   Switch,
   Modal,
   FlatList,
+  Linking, // <-- Import Linking API
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +25,22 @@ import { ThreadsContext } from '../contexts/ThreadsContext';
 import { getAvailableTools } from '../services/tools';
 import { deleteAllImageData } from '../services/fileService';
 import ScreenHeader from '../components/ScreenHeader';
+
+// --- NEW HELPER COMPONENT ---
+// A reusable component for external links to improve user guidance.
+function ApiKeyLink({ text, url }) {
+  const handlePress = () => {
+    Linking.openURL(url).catch(err => Alert.alert("Couldn't open page.", err.message));
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} style={styles.linkContainer}>
+      <Ionicons name="open-outline" size={16} color="#6366F1" style={styles.linkIcon} />
+      <Text style={styles.linkText}>{text}</Text>
+    </TouchableOpacity>
+  );
+}
+
 
 // ModelSelector component remains unchanged...
 function ModelSelector({
@@ -112,13 +131,13 @@ function SettingsScreen({ navigation }) {
     systemPrompt, setSystemPrompt,
     agentSystemPrompt,
     apiKey, setApiKey,
-    tavilyApiKey, setTavilyApiKey, // <-- Get Tavily key and setter
+    tavilyApiKey, setTavilyApiKey,
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
-  const [showTavilyApiKey, setShowTavilyApiKey] = useState(false); // <-- New state for visibility
+  const [showTavilyApiKey, setShowTavilyApiKey] = useState(false);
 
   const selectedAgentModel = models.find(m => m.id === agentModelName);
 
@@ -165,8 +184,14 @@ function SettingsScreen({ navigation }) {
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>Your Google key is used for chat, agents, and image generation.</Text>
+          {/* --- ADDED LINK --- */}
+          <ApiKeyLink 
+            text="Get your key from Google AI Studio"
+            url="https://aistudio.google.com/app/apikey"
+          />
 
-          {/* Tavily AI Key Input --- NEW --- */}
+
+          {/* Tavily AI Key Input */}
           <View style={styles.separator} />
           <Text style={styles.cardSubTitle}>Tavily AI API Key</Text>
           <View style={styles.apiKeyContainer}>
@@ -185,6 +210,11 @@ function SettingsScreen({ navigation }) {
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>Your Tavily key is required for the `search_web` tool.</Text>
+          {/* --- ADDED LINK --- */}
+          <ApiKeyLink
+            text="Get your key from the Tavily dashboard"
+            url="https://app.tavily.com/"
+          />
         </View>
 
         {/* Persona Card (unchanged) */}
@@ -218,7 +248,7 @@ function SettingsScreen({ navigation }) {
           <ModelSelector label="Agent Model" items={agentModels} selectedId={agentModelName} onSelect={setAgentModelName} />
         </View>
 
-        {/* Agent Tools Card */}
+        {/* Agent Tools Card (unchanged from your version) */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="build-outline" size={20} color="#475569" style={styles.cardIcon} />
@@ -234,7 +264,6 @@ function SettingsScreen({ navigation }) {
               {availableTools.map((tool, index) => {
                 const isUserEnabled = !!enabledTools[tool.agent_id];
                 const isModelSupported = selectedAgentModel?.supported_tools.includes(tool.agent_id);
-                // --- NEW LOGIC --- Disable search_web if Tavily key is missing
                 const isToolDisabled = !isModelSupported || (tool.agent_id === 'search_web' && !tavilyApiKey);
                 
                 return (
@@ -245,7 +274,6 @@ function SettingsScreen({ navigation }) {
                         <Text style={styles.toolName}>{tool.agent_id}</Text>
                         <Text style={styles.toolDescription}>{tool.description}</Text>
                         {!isModelSupported && <Text style={styles.toolSupportText}>Not supported by {selectedAgentModel.name}</Text>}
-                        {/* --- NEW FEEDBACK --- */}
                         {tool.agent_id === 'search_web' && !tavilyApiKey && isModelSupported && (
                           <Text style={styles.toolSupportText}>Tavily API Key required</Text>
                         )}
@@ -256,7 +284,7 @@ function SettingsScreen({ navigation }) {
                         ios_backgroundColor="#D1D5DB"
                         onValueChange={() => toggleTool(tool.agent_id)}
                         value={isUserEnabled}
-                        disabled={isToolDisabled} // <-- USE NEW DISABLED FLAG
+                        disabled={isToolDisabled}
                       />
                     </View>
                   </React.Fragment>
@@ -314,7 +342,6 @@ function SettingsScreen({ navigation }) {
   );
 }
 
-// Styles remain mostly the same, no changes needed here.
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8FAFC' },
   scrollContainer: { padding: 16 },
@@ -389,6 +416,21 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: { color: '#B91C1C', fontSize: 15, fontWeight: '600' },
   dangerSeparator: { height: 12 },
+  // --- NEW STYLES FOR THE LINK ---
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    alignSelf: 'flex-start', // Prevent the touchable area from spanning the full width
+  },
+  linkIcon: {
+    marginRight: 6,
+  },
+  linkText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default SettingsScreen;

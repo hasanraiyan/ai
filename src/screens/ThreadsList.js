@@ -138,27 +138,34 @@ const SelectableCharacters = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContainer}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handleSelectCharacter(item)}
-            style={[ styles.charCard, { backgroundColor: colors.card, borderColor: colors.border } ]}
-            activeOpacity={0.8}
-          >
-            <View>
-              {/* --- FIX: Conditionally set the source for local vs. remote images --- */}
-              <Image
-                source={item.isDefault ? item.avatarUrl : { uri: item.avatarUrl }}
-                style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
-              />
-              {item.isDefault && (
-                <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
-                  <Ionicons name="star" size={10} color="#fff" />
-                </View>
-              )}
-            </View>
-            <Text style={[styles.charName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          // --- FIX: Handle both local ('require') and remote ('uri') image sources correctly ---
+          const imageSource = typeof item.avatarUrl === 'string'
+            ? { uri: item.avatarUrl }
+            : item.avatarUrl;
+
+          return (
+            <TouchableOpacity
+              onPress={() => handleSelectCharacter(item)}
+              style={[ styles.charCard, { backgroundColor: colors.card, borderColor: colors.border } ]}
+              activeOpacity={0.8}
+            >
+              <View>
+                <Image
+                  source={imageSource}
+                  style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
+                />
+                {/* --- FIX: Only show the star for the primary 'Arya' AI --- */}
+                {item.id === 'default-ai' && (
+                  <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
+                    <Ionicons name="star" size={10} color="#fff" />
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.charName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+            </TouchableOpacity>
+          );
+        }}
       />
     </DashboardSection>
   );
@@ -476,7 +483,8 @@ const styles = StyleSheet.create({
   // Card: Characters
   charCard: { alignItems: 'center', width: 90, padding: spacing.sm, borderRadius: 16, borderWidth: 1, gap: spacing.sm },
   charAvatar: { width: 60, height: 60, borderRadius: 30 },
-  charBadge: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, display: 'none' },
+  // --- FIX: Removed 'display: none' so the badge can appear ---
+  charBadge: { position: 'absolute', top: -2, right: -2, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
   charName: { ...typography.small, fontWeight: '600', textAlign: 'center' },
 
   // Card: Pinned Messages
