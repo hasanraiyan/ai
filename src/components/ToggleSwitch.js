@@ -1,24 +1,23 @@
+// components/ToggleSwitch.js
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  TouchableOpacity, 
-  Animated, 
-  Platform, 
-  UIManager, 
+import {
+  View,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  UIManager,
   StyleSheet,
   Text,
-  Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, spacing, typography } from '../utils/theme';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const { width: screenWidth } = Dimensions.get('window');
 
 export default function ToggleSwitch({
   options,
@@ -26,56 +25,58 @@ export default function ToggleSwitch({
   onSelect,
   disabled = false,
   containerStyle,
-  indicatorColors = ['#667EEA', '#764BA2'],
+  indicatorColors, // Will default to theme.colors.accent if not provided
   size = 'medium', // 'small', 'medium', 'large'
   variant = 'solid', // 'gradient', 'solid', 'minimal'
 }) {
+  const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const animX = useRef(new Animated.Value(0)).current;
   const animW = useRef(new Animated.Value(0)).current;
   const scaleAnims = useRef(options.map(() => new Animated.Value(1))).current;
   const isInit = useRef(true);
 
+  // Use theme accent color as default for the indicator
+  const finalIndicatorColors = indicatorColors || [colors.accent, colors.accent20];
+
   const sizeConfig = {
-    small: { 
-      containerPadding: 3, 
-      indicatorInset: 2, // Additional inset for indicator
-      height: 36, 
-      fontSize: 12, 
-      iconSize: 14 
-    },
-    medium: { 
-      containerPadding: 4, 
+    small: {
+      containerPadding: spacing.xs,
       indicatorInset: 2,
-      height: 44, 
-      fontSize: 14, 
-      iconSize: 16 
+      height: 36,
+      fontSize: typography.small,
+      iconSize: 14,
     },
-    large: { 
-      containerPadding: 5, 
+    medium: {
+      containerPadding: spacing.xs,
+      indicatorInset: 2,
+      height: 44,
+      fontSize: typography.body,
+      iconSize: 16,
+    },
+    large: {
+      containerPadding: spacing.sm - 2,
       indicatorInset: 3,
-      height: 52, 
-      fontSize: 16, 
-      iconSize: 18 
-    }
+      height: 52,
+      fontSize: 16, // A step above body
+      iconSize: 18,
+    },
   };
 
   const config = sizeConfig[size];
   const totalInset = config.containerPadding + config.indicatorInset;
 
-  // Initialize sizes
   useEffect(() => {
     if (width > 0) {
-      const availableWidth = width - (totalInset * 2); // Account for both sides
+      const availableWidth = width - (totalInset * 2);
       const w = availableWidth / options.length;
       animW.setValue(w);
       const selectedIndex = options.findIndex(o => o.key === selected);
-      animX.setValue(totalInset + (selectedIndex * w)); // Start from inset position
+      animX.setValue(totalInset + (selectedIndex * w));
       isInit.current = false;
     }
   }, [width, options.length, totalInset]);
 
-  // Animate on selection change
   useEffect(() => {
     if (width === 0) return;
     const availableWidth = width - (totalInset * 2);
@@ -86,74 +87,44 @@ export default function ToggleSwitch({
     if (isInit.current) {
       animX.setValue(toX);
       animW.setValue(w);
-      isInit.current = false;
     } else {
-      // Smoother spring animation
       Animated.parallel([
-        Animated.spring(animX, {
-          toValue: toX,
-          tension: 120,
-          friction: 8,
-          useNativeDriver: false,
-        }),
-        Animated.spring(animW, {
-          toValue: w,
-          tension: 120,
-          friction: 8,
-          useNativeDriver: false,
-        })
+        Animated.spring(animX, { toValue: toX, tension: 120, friction: 8, useNativeDriver: false }),
+        Animated.spring(animW, { toValue: w, tension: 120, friction: 8, useNativeDriver: false }),
       ]).start();
     }
   }, [selected, width, options, totalInset]);
 
   const handlePress = (key, index) => {
     if (disabled || key === selected) return;
-
-    // Enhanced haptic feedback
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
-    // Button press animation
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.sequence([
-      Animated.timing(scaleAnims[index], {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnims[index], {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      })
+      Animated.timing(scaleAnims[index], { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.timing(scaleAnims[index], { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start();
-
     onSelect(key);
   };
 
   const getIndicatorStyle = () => {
-    // Calculate proper indicator height and border radius
     const indicatorHeight = config.height - (totalInset * 2);
     const indicatorBorderRadius = indicatorHeight / 2;
-    
     const baseStyle = [
       styles.indicator,
-      { 
-        transform: [{ translateX: animX }], 
+      {
+        transform: [{ translateX: animX }],
         width: animW,
         height: indicatorHeight,
         top: totalInset,
         borderRadius: indicatorBorderRadius,
-      }
+        shadowColor: '#000',
+      },
     ];
 
     switch (variant) {
       case 'solid':
-        return [...baseStyle, { backgroundColor: indicatorColors[0] }];
+        return [...baseStyle, { backgroundColor: finalIndicatorColors[0] }];
       case 'minimal':
-        return [...baseStyle, styles.minimalIndicator];
+        return [...baseStyle, styles.minimalIndicator, { backgroundColor: colors.card, borderColor: colors.border }];
       default:
         return baseStyle;
     }
@@ -162,23 +133,19 @@ export default function ToggleSwitch({
   const renderIndicator = () => {
     const indicatorHeight = config.height - (totalInset * 2);
     const indicatorBorderRadius = indicatorHeight / 2;
-
     if (variant === 'minimal') {
-      return (
-        <Animated.View style={getIndicatorStyle()} />
-      );
+      return <Animated.View style={getIndicatorStyle()} />;
     }
-
     return (
       <Animated.View style={getIndicatorStyle()}>
-        {variant === 'gradient' ? (
+        {variant === 'gradient' && (
           <LinearGradient
-            colors={indicatorColors}
+            colors={finalIndicatorColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.gradient, { borderRadius: indicatorBorderRadius }]}
           />
-        ) : null}
+        )}
       </Animated.View>
     );
   };
@@ -191,9 +158,12 @@ export default function ToggleSwitch({
           height: config.height,
           padding: config.containerPadding,
           borderRadius: config.height / 2,
+          backgroundColor: disabled ? colors.emptyBg : colors.background,
+          borderColor: colors.border,
+          shadowColor: '#000',
         },
         containerStyle,
-        disabled && styles.disabled
+        disabled && styles.disabled,
       ]}
       onLayout={e => setWidth(e.nativeEvent.layout.width)}
       accessible
@@ -207,18 +177,15 @@ export default function ToggleSwitch({
         return (
           <Animated.View
             key={opt.key}
-            style={[
-              styles.buttonWrapper,
-              { transform: [{ scale: scaleAnims[index] }] }
-            ]}
+            style={[styles.buttonWrapper, { transform: [{ scale: scaleAnims[index] }] }]}
           >
             <TouchableOpacity
               style={[
-                styles.button, 
-                { 
+                styles.button,
+                {
                   paddingVertical: (config.height - config.containerPadding * 2) / 4,
-                  marginHorizontal: config.indicatorInset, // Add margin to match indicator inset
-                }
+                  marginHorizontal: config.indicatorInset,
+                },
               ]}
               onPress={() => handlePress(opt.key, index)}
               disabled={disabled}
@@ -231,7 +198,7 @@ export default function ToggleSwitch({
                 <Ionicons
                   name={opt.icon}
                   size={config.iconSize}
-                  color={isActive ? '#FFFFFF' : '#64748B'}
+                  color={isActive ? colors.fabText : colors.subtext}
                   style={[styles.icon, { marginRight: opt.label ? 6 : 0 }]}
                 />
               )}
@@ -239,8 +206,11 @@ export default function ToggleSwitch({
                 <Text
                   style={[
                     styles.label,
-                    { fontSize: config.fontSize },
-                    isActive && styles.labelActive
+                    {
+                      fontSize: config.fontSize,
+                      color: isActive ? colors.fabText : colors.subtext,
+                    },
+                    isActive && styles.labelActive,
                   ]}
                   numberOfLines={1}
                 >
@@ -255,56 +225,26 @@ export default function ToggleSwitch({
   );
 }
 
-ToggleSwitch.defaultProps = {
-  options: [],
-  selected: null,
-  onSelect: () => {},
-};
-
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     overflow: 'hidden',
-    // Add subtle shadow
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+
   },
-  disabled: { 
-    opacity: 0.5,
-    backgroundColor: '#F1F5F9',
+  disabled: {
+    opacity: 0.6,
   },
   indicator: {
     position: 'absolute',
     zIndex: 1,
-    // Enhanced shadow for the indicator
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
+      ios: { shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6 },
+      android: { elevation: 4 },
     }),
   },
   minimalIndicator: {
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   gradient: {
     flex: 1,
@@ -318,19 +258,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
-  icon: {
-    // Icon styling
-  },
+  icon: {},
   label: {
     fontWeight: '600',
-    color: '#64748B',
     flexShrink: 1,
     textAlign: 'center',
   },
   labelActive: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
 });
