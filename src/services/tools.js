@@ -205,6 +205,18 @@ const tools = {
     }
   },
 
+  get_financial_report: async ({ period }, { getFinancialReport }) => {
+    console.log(`TOOL: Generating financial report for period: ${period}`);
+    if (!getFinancialReport) return { success: false, message: "Internal error: getFinancialReport function not available.", data: null };
+
+    try {
+        const report = await getFinancialReport(period);
+        return { success: true, message: "Financial report generated successfully.", data: { report } };
+    } catch (e) {
+        return { success: false, message: `Failed to generate financial report: ${e.message}`, data: null };
+    }
+  }
+    
 };
 
 export const toolImplementations = tools;

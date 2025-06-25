@@ -249,8 +249,10 @@ ${agentInstructions}
         onToolCall: handleToolCall,
         tavilyApiKey: tavilyApiKey,
         financeContext: {
+          financeContext: {
           addTransaction,
           getTransactions,
+        },
         },
       });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
