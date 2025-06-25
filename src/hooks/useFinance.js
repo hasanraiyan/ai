@@ -16,18 +16,15 @@ export function useFinance() {
         const storedTransactionsJSON = await AsyncStorage.getItem(FINANCE_STORAGE_KEY);
         if (storedTransactionsJSON !== null) {
           const parsed = JSON.parse(storedTransactionsJSON);
-          // --- FIX START: Validate data upon loading from storage ---
           if (Array.isArray(parsed)) {
             const validTransactions = parsed.filter(tx => 
               tx && typeof tx.amount === 'number' && !isNaN(tx.amount)
             );
             setTransactions(validTransactions);
           }
-          // --- FIX END ---
         }
       } catch (e) {
         console.warn('Error loading or parsing financial data from AsyncStorage:', e);
-        // If parsing fails, start with an empty list to prevent crashes.
         setTransactions([]);
       } finally {
         setFinanceReady(true);
@@ -43,15 +40,12 @@ export function useFinance() {
     }
   }, [transactions, financeReady]);
 
-  /**
-   * Adds a new transaction to the list, validating the data first.
-   */
   const addTransaction = useCallback((newTransactionData) => {
     const amount = parseFloat(newTransactionData.amount);
 
     if (isNaN(amount) || !newTransactionData.type || !newTransactionData.description) {
       console.error("Validation failed: Attempted to add an invalid transaction.", newTransactionData);
-      return; // Stop if data is invalid
+      return;
     }
 
     const transaction = {
@@ -60,10 +54,26 @@ export function useFinance() {
       id: `tx-${Date.now().toString()}`,
       date: new Date().toISOString(),
     };
-    setTransactions(prev => [transaction, ...prev]);
+    setTransactions(prev => [transaction, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date))); // Keep sorted
     console.log('Added transaction:', transaction);
   }, []);
   
+  // --- NEW: Function to update an existing transaction ---
+  const updateTransaction = useCallback((updatedTransaction) => {
+    setTransactions(prev => 
+      prev
+        .map(tx => (tx.id === updatedTransaction.id ? { ...tx, ...updatedTransaction } : tx))
+        .sort((a, b) => new Date(b.date) - new Date(a.date)) // Re-sort after update
+    );
+    console.log('Updated transaction:', updatedTransaction.id);
+  }, []);
+
+  // --- NEW: Function to delete a transaction by its ID ---
+  const deleteTransaction = useCallback((transactionId) => {
+    setTransactions(prev => prev.filter(tx => tx.id !== transactionId));
+    console.log('Deleted transaction:', transactionId);
+  }, []);
+
   const getTransactions = useCallback(() => {
     return transactions;
   }, [transactions]);
@@ -76,6 +86,8 @@ export function useFinance() {
   return {
     transactions,
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     getTransactions,
     clearAllTransactions,
     financeReady,

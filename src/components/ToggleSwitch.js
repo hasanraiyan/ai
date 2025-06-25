@@ -120,9 +120,12 @@ export default function ToggleSwitch({
       },
     ];
 
+    const selectedIndex = options.findIndex(o => o.key === selected);
+    const indicatorColor = finalIndicatorColors[selectedIndex] || finalIndicatorColors[0];
+
     switch (variant) {
       case 'solid':
-        return [...baseStyle, { backgroundColor: finalIndicatorColors[0] }];
+        return [...baseStyle, { backgroundColor: indicatorColor }];
       case 'minimal':
         return [...baseStyle, styles.minimalIndicator, { backgroundColor: colors.card, borderColor: colors.border }];
       default:

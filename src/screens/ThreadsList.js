@@ -437,7 +437,6 @@ export default function ThreadsList({ navigation }) {
         <RecentConversations navigation={navigation} />
       </ScrollView>
 
-      {/* --- FIX APPLIED HERE --- */}
      <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.fabBg }]}
         onPress={handleCreateGenericThread}
