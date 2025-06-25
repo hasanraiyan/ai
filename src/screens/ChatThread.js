@@ -81,7 +81,7 @@ export default function ChatThread({ navigation, route }) {
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
-  const { addTransaction, getTransactions } = useContext(FinanceContext);
+  const { addTransaction, getTransactions, getFinancialReport } = useContext(FinanceContext);
 
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const currentCharacter = useMemo(() => characters.find(c => c.id === thread.characterId), [characters, thread.characterId]);
@@ -249,10 +249,9 @@ ${agentInstructions}
         onToolCall: handleToolCall,
         tavilyApiKey: tavilyApiKey,
         financeContext: {
-          financeContext: {
           addTransaction,
           getTransactions,
-        },
+          getFinancialReport,
         },
       });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };

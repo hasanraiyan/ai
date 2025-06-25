@@ -15,11 +15,10 @@ import Toast from 'react-native-toast-message';
 import { SettingsContext } from './src/contexts/SettingsContext';
 import { ThreadsContext } from './src/contexts/ThreadsContext';
 import { CharactersContext } from './src/contexts/CharactersContext';
-import { FinanceContext } from './src/contexts/FinanceContext'; // --- NEW ---
+import { FinanceProvider } from './src/contexts/FinanceContext';
 import { useSettings } from './src/hooks/useSettings';
 import { useThreads } from './src/hooks/useThreads';
 import { useCharacters } from './src/hooks/useCharacters';
-import { useFinance } from './src/hooks/useFinance'; // --- NEW ---
 
 import ThreadsList from './src/screens/ThreadsList';
 import ChatThread from './src/screens/ChatThread';
@@ -39,10 +38,8 @@ export default function App() {
   const settingsValue = useSettings();
   const threadsValue = useThreads();
   const charactersValue = useCharacters();
-  const financeValue = useFinance(); // --- NEW ---
-
   // --- MODIFIED: Added financeReady to the check ---
-  const ready = settingsValue.settingsReady && threadsValue.threadsReady && charactersValue.charactersReady && financeValue.financeReady;
+  const ready = settingsValue.settingsReady && threadsValue.threadsReady && charactersValue.charactersReady;
 
   if (!ready) {
     return (
@@ -60,7 +57,7 @@ export default function App() {
         <SettingsContext.Provider value={settingsValue}>
           <CharactersContext.Provider value={charactersValue}>
             <ThreadsContext.Provider value={threadsValue}>
-              <FinanceContext.Provider value={financeValue}>
+              <FinanceProvider>
                 <StatusBar barStyle="dark-content" />
                 <NavigationContainer>
                   <Drawer.Navigator
@@ -80,7 +77,7 @@ export default function App() {
                   </Drawer.Navigator>
                 </NavigationContainer>
                 <Toast position="bottom" />
-              </FinanceContext.Provider>
+              </FinanceProvider>
             </ThreadsContext.Provider>
           </CharactersContext.Provider>
         </SettingsContext.Provider>
