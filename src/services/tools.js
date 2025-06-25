@@ -88,6 +88,34 @@ export const toolMetadata = [
     capabilities: ["period"],
     input_format: { period: "string" },
     output_format: { success: "boolean", message: "string", data: { report: "string (Markdown formatted)" } }
+  },
+  {
+    agent_id: "set_budget",
+    description: "Sets a budget for a specific spending category.",
+    capabilities: ["category", "amount"],
+    input_format: { category: "string", amount: "number" },
+    output_format: { success: "boolean", message: "string", data: null }
+  },
+  {
+    agent_id: "add_financial_goal",
+    description: "Adds a new financial goal.",
+    capabilities: ["name", "targetAmount", "targetDate"],
+    input_format: { name: "string", targetAmount: "number", targetDate: "string (YYYY-MM-DD)" },
+    output_format: { success: "boolean", message: "string", data: null }
+  },
+  {
+    agent_id: "track_investment",
+    description: "Tracks an investment and its current value.",
+    capabilities: ["name", "initialValue", "currentValue"],
+    input_format: { name: "string", initialValue: "number", currentValue: "number" },
+    output_format: { success: "boolean", message: "string", data: null }
+  },
+  {
+    agent_id: "set_bill_reminder",
+    description: "Sets a reminder for a bill.",
+    capabilities: ["name", "amount", "dueDate"],
+    input_format: { name: "string", amount: "number", dueDate: "string (YYYY-MM-DD)" },
+    output_format: { success: "boolean", message: "string", data: null }
   }
 ];
 
@@ -204,48 +232,6 @@ const tools = {
     }
   },
 
-  get_financial_report: async ({ period }, { getTransactions }) => {
-    console.log(`TOOL: Generating report for period: "${period}"`);
-    if (!getTransactions) return { success: false, message: "Internal error: getTransactions function not available.", data: null };
-    
-    try {
-        const allTransactions = getTransactions();
-        const { start, end } = getPeriodRange(period);
-        const filtered = allTransactions.filter(t => new Date(t.date) >= start && new Date(t.date) <= end);
-
-        if (filtered.length === 0) return { success: true, message: "Report generated.", data: { report: `You have no transactions recorded for **${period}**.` } };
-
-        let totalIncome = 0;
-        let totalExpense = 0;
-        const expenseCategories = {};
-
-        filtered.forEach(tx => {
-            const amount = Number(tx.amount); // Ensure amount is a number
-            if (tx.type === 'income') totalIncome += tx.amount;
-            else {
-                totalExpense += amount;
-                const cat = tx.category || 'Uncategorized';
-                expenseCategories[cat] = (expenseCategories[cat] || 0) + amount;
-            }
-        });
-
-        const net = totalIncome - totalExpense;
-        let report = `### Financial Report for: **${period}**\n\n| Metric | Amount |\n|:---|:---|\n| **Total Income** | **Rs${(totalIncome || 0).toFixed(2)}** |\n| **Total Expense** | **Rs${(totalExpense || 0).toFixed(2)}** |\n| **Net Flow** | **Rs${(net || 0).toFixed(2)}** |\n\n`;
-        
-        if (totalExpense > 0) {
-            report += `#### Expense Breakdown:\n`;
-            const sortedCategories = Object.entries(expenseCategories).sort(([, a], [, b]) => b - a);
-            sortedCategories.forEach(([category, amount]) => {
-                const percentage = (amount / totalExpense * 100).toFixed(1);
-                report += `- **${category}:** $${amount.toFixed(2)} (${percentage}%)\n`;
-            });
-        }
-
-        return { success: true, message: "Report generated successfully.", data: { report } };
-    } catch (e) {
-        return { success: false, message: `Failed to generate report: ${e.message}`, data: null };
-    }
-  }
 };
 
 export const toolImplementations = tools;

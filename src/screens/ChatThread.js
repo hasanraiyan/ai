@@ -335,7 +335,7 @@ ${agentInstructions}
     sendAI(suggestionText);
   };
 
-  const onLinkPress = (url) => { Linking.openURL(url).catch(() => { }); return false; };
+  const onLinkPress = (url) => { Linking.openURL(url).catch(() => { }); return null; };
 
   const markdownImageRules = {
     image: node => {

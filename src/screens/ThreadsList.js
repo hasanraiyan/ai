@@ -438,14 +438,12 @@ export default function ThreadsList({ navigation }) {
       </ScrollView>
 
       {/* --- FIX APPLIED HERE --- */}
-      <TouchableOpacity
+     <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.fabBg }]}
         onPress={handleCreateGenericThread}
         activeOpacity={0.8}
       >
-        <Text style={styles.fabText}>
-          <Ionicons name="add" size={32} />
-        </Text>
+        <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );

@@ -56,33 +56,35 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SettingsContext.Provider value={settingsValue}>
-        <CharactersContext.Provider value={charactersValue}>
-          <ThreadsContext.Provider value={threadsValue}>
-            <FinanceContext.Provider value={financeValue}> {/* --- NEW --- */}
-              <StatusBar barStyle="dark-content" />
-              <NavigationContainer>
-                <Drawer.Navigator
-                  drawerContent={props => <CustomDrawerContent {...props} />}
-                  screenOptions={{ headerShown: false, drawerType: 'slide' }}
-                >
-                  <Drawer.Screen name="Threads" component={ThreadsList} options={{ title: 'Dashboard' }} />
-                  <Drawer.Screen name="Chat" component={ChatThread} />
-                  <Drawer.Screen name="Characters" component={CharacterSelectScreen} options={{ title: 'Characters' }} />
-                  <Drawer.Screen name="Finance" component={FinanceScreen} options={{ title: 'Finance' }} />
-                  <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
-                  <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
-                  <Drawer.Screen name="Gallery" component={GalleryScreen} />
-                  <Drawer.Screen name="Settings" component={SettingsScreen} />
-                  <Drawer.Screen name="AllThreads" component={AllThreadsScreen} options={{ drawerItemStyle: { height: 0 } }} />
-                  <Drawer.Screen name="CharacterEditor" component={CharacterEditorScreen} options={{ drawerItemStyle: { height: 0 } }} />
-                </Drawer.Navigator>
-              </NavigationContainer>
-            </FinanceContext.Provider>
-          </ThreadsContext.Provider>
-        </CharactersContext.Provider>
-      </SettingsContext.Provider>
-      <Toast position="bottom" />
+      <View style={styles.root}>
+        <SettingsContext.Provider value={settingsValue}>
+          <CharactersContext.Provider value={charactersValue}>
+            <ThreadsContext.Provider value={threadsValue}>
+              <FinanceContext.Provider value={financeValue}>
+                <StatusBar barStyle="dark-content" />
+                <NavigationContainer>
+                  <Drawer.Navigator
+                    drawerContent={props => <CustomDrawerContent {...props} />}
+                    screenOptions={{ headerShown: false, drawerType: 'slide' }}
+                  >
+                    <Drawer.Screen name="Threads" component={ThreadsList} options={{ title: 'Dashboard' }} />
+                    <Drawer.Screen name="Chat" component={ChatThread} />
+                    <Drawer.Screen name="Characters" component={CharacterSelectScreen} options={{ title: 'Characters' }} />
+                    <Drawer.Screen name="Finance" component={FinanceScreen} options={{ title: 'Finance' }} />
+                    <Drawer.Screen name="ImageGeneration" component={ImageGenerationScreen} options={{ title: 'Generate Image' }} />
+                    <Drawer.Screen name="LanguageTutor" component={LanguageTutorScreen} options={{ title: 'Language Tutor' }} />
+                    <Drawer.Screen name="Gallery" component={GalleryScreen} />
+                    <Drawer.Screen name="Settings" component={SettingsScreen} />
+                    <Drawer.Screen name="AllThreads" component={AllThreadsScreen} options={{ drawerItemStyle: { height: 0 } }} />
+                    <Drawer.Screen name="CharacterEditor" component={CharacterEditorScreen} options={{ drawerItemStyle: { height: 0 } }} />
+                  </Drawer.Navigator>
+                </NavigationContainer>
+                <Toast position="bottom" />
+              </FinanceContext.Provider>
+            </ThreadsContext.Provider>
+          </CharactersContext.Provider>
+        </SettingsContext.Provider>
+      </View>
     </SafeAreaProvider>
   );
 }
