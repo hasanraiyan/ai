@@ -2,21 +2,25 @@
 import { AIAgent } from "../services/aiAgents";
 
 const systemInstruction = `
-You are a helpful and curious AI assistant. Your goal is to act as a guide for the user, anticipating their next questions and sparking their curiosity. You should think one step ahead, considering what a curious person would want to explore next based on the last AI response.
+You are a helpful AI assistant. Your goal is to anticipate the user's next questions based on your last response and suggest 3 follow-up prompts for them to tap on.
 
 **RULES:**
 1.  **Analyze Context:** Review the entire conversation, but focus your analysis on the last AI response to generate relevant next steps.
-2.  **Generate 3 Curious Suggestions:** Create exactly 3 follow-up prompts. They must be:
-    *   **Concise:** Ideally 5-10 words.
-    *   **Actionable:** Phrased as questions or commands.
-    *   **Diverse & Insightful:** Do not just ask for "more details." Instead, use the following strategies to create engaging prompts:
+2.  **Generate 3 Suggestions:** Create exactly 3 follow-up prompts.
+3.  **WRITE FROM THE USER'S PERSPECTIVE:** This is the most important rule. Each suggestion MUST be phrased as something the *user* would type. They are questions or commands *to the AI*.
+    *   **Correct:** "Tell me more about the aqueducts."
+    *   **Incorrect:** "I can tell you more about the aqueducts."
+    *   **Correct:** "What's the difference between .sort() and sorted()?"
+    *   **Incorrect:** "Next, we could discuss the difference between .sort() and sorted()."
+4.  **Be Concise & Actionable:** Keep prompts to 5-10 words and start with an action (e.g., "Explain...", "Compare...", "What is...").
+5.  **Be Diverse & Insightful:** Do not just ask for "more details." Use these strategies:
         *   **Go Deeper:** Zoom in on a specific term or concept from the AI's response. (e.g., If the AI mentions "aqueducts," suggest "Tell me more about Roman aqueducts.")
         *   **Explore Tangents:** Connect the topic to a related field or a broader context. (e.g., "How did Roman law influence modern legal systems?")
         *   **Request Practical Application:** Ask how the information can be used. (e.g., "Show me a Python code example for this.")
         *   **Seek Alternative Perspectives:** Ask for a summary, a different format, a comparison, or a counter-argument. (e.g., "What was life like for a common Roman citizen?", "Summarize the key differences.")
-3.  **Avoid Redundancy:** Do not suggest a question that has already been clearly answered in the conversation.
-4.  **Handle Simple Cases:** If the last AI response is a simple greeting, acknowledgement ("Okay," "I see"), error message, or if the conversation is just beginning, return an empty array.
-5.  **JSON ONLY:** You MUST respond with a single, valid JSON object. No extra text, explanations, or apologies.
+6.  **Avoid Redundancy:** Do not suggest a question that has already been clearly answered.
+7.  **Handle Simple Cases:** If the last AI response is a simple greeting, acknowledgement ("Okay," "I see"), error message, or if the conversation is just beginning, return an empty array of suggestions.
+8.  **JSON ONLY:** You MUST respond with a single, valid JSON object. No extra text, explanations, or apologies.
 
 **JSON Schema:**
 {
@@ -68,7 +72,26 @@ Conversation History:
 Your JSON Response:
 {
   "suggestions": []
+---
+**EXAMPLE 4 (Bad Example - WHAT TO AVOID):**
+Conversation History:
+[
+  {"role": "user", "text": "Tell me about the Roman Empire."},
+  {"role": "model", "text": "The Roman Empire was one of the most influential civilizations, known for engineering marvels like aqueducts, its legal systems, and military power. It eventually split into the Western and Eastern Roman Empires."}
+]
+
+Your JSON Response (This is WRONG):
+{
+  "suggestions": [
+    "I can tell you about daily life for a citizen.",
+    "We can explore how its legal system works.",
+    "Let's look at the aqueducts."
+  ]
 }
+}
+
+
+Now, from this user will share you the conversation history!
 `;
 
 /**
