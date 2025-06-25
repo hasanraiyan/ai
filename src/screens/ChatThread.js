@@ -264,7 +264,7 @@ ${agentInstructions}
         if (isFirstRealMessage && !titled.current && !currentCharacter) {
           await handleGenerateTitle(text);
           titled.current = true;
-        } else if (!isFirstRealMessage && mode === 'chat') {
+        } else if (!isFirstRealMessage) {
           const followUps = await generateFollowUpSuggestions(apiKey, titleModelName, newMessages);
           if (followUps.length > 0) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
