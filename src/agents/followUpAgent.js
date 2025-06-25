@@ -69,6 +69,7 @@ Conversation History:
   {"role": "model", "text": "Hello! How can I help you today?"}
 ]
 
+Here, now the example ends.
 Your JSON Response:
 {
   "suggestions": []
@@ -89,9 +90,9 @@ Your JSON Response (This is WRONG):
   ]
 }
 }
+ Now, user will share you the real chat history!
 
 
-Now, from this user will share you the conversation history!
 `;
 
 /**
