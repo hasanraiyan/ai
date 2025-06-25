@@ -25,7 +25,7 @@ export default function ToggleSwitch({
   onSelect,
   disabled = false,
   containerStyle,
-  indicatorColors, // Will default to theme.colors.accent if not provided
+  indicatorColors, 
   size = 'medium', // 'small', 'medium', 'large'
   variant = 'solid', // 'gradient', 'solid', 'minimal'
 }) {
@@ -37,7 +37,7 @@ export default function ToggleSwitch({
   const isInit = useRef(true);
 
   // Use theme accent color as default for the indicator
-  const finalIndicatorColors = indicatorColors || [colors.accent, colors.accent20];
+  const finalIndicatorColors = indicatorColors || [colors.accent, colors.accent];
 
   const sizeConfig = {
     small: {

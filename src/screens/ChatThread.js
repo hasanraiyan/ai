@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
-  StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
+  StyleSheet, Text, View, FlatList,
   Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
   ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager
 } from 'react-native';
@@ -448,11 +448,13 @@ ${agentInstructions}
           />
         )}
       </View>
-      <KeyboardAvoidingView
+      {/* <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined} // Using undefined for Android relies on Composer's KAV
         keyboardVerticalOffset={CHAT_HEADER_HEIGHT}
-      >
+      > */}
+      {/* The main view that contains FlatList and Composer will handle layout */}
+      <View style={{flex: 1}}>
         <FlatList
           style={{ flex: 1 }}
           ref={listRef}
@@ -472,7 +474,8 @@ ${agentInstructions}
           loading={loading}
           placeholder={mode === 'agent' ? "Ask the agent..." : "Type a message..."}
         />
-      </KeyboardAvoidingView>
+      {/* </KeyboardAvoidingView> */}
+      </View>
     </SafeAreaView>
   );
 }

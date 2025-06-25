@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
   Image,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,10 +118,15 @@ export default function CharacterEditorScreen({ navigation, route }) {
             </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-            <AvatarPicker avatarUrl={avatarUrl} />
+        <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0} // Adjust as needed, 60 is a common header height
+        >
+            <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+                <AvatarPicker avatarUrl={avatarUrl} />
 
-            <InputField
+                <InputField
                 label="Avatar URL"
                 value={avatarUrl}
                 onChangeText={setAvatarUrl}
@@ -165,6 +171,7 @@ export default function CharacterEditorScreen({ navigation, route }) {
                 helperText="The very first message the character will send in a new conversation."
             />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
