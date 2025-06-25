@@ -66,6 +66,30 @@ const CategorySelector = ({ type, selectedCategory, onSelect }) => {
   );
 };
 
+const ChartLegend = ({ data, total }) => {
+  const { colors } = useTheme();
+  const styles = useStyles({ colors });
+  return (
+    <View style={styles.legendContainer}>
+      {data.map(item => {
+        const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+        return (
+          <View key={item.label} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+            <View style={styles.legendTextContainer}>
+              <Text style={[styles.legendLabel, { color: colors.text }]}>{item.label}</Text>
+              <Text style={[styles.legendValue, { color: colors.subtext }]}>
+                ${item.value.toFixed(2)}
+              </Text>
+            </View>
+            <Text style={[styles.legendPercentage, { color: colors.text }]}>{percentage}%</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
 const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
   const { colors } = useTheme();
   const styles = useStyles({ colors });
@@ -329,8 +353,22 @@ export default function FinanceScreen({ navigation }) {
               <View style={[styles.chartContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Expense Breakdown</Text>
                 <View style={styles.pieChartWrapper}>
-                  <PieChart data={pieChartData} donut radius={70} innerRadius={40} />
+                  <PieChart
+                    data={pieChartData}
+                    donut
+                    radius={70}
+                    innerRadius={45}
+                    focusOnPress
+                    showText={false}
+                    centerLabelComponent={() => (
+                      <View style={styles.chartCenterLabelContainer}>
+                        <Text style={[styles.chartCenterLabelValue, { color: colors.text }]} adjustsFontSizeToFit numberOfLines={1}>${stats.expenses.toFixed(0)}</Text>
+                        <Text style={[styles.chartCenterLabelText, { color: colors.subtext }]}>Total Spent</Text>
+                      </View>
+                    )}
+                  />
                 </View>
+                <ChartLegend data={pieChartData} total={stats.expenses} />
               </View>
             )}
             <Text style={[styles.sectionTitle, { color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.lg }]}>History</Text>
@@ -362,6 +400,16 @@ const useStyles = ({ colors }) => StyleSheet.create({
   chartContainer: { margin: spacing.md, padding: spacing.md, borderRadius: 16, borderWidth: 1 },
   sectionTitle: { ...typography.h2, fontWeight: 'bold' },
   pieChartWrapper: { alignItems: 'center', marginVertical: spacing.lg },
+  chartCenterLabelContainer: { justifyContent: 'center', alignItems: 'center' },
+  chartCenterLabelValue: { ...typography.h1, fontWeight: 'bold' },
+  chartCenterLabelText: { ...typography.small, fontWeight: '500' },
+  legendContainer: { marginTop: spacing.lg, paddingHorizontal: spacing.sm },
+  legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  legendDot: { width: 12, height: 12, borderRadius: 6, marginRight: spacing.md },
+  legendTextContainer: { flex: 1, marginRight: spacing.sm },
+  legendLabel: { ...typography.body, fontWeight: '600' },
+  legendValue: { ...typography.small, marginTop: 2 },
+  legendPercentage: { ...typography.body, fontWeight: 'bold' },
   dateHeader: { ...typography.body, fontWeight: 'bold', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
   txRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, marginBottom: spacing.sm, padding: spacing.md, borderRadius: 12, borderLeftWidth: 4, elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   txDetails: { flex: 1, marginRight: spacing.sm },
@@ -375,15 +423,19 @@ const useStyles = ({ colors }) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, paddingTop: spacing.md },
   modalTitle: { ...typography.h2, fontWeight: 'bold', textAlign: 'center', marginBottom: spacing.lg },
-  input: { backgroundColor: colors.emptyBg, borderRadius: 10, padding: 14, fontSize: 16, marginTop: spacing.md },
+  input: {
+    backgroundColor: colors.emptyBg,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 16,
+  },
   categoryHeader: { ...typography.h4, fontWeight: '600', marginTop: spacing.lg, marginBottom: spacing.sm },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   categoryChip: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: colors.border, gap: 6 },
   categoryChipText: { ...typography.small, fontWeight: '600' },
   saveButton: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: spacing.lg },
   inputContainer: { marginTop: spacing.md },
-  inputLabel: { ...typography.small, fontWeight: '600', marginBottom: -spacing.sm, marginLeft: spacing.xs },
+  inputLabel: { ...typography.small, fontWeight: '600', marginBottom: spacing.xs, marginLeft: spacing.xs },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  improveButton: { padding: 10, marginTop: spacing.md },
-  categoryHeader: { ...typography.h4, fontWeight: '600', marginTop: spacing.md, marginBottom: spacing.sm, marginLeft: spacing.xs },
+  improveButton: { padding: 10 },
 });
