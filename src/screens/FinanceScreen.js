@@ -1,13 +1,15 @@
 // src/screens/FinanceScreen.js
 
-import React, { useContext, useMemo, useState, useEffect } from 'react';
+import React, { useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import {
-  StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, Modal, TextInput, Pressable, KeyboardAvoidingView, Platform
+  StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, Modal, TextInput, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-gifted-charts';
 import { FinanceContext } from '../contexts/FinanceContext';
+import { SettingsContext } from '../contexts/SettingsContext';
+import { improveDescription } from '../agents/descriptionAgent';
 import { useTheme, spacing, typography } from '../utils/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import ToggleSwitch from '../components/ToggleSwitch';
@@ -34,8 +36,8 @@ const transactionCategories = {
 
 // Helper to find category info from the new structure
 const getCategoryInfo = (key) => {
-    const allCategories = [...transactionCategories.expense, ...transactionCategories.income];
-    return allCategories.find(c => c.key === key) || transactionCategories.expense.find(c => c.key === 'Other');
+  const allCategories = [...transactionCategories.expense, ...transactionCategories.income];
+  return allCategories.find(c => c.key === key) || transactionCategories.expense.find(c => c.key === 'Other');
 };
 
 
@@ -74,6 +76,8 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
   const [description, setDescription] = useState(transaction?.description || '');
   const [category, setCategory] = useState(transaction?.category || 'Food');
   const canSave = amount && description && category;
+  const [isImproving, setIsImproving] = useState(false);
+  const { apiKey, agentModelName } = useContext(SettingsContext);
 
   useEffect(() => {
     if (transaction) {
@@ -89,6 +93,24 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
     }
   }, [transaction]);
 
+
+  const handleImproveDescription = useCallback(async () => {
+    if (!description.trim() || isImproving) return;
+    setIsImproving(true);
+    try {
+      const result = await improveDescription(apiKey, agentModelName, description);
+      if (result.success) {
+        setDescription(result.description);
+      } else {
+        Alert.alert("Improvement Failed", result.reason || "Could not improve the description.");
+      }
+    } catch (error) {
+      console.error("Description improvement error:", error);
+      Alert.alert("Error", "An unexpected error occurred while improving the description.");
+    } finally {
+      setIsImproving(false);
+    }
+  }, [description, isImproving, apiKey, agentModelName]);
   const handleSave = () => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
@@ -115,23 +137,35 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
               }}
               indicatorColors={type === 'income' ? ['#10B981'] : ['#EF4444']}
             />
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Amount (e.g., 15.50)"
-              placeholderTextColor={colors.subtext}
-              keyboardType="numeric"
-              value={amount}
-              onChangeText={setAmount}
-              autoFocus
-            />
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-              placeholder="Description (e.g., Lunch with team)"
-              placeholderTextColor={colors.subtext}
-              value={description}
-              onChangeText={setDescription}
-            />
-            <Text style={[styles.categoryHeader, { color: colors.text }]}>Category</Text>
+            < View style={styles.inputContainer}>
+              <Text style={[styles.inputLabel, { color: colors.subtext }]}>Amount</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                placeholder="e.g., 15.50"
+                placeholderTextColor={colors.subtext}
+                keyboardType="numeric"
+                value={amount}
+                onChangeText={setAmount}
+                autoFocus
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={[styles.inputLabel, { color: colors.subtext }]}>Description</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, { flex: 1, borderColor: colors.border, color: colors.text }]}
+                  placeholder="e.g., Lunch with team"
+                  placeholderTextColor={colors.subtext}
+                  value={description}
+                  onChangeText={setDescription}
+                />
+                <TouchableOpacity style={styles.improveButton} onPress={handleImproveDescription} disabled={isImproving}>
+                  {isImproving
+                    ? <ActivityIndicator size="small" color={colors.accent} />
+                    : <Ionicons name="sparkles-outline" size={22} color={colors.accent} />}
+                </TouchableOpacity>
+              </View>
+            </View>
             <CategorySelector type={type} selectedCategory={category} onSelect={setCategory} />
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.border }]}
@@ -187,14 +221,14 @@ export default function FinanceScreen({ navigation }) {
         acc[category] = (acc[category] || 0) + tx.amount;
         return acc;
       }, {});
-    
+
     return Object.entries(expenseData).map(([category, amount]) => ({
       value: amount,
       label: category,
       color: getCategoryInfo(category).color || '#64748B'
     })).sort((a, b) => b.value - a.value).slice(0, 5);
   }, [transactions]);
-  
+
   const groupedTransactions = useMemo(() => {
     const groups = transactions.reduce((acc, tx) => {
       const date = new Date(tx.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -202,7 +236,7 @@ export default function FinanceScreen({ navigation }) {
       acc[date].push(tx);
       return acc;
     }, {});
-    return Object.entries(groups).flatMap(([date, txs]) => [ { type: 'header', date }, ...txs.map(tx => ({ type: 'item', data: tx })) ]);
+    return Object.entries(groups).flatMap(([date, txs]) => [{ type: 'header', date }, ...txs.map(tx => ({ type: 'item', data: tx }))]);
   }, [transactions]);
 
   const handleSave = (data) => {
@@ -212,7 +246,7 @@ export default function FinanceScreen({ navigation }) {
       addTransaction(data);
     }
   };
-  
+
   const handleLongPress = (tx) => {
     Alert.alert(
       `"${tx.description}"`,
@@ -246,11 +280,11 @@ export default function FinanceScreen({ navigation }) {
 
   const renderTransactionItem = ({ item }) => {
     if (item.type === 'header') {
-      return <Text style={[styles.dateHeader, {color: colors.subtext}]}>{item.date}</Text>
+      return <Text style={[styles.dateHeader, { color: colors.subtext }]}>{item.date}</Text>
     }
     const tx = item.data;
     const categoryInfo = getCategoryInfo(tx.category);
-    
+
     return (
       <Pressable
         style={({ pressed }) => [styles.txRow, { backgroundColor: pressed ? colors.emptyBg : colors.card, borderLeftColor: categoryInfo.color }]}
@@ -297,7 +331,7 @@ export default function FinanceScreen({ navigation }) {
         )}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
-            <Ionicons name="wallet-outline" size={60} color={colors.subtext}/>
+            <Ionicons name="wallet-outline" size={60} color={colors.subtext} />
             <Text style={styles.emptyText}>No transactions yet. Tap the '+' button to add one.</Text>
           </View>
         )}
@@ -322,7 +356,7 @@ const useStyles = ({ colors }) => StyleSheet.create({
   sectionTitle: { ...typography.h2, fontWeight: 'bold' },
   pieChartWrapper: { alignItems: 'center', marginVertical: spacing.lg },
   dateHeader: { ...typography.body, fontWeight: 'bold', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
-  txRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, marginBottom: spacing.sm, padding: spacing.md, borderRadius: 12, borderLeftWidth: 4, elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: {width: 0, height: 2}},
+  txRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: spacing.md, marginBottom: spacing.sm, padding: spacing.md, borderRadius: 12, borderLeftWidth: 4, elevation: 1, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   txDetails: { flex: 1, marginRight: spacing.sm },
   txDescription: { ...typography.h4, fontWeight: '600' },
   txCategoryContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, alignSelf: 'flex-start' },
@@ -340,5 +374,9 @@ const useStyles = ({ colors }) => StyleSheet.create({
   categoryChip: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: colors.border, gap: 6 },
   categoryChipText: { ...typography.small, fontWeight: '600' },
   saveButton: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: spacing.lg },
-  saveButtonText: { fontSize: 16, fontWeight: 'bold' },
+  inputContainer: { marginTop: spacing.md },
+  inputLabel: { ...typography.small, fontWeight: '600', marginBottom: -spacing.sm, marginLeft: spacing.xs },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  improveButton: { padding: 10, marginTop: spacing.md },
+  categoryHeader: { ...typography.h4, fontWeight: '600', marginTop: spacing.md, marginBottom: spacing.sm, marginLeft: spacing.xs },
 });
