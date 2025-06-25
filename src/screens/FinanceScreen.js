@@ -66,7 +66,6 @@ const CategorySelector = ({ type, selectedCategory, onSelect }) => {
   );
 };
 
-// --- UPDATED: TransactionInputModal passes the type to CategorySelector ---
 const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
   const { colors } = useTheme();
   const styles = useStyles({ colors });
@@ -96,6 +95,12 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
 
   const handleImproveDescription = useCallback(async () => {
     if (!description.trim() || isImproving) return;
+    if (!apiKey) {
+      return Alert.alert(
+        "API Key Required",
+        "Please set your Google AI API Key in Settings to use this feature."
+      );
+    }
     setIsImproving(true);
     try {
       const result = await improveDescription(apiKey, agentModelName, description);
@@ -137,7 +142,7 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
               }}
               indicatorColors={type === 'income' ? ['#10B981'] : ['#EF4444']}
             />
-            < View style={styles.inputContainer}>
+            <View style={styles.inputContainer}>
               <Text style={[styles.inputLabel, { color: colors.subtext }]}>Amount</Text>
               <TextInput
                 style={[styles.input, { borderColor: colors.border, color: colors.text }]}
@@ -159,13 +164,16 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
                   value={description}
                   onChangeText={setDescription}
                 />
-                <TouchableOpacity style={styles.improveButton} onPress={handleImproveDescription} disabled={isImproving}>
-                  {isImproving
-                    ? <ActivityIndicator size="small" color={colors.accent} />
-                    : <Ionicons name="sparkles-outline" size={22} color={colors.accent} />}
-                </TouchableOpacity>
+                {description.trim().length > 0 && (
+                  <TouchableOpacity style={styles.improveButton} onPress={handleImproveDescription} disabled={isImproving}>
+                    {isImproving
+                      ? <ActivityIndicator size="small" color={colors.accent} />
+                      : <Ionicons name="sparkles-outline" size={22} color={colors.accent} />}
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
+            <Text style={[styles.categoryHeader, { color: colors.text }]}>Category</Text>
             <CategorySelector type={type} selectedCategory={category} onSelect={setCategory} />
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: canSave ? colors.accent : colors.border }]}
@@ -180,7 +188,6 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
     </Modal>
   );
 };
-
 const SummaryCard = ({ title, value, icon, color }) => {
   const { colors } = useTheme();
   const styles = useStyles({ colors });
