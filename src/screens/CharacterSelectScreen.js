@@ -13,6 +13,8 @@ import {
   Pressable,
   Animated,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -205,11 +207,16 @@ export default function CharacterSelectScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader navigation={navigation} title="Characters" subtitle={`${characters.length} available to chat`} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Header is part of this screen, so offset might not be needed or needs careful adjustment
+      >
+        <ScreenHeader navigation={navigation} title="Characters" subtitle={`${characters.length} available to chat`} />
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={theme.colors.subtext} style={styles.searchIcon} />
-        <TextInput
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={theme.colors.subtext} style={styles.searchIcon} />
+          <TextInput
           style={styles.searchInput}
           placeholder="Search characters by name or description..."
           placeholderTextColor={theme.colors.subtext}
@@ -244,6 +251,7 @@ export default function CharacterSelectScreen({ navigation }) {
       )}
 
       <ActionSheetModal visible={modalVisible} onClose={() => setModalVisible(false)} character={selectedCharacter} onEdit={handleEdit} onDelete={handleDelete}/>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

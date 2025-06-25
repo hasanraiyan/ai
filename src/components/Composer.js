@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, typography } from '../utils/theme';
@@ -25,10 +26,15 @@ export default function Composer({
   const canSend = value.trim().length > 0 && !loading;
 
   return (
-    <View style={styles.composerContainer}>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.promptInput}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.keyboardAvoidingView}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 60} // Adjust offset as needed
+    >
+      <View style={styles.composerContainer}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.promptInput}
           placeholder={placeholder}
           placeholderTextColor={colors.subtext}
           multiline
@@ -49,11 +55,17 @@ export default function Composer({
         </TouchableOpacity>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const getStyles = (theme) =>
   StyleSheet.create({
+    keyboardAvoidingView: {
+      // Styles for KeyboardAvoidingView itself, if needed
+      // For example, if it needs to flex or have specific layout properties
+      // By default, it might not need specific styles if it's just a wrapper
+    },
     composerContainer: {
       padding: spacing.md,
       backgroundColor: theme.colors.background,

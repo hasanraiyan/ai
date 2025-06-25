@@ -15,6 +15,8 @@ import {
   Easing,
   Pressable,
   useColorScheme,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -227,11 +229,16 @@ export default function AllThreadsScreen({ navigation }) {
         actions={threadActions}
       />
 
-      <Modal transparent visible={renameModalVisible} animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setRenameModalVisible(false)}>
-          <Pressable style={[styles.renameModal, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Rename Conversation</Text>
-            <TextInput
+      <Modal transparent visible={renameModalVisible} animationType="fade" onRequestClose={() => setRenameModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -150} // Adjust as needed
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setRenameModalVisible(false)}>
+            <Pressable style={[styles.renameModal, { backgroundColor: colors.card }]} onPress={null}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Rename Conversation</Text>
+              <TextInput
               style={[styles.renameInput, { backgroundColor: colors.emptyBg, color: colors.text, borderColor: colors.border }]}
               value={renameInput}
               onChangeText={setRenameInput}
@@ -249,6 +256,7 @@ export default function AllThreadsScreen({ navigation }) {
             </View>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

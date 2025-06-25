@@ -10,7 +10,6 @@ import {
     ActivityIndicator,
     Platform,
     StatusBar,
-    KeyboardAvoidingView,
     Keyboard,
     UIManager,
     Image as RNImage,
@@ -203,14 +202,11 @@ export default function ImageGenerationScreen({ navigation }) {
             <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
             <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
             <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
-            {/* --- FIX: This is the final, correct structure for keyboard handling --- */}
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={HEADER_HEIGHT}
-            >
+            {/* Screen-level KAV removed, Composer's KAV will handle the input area.
+                The main content area is wrapped in a View to ensure proper flex behavior. */}
+            <View style={{ flex: 1 }}>
                 <ScrollView
-                    style={{ flex: 1 }} // This makes the list take up the available space
+                    style={{ flex: 1 }}
                     contentContainerStyle={styles.scrollContainer}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
@@ -253,7 +249,7 @@ export default function ImageGenerationScreen({ navigation }) {
                     loading={anyLoading}
                     placeholder="A majestic dragon soaring through clouds..."
                 />
-            </KeyboardAvoidingView>
+            </View>
         </SafeAreaView>
     );
 }

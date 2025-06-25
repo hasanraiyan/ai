@@ -16,6 +16,7 @@ import {
   Modal,
   FlatList,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -155,9 +156,14 @@ function SettingsScreen({ navigation }) {
         title="Settings"
         subtitle="Configure your AI assistant"
       />
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0} // Adjust as needed
+      >
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
 
-        <View style={styles.card}>
+          <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="key-outline" size={20} color="#475569" style={styles.cardIcon} />
             <Text style={styles.cardTitle}>API Keys</Text>
@@ -344,6 +350,7 @@ function SettingsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
