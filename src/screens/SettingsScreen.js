@@ -11,7 +11,6 @@ import {
   Pressable,
   Platform,
   Alert,
-  Switch,
   Modal,
   FlatList,
   Linking,
@@ -23,7 +22,6 @@ import { models } from '../constants/models';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { FinanceContext } from '../contexts/FinanceContext';
-import { getAvailableTools } from '../services/tools';
 import { deleteAllImageData } from '../services/fileService';
 import ScreenHeader from '../components/ScreenHeader';
 import { useTheme } from '../utils/theme';
@@ -135,22 +133,13 @@ function SettingsScreen({ navigation }) {
     titleModelName, setTitleModelName,
     agentModelName, setAgentModelName,
     systemPrompt, setSystemPrompt,
-    agentSystemPrompt,
     apiKey, setApiKey,
     tavilyApiKey, setTavilyApiKey,
-    enabledTools, setEnabledTools
   } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
   const { clearAllFinanceData } = useContext(FinanceContext);
-  const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
   const [showTavilyApiKey, setShowTavilyApiKey] = useState(false);
-
-  const selectedAgentModel = models.find(m => m.id === agentModelName);
-
-  const toggleTool = (toolId) => {
-    setEnabledTools(prev => ({ ...prev, [toolId]: !prev[toolId] }));
-  };
 
   const chatModels = useMemo(() => models.filter(m => m.isChatModel), []);
   const titleModels = useMemo(() => models.filter(m => m.isTitleModel), []);
@@ -215,7 +204,7 @@ function SettingsScreen({ navigation }) {
               <Ionicons name={showTavilyApiKey ? "eye-off-outline" : "eye-outline"} size={24} color={colors.subtext} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.infoText}>Your Tavily key is required for the `search_web` tool.</Text>
+          <Text style={styles.infoText}>Your Tavily key is required for the `search_web` tool, which can be used by Characters.</Text>
           <ApiKeyLink
             text="Get your key from the Tavily dashboard"
             url="https://app.tavily.com/"
@@ -225,8 +214,9 @@ function SettingsScreen({ navigation }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="person-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>AI Persona</Text>
+            <Text style={styles.cardTitle}>Default AI Persona</Text>
           </View>
+          <Text style={styles.infoText}>This is the system prompt for new, generic chats that don't use a character.</Text>
           <TextInput
             style={styles.personaInput}
             value={systemPrompt}
@@ -245,72 +235,10 @@ function SettingsScreen({ navigation }) {
           <ModelSelector label="Main Chat Model" items={chatModels} selectedId={modelName} onSelect={setModelName} />
           <View style={styles.separator} />
           <Text style={styles.infoText}>A smaller model can generate titles faster.</Text>
-          <ModelSelector label="MiniAgent Model" items={titleModels} selectedId={titleModelName} onSelect={setTitleModelName} />
+          <ModelSelector label="Title Generation Model" items={titleModels} selectedId={titleModelName} onSelect={setTitleModelName} />
           <View style={styles.separator} />
-          <Text style={styles.infoText}>Select a model capable of using tools.</Text>
-          <ModelSelector label="Agent Model" items={agentModels} selectedId={agentModelName} onSelect={setAgentModelName} />
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="build-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Agent Tools</Text>
-          </View>
-          {!selectedAgentModel?.isAgentModel ? (
-            <Text style={styles.infoText}>
-              The selected agent model ({selectedAgentModel?.name || agentModelName}) does not support tools. Select a different agent model to enable tools.
-            </Text>
-          ) : (
-            <>
-              <Text style={styles.infoText}>Enable tools for the agent. Availability depends on the selected Agent Model.</Text>
-              {availableTools.map((tool, index) => {
-                const isUserEnabled = !!enabledTools[tool.agent_id];
-                const isModelSupported = selectedAgentModel?.supported_tools.includes(tool.agent_id);
-                
-                let isToolDisabled = !isModelSupported;
-                if (tool.agent_id === 'search_web' && !tavilyApiKey) {
-                  isToolDisabled = true;
-                }
-                
-                return (
-                  <React.Fragment key={tool.agent_id}>
-                    {index > 0 && <View style={styles.separator} />}
-                    <View style={[styles.toolRow, isToolDisabled && styles.toolRowDisabled]}>
-                      <View style={styles.toolInfo}>
-                        <Text style={styles.toolName}>{tool.agent_id}</Text>
-                        <Text style={styles.toolDescription}>{tool.description}</Text>
-                        {!isModelSupported && <Text style={styles.toolSupportText}>Not supported by {selectedAgentModel.name}</Text>}
-                        {tool.agent_id === 'search_web' && !tavilyApiKey && isModelSupported && (
-                          <Text style={styles.toolSupportText}>Tavily API Key required</Text>
-                        )}
-                      </View>
-                      <Switch
-                        trackColor={{ false: '#D1D5DB', true: colors.accent + '80' }}
-                        thumbColor={isUserEnabled && !isToolDisabled ? colors.accent : colors.border}
-                        ios_backgroundColor="#D1D5DB"
-                        onValueChange={() => toggleTool(tool.agent_id)}
-                        value={isUserEnabled}
-                        disabled={isToolDisabled}
-                      />
-                    </View>
-                  </React.Fragment>
-                );
-              })}
-            </>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="document-text-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Agent System Prompt</Text>
-          </View>
-          <Text style={styles.infoText}>This is the instruction the agent receives based on the tools you've enabled. It is not editable.</Text>
-          <View style={styles.promptDisplayContainer}>
-            <ScrollView nestedScrollEnabled>
-              <Text selectable style={styles.promptDisplayText}>{agentSystemPrompt}</Text>
-            </ScrollView>
-          </View>
+          <Text style={styles.infoText}>Select a model for Character Agents capable of using tools.</Text>
+          <ModelSelector label="Character Agent Model" items={agentModels} selectedId={agentModelName} onSelect={setAgentModelName} />
         </View>
 
         <View style={[styles.card, styles.dangerCard]}>
@@ -335,7 +263,7 @@ function SettingsScreen({ navigation }) {
           <TouchableOpacity
             style={styles.dangerButton}
             onPress={() => {
-              Alert.alert("Clear All Financial Data?", "This will permanently delete all your income and expense records. This action cannot be undone.",
+              Alert.alert("Clear All Financial Data?", "This will permanently delete all your income, expense, and budget records. This action cannot be undone.",
                 [ { text: "Cancel", style: "cancel" }, { text: "Delete Data", style: "destructive", onPress: clearAllFinanceData }]
               );
             }}>
@@ -387,14 +315,6 @@ const useStyles = (colors) => StyleSheet.create({
   modalItemSelected: { backgroundColor: colors.accent20 },
   modalItemText: { fontSize: 15, color: colors.text },
   modalItemTextSelected: { fontWeight: '600', color: colors.accent },
-  toolRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  toolRowDisabled: { opacity: 0.5 },
-  toolInfo: { flex: 1, marginRight: 16 },
-  toolName: { fontSize: 15, fontWeight: '600', color: colors.text },
-  toolDescription: { fontSize: 13, color: colors.subtext, marginTop: 2, lineHeight: 18 },
-  toolSupportText: { fontSize: 12, color: colors.danger, fontStyle: 'italic', marginTop: 4 },
-  promptDisplayContainer: { backgroundColor: colors.input, borderRadius: 8, padding: 12, marginTop: 4, maxHeight: 250 },
-  promptDisplayText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, color: colors.subtext, lineHeight: 20 },
   dangerCard: { borderColor: colors.danger + '80' },
   dangerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger + '20', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16 },
   dangerButtonText: { color: colors.danger, fontSize: 15, fontWeight: '600' },

@@ -3,23 +3,28 @@ import { models } from '../constants/models';
 import { getAvailableTools } from '../services/tools';
 
 /**
- * Generates a dynamic system prompt for the AI agent based on the currently
- * enabled and model-supported tools.
- * @param {object} enabledTools - An object with tool_ids as keys and boolean values. e.g., {"calculator": true, "search_web": true}
+ * Generates a dynamic system prompt for the AI agent based on the character's
+ * supported tools.
+ * @param {string[]} characterSupportedTools - An array of tool_id strings. e.g., ["calculator", "search_web"]
  * @param {string} agentModelId - The ID of the selected agent model.
  * @returns {string} The complete, dynamically generated system prompt.
  */
-export const generateAgentPrompt = (enabledTools, agentModelId) => {
+export const generateAgentPrompt = (characterSupportedTools = [], agentModelId) => {
     const agentModel = models.find(m => m.id === agentModelId);
-    const supportedTools = agentModel?.supported_tools || [];
+    const modelSupportedTools = agentModel?.supported_tools || [];
 
     const allAvailableTools = getAvailableTools();
-    // Filter tools that are BOTH enabled by the user AND supported by the selected model.
-    const tools = allAvailableTools.filter(t => enabledTools[t.agent_id] && supportedTools.includes(t.agent_id));
+    // Filter tools that are BOTH supported by the character AND supported by the selected model.
+    const tools = allAvailableTools.filter(t => 
+        characterSupportedTools.includes(t.agent_id) && 
+        modelSupportedTools.includes(t.agent_id)
+    );
 
     if (tools.length === 0) {
-        return `You are a helpful and intelligent AI agent.
-Behave like a standard conversational AI when no tools are available. Always aim to provide clear, direct, and intelligent responses. You do not have any tools, so do not mention them.`;
+        // This case should ideally not be hit if called correctly, as it's for characters with tools.
+        // But it's a safe fallback.
+        return `You are a helpful and intelligent AI assistant.
+Behave like a standard conversational AI. You do not have any tools, so do not mention them.`;
     }
 
     const toolDetails = tools.map(t => `

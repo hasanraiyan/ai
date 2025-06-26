@@ -15,7 +15,8 @@ export const sendMessageToAI = async ({
   isAgentMode,
   onToolCall,
   tavilyApiKey,
-  financeContext, // <-- NEW: Pass an object with finance functions
+  financeContext, // <-- Pass an object with finance functions
+  allowedTools = [], // <-- NEW: List of allowed tools for this call
 }) => {
   if (!apiKey) {
     throw new Error("API Key Missing. Please set your Google AI API Key in Settings.");
@@ -49,22 +50,19 @@ export const sendMessageToAI = async ({
         onToolCall(toolCall);
       }
 
-      // --- MODIFIED: Pass context to dispatcher ---
       const toolResults = await toolDispatcher({
         toolCall,
         context: {
           tavilyApiKey,
-          ...financeContext // Spread the finance functions (addTransaction, etc.)
+          ...financeContext,
+          allowedTools,
         },
       });
 
-      // For reports, we want the AI to see the full report. For other tools, just the message.
+      // --- BUG FIX: Send the full, stringified tool result back to the AI for synthesis ---
+      // This gives the AI complete context (success, message, data) to formulate a proper response.
       const toolResultMessages = Object.entries(toolResults).map(([toolName, result]) => {
-          let resultData = result.message;
-          if (toolName === 'get_financial_report' && result.success) {
-            resultData = result.data.report;
-          }
-          return `Tool: ${toolName}\nResult: ${resultData}`;
+          return `Tool: ${toolName}\nResult: ${JSON.stringify(result)}`;
       }).join('\n\n');
 
       const toolResultText = `Context from tool calls:\n${toolResultMessages}`;

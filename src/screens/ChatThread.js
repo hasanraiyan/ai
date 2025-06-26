@@ -1,3 +1,4 @@
+// src/screens/ChatThread.js
 
 import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
@@ -19,9 +20,7 @@ import { generateFollowUpSuggestions } from '../agents/followUpAgent';
 import { generateChatTitle } from '../agents/chatTitleAgent';
 import { generateAgentPrompt } from '../prompts/agentPrompt';
 import TypingIndicator from '../components/TypingIndicator';
-import ModeToggle from '../components/ModeToggle';
 import { getMarkdownStyles } from '../styles/markdownStyles';
-import { models } from '../constants/models';
 import { ImageWithLoader } from '../components/imageSkeleton';
 import Composer from '../components/Composer';
 import { useTheme } from '../utils/theme';
@@ -112,7 +111,7 @@ export default function ChatThread({ navigation, route }) {
   
   const {
     modelName, titleModelName, agentModelName, systemPrompt,
-    agentSystemPrompt, apiKey, tavilyApiKey
+    apiKey, tavilyApiKey
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
@@ -124,7 +123,7 @@ export default function ChatThread({ navigation, route }) {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('chat');
+  const [mode, setMode] = useState('chat'); // 'chat' or 'agent'
   const [suggestions, setSuggestions] = useState([]);
   const [followUpSuggestions, setFollowUpSuggestions] = useState([]);
   const [showFollowUps, setShowFollowUps] = useState(false);
@@ -133,13 +132,10 @@ export default function ChatThread({ navigation, route }) {
   const titled = useRef(false);
   const inputRef = useRef(null);
 
-  const globalAgentModel = models.find(m => m.id === agentModelName);
-  const isGlobalAgentModeSupported = globalAgentModel?.isAgentModel ?? false;
-
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
 
   useEffect(() => {
-    // --- BUG FIX: Reset loading state when navigating between chats ---
+    // Reset state when navigating between chats
     setLoading(false); 
     setInput('');
     setSuggestions([]);
@@ -148,11 +144,7 @@ export default function ChatThread({ navigation, route }) {
     setActiveSuggestionTrigger(null);
     const isAlreadyTitled = thread?.name && thread.name !== 'Chat';
     titled.current = isAlreadyTitled;
-
-    if (!currentCharacter) {
-      setMode('chat');
-    }
-  }, [threadId, currentCharacter]);
+  }, [threadId]);
 
   useEffect(() => {
     if (!thread || !thread.messages || thread.messages.length === 0) return;
@@ -165,13 +157,7 @@ export default function ChatThread({ navigation, route }) {
       finalMode = hasTools ? 'agent' : 'chat';
 
       if (finalMode === 'agent') {
-        const characterEnabledTools = currentCharacter.supportedTools.reduce((acc, toolId) => {
-          acc[toolId] = true;
-          return acc;
-        }, {});
-
-        const agentInstructions = generateAgentPrompt(characterEnabledTools, agentModelName);
-
+        const agentInstructions = generateAgentPrompt(currentCharacter.supportedTools, agentModelName);
         finalSystemPrompt = `
 You are a character with a specific persona. Adhere to it strictly.
 --- START PERSONA ---
@@ -187,10 +173,9 @@ ${agentInstructions}
         finalSystemPrompt = currentCharacter.systemPrompt;
       }
     } else {
-      finalMode = mode;
-      if (mode === 'agent') {
-        finalSystemPrompt = agentSystemPrompt;
-      }
+      // For default chat, mode is always 'chat'
+      finalMode = 'chat';
+      finalSystemPrompt = systemPrompt;
     }
     
     setMode(finalMode);
@@ -201,7 +186,7 @@ ${agentInstructions}
       updatedMessages[systemMessageIndex] = { ...updatedMessages[systemMessageIndex], text: finalSystemPrompt };
       updateThreadMessages(thread.id, updatedMessages, true);
     }
-  }, [threadId, currentCharacter, mode, systemPrompt, agentSystemPrompt, agentModelName, thread.messages, updateThreadMessages]);
+  }, [threadId, currentCharacter, systemPrompt, agentModelName, thread.messages, updateThreadMessages]);
 
   const debouncedFetchSuggestions = useCallback(
     debounce(async (text) => {
@@ -223,22 +208,16 @@ ${agentInstructions}
   );
 
   useEffect(() => {
-    if (mode === 'agent' && !currentCharacter) debouncedFetchSuggestions(input);
-    else if (suggestions.length > 0) {
+    // Only fetch suggestions in agent mode for characters that support search
+    if (mode === 'agent' && currentCharacter?.supportedTools?.includes('search_web')) {
+      debouncedFetchSuggestions(input);
+    } else if (suggestions.length > 0) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setSuggestions([]);
     }
     return () => debouncedFetchSuggestions.cancel();
   }, [input, mode, debouncedFetchSuggestions, suggestions.length, currentCharacter]);
-
-  const onToggleMode = newMode => {
-    if (newMode === 'agent' && !isGlobalAgentModeSupported) {
-      Alert.alert('Agent Mode Not Supported', `The current agent model (${globalAgentModel?.name || agentModelName}) does not support tools.`);
-      return;
-    }
-    setMode(newMode);
-  };
-
+  
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
   const handleGenerateTitle = async (firstUserText) => {
@@ -293,6 +272,7 @@ ${agentInstructions}
           getBudgets,
           deleteBudget,
         },
+        allowedTools: currentCharacter?.supportedTools || [], // <-- BUG FIX
       });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
       if (thinkingMessageId) newMessages = newMessages.filter(m => m.id !== thinkingMessageId);
@@ -472,16 +452,15 @@ ${agentInstructions}
     <SafeAreaView style={styles.root}>
       <View style={styles.chatHeader}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color={colors.subtext} /></TouchableOpacity>
-        {currentCharacter && <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />}
-        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
-
-        {!currentCharacter && (
-          <ModeToggle
-            mode={mode}
-            onToggle={onToggleMode}
-            isAgentModeSupported={isGlobalAgentModeSupported}
-          />
+        {currentCharacter ? (
+            <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />
+        ) : (
+            <View style={styles.headerIconContainer}>
+                <Ionicons name="sparkles-outline" size={20} color={colors.accent} />
+            </View>
         )}
+        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
+        <View style={{ width: 40 }} />
       </View>
       <View style={{flex: 1}}>
         <FlatList
@@ -501,7 +480,7 @@ ${agentInstructions}
           onValueChange={handleInputChange}
           onSend={onSend}
           loading={loading}
-          placeholder={mode === 'agent' ? "Ask the agent..." : "Type a message..."}
+          placeholder={currentCharacter ? `Chat with ${currentCharacter.name}...` : "Type a message..."}
         />
       </View>
     </SafeAreaView>
@@ -521,7 +500,8 @@ const useStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.headerBg
   },
   headerIconButton: { padding: 8 },
-  headerAvatar: { width: 32, height: 32, borderRadius: 16, marginLeft: 8 },
+  headerAvatar: { width: 32, height: 32, borderRadius: 16 },
+  headerIconContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.accent20, justifyContent: 'center', alignItems: 'center' },
   chatTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginHorizontal: 12, flex: 1 },
   chatContent: { flexGrow: 1, padding: 12, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },

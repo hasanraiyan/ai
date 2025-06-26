@@ -112,7 +112,6 @@ export const getAvailableTools = () => toolMetadata;
  * Tool Implementations
  */
 const tools = {
-  // --- FIX: Correctly destructure tavilyApiKey from the context object ---
   search_web: async ({ query }, { tavilyApiKey }) => {
     console.log(`TOOL: Searching Tavily for "${query}"`);
     if (!tavilyApiKey) {
@@ -283,11 +282,19 @@ export const toolImplementations = tools;
  * Tool Dispatcher
  */
 export const toolDispatcher = async ({ toolCall, context = {} }) => {
+  const { allowedTools = [] } = context;
   const toolPromises = [];
   const results = {};
 
   for (const toolName in toolCall) {
-    if (toolCall.hasOwnProperty(toolName) && tools[toolName] && toolName !== 'tools-required') {
+    if (toolCall.hasOwnProperty(toolName) && toolName !== 'tools-required') {
+      // --- BUG FIX: Enforce tool permissions ---
+      if (!allowedTools.includes(toolName) || !tools[toolName]) {
+        console.warn(`TOOL REJECTED: Attempted to call unauthorized or non-existent tool "${toolName}"`);
+        results[toolName] = { success: false, message: `Error: You are not authorized to use the tool '${toolName}'.`, data: null };
+        continue; // Skip to the next tool
+      }
+
       const promise = tools[toolName](toolCall[toolName], context)
         .then(result => { results[toolName] = result; })
         .catch(err => { results[toolName] = { success: false, message: `Tool ${toolName} threw an exception: ${err.message}`, data: null }; });
