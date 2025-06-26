@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   StyleSheet, Text, View, FlatList,
-  Platform, StatusBar, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
+  Platform, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
   ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,10 +21,11 @@ import { generateChatTitle } from '../agents/chatTitleAgent';
 import { generateAgentPrompt } from '../prompts/agentPrompt';
 import TypingIndicator from '../components/TypingIndicator';
 import ModeToggle from '../components/ModeToggle';
-import { markdownStyles } from '../styles/markdownStyles';
+import { getMarkdownStyles } from '../styles/markdownStyles';
 import { models } from '../constants/models';
 import { ImageWithLoader } from '../components/imageSkeleton';
 import Composer from '../components/Composer';
+import { useTheme } from '../utils/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -34,16 +35,47 @@ const CHAT_HEADER_HEIGHT = 70;
 
 const AiAvatar = ({ characterId }) => {
   const { characters } = useContext(CharactersContext);
+  const { colors } = useTheme();
   const character = characters.find(c => c.id === characterId);
+  
+  const styles = StyleSheet.create({
+    avatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.accent20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 8,
+    },
+    avatarImage: { width: '100%', height: '100%', borderRadius: 16 },
+  });
+
   if (character && character.avatarUrl) {
-    return <Image source={{ uri: character.avatarUrl }} style={styles.avatarImage} />;
+    return (
+      <View style={styles.avatar}>
+        <Image source={{ uri: character.avatarUrl }} style={styles.avatarImage} />
+      </View>
+    );
   }
-  return <Ionicons name="sparkles" size={20} color="#6366F1" />;
+  return (
+    <View style={styles.avatar}>
+      <Ionicons name="sparkles" size={20} color={colors.accent} />
+    </View>
+  );
 };
 
 const AgentActionIndicator = ({ text }) => {
+  const { colors } = useTheme();
   const [toolNames, setToolNames] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const styles = StyleSheet.create({
+    agentPillContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start', maxWidth: '80%' },
+    agentPillSpinner: { marginRight: 8 },
+    agentPillIcon: { marginRight: 6 },
+    agentPillText: { color: colors.subtext, fontSize: 14, fontWeight: '500', flexShrink: 1 },
+  });
 
   useEffect(() => {
     const toolNameRegex = /`([^`]+)`/g;
@@ -66,8 +98,8 @@ const AgentActionIndicator = ({ text }) => {
 
   return (
     <View style={styles.agentPillContainer}>
-      <ActivityIndicator size="small" color="#6366F1" style={styles.agentPillSpinner} />
-      <Ionicons name="build-outline" size={16} color="#6B7280" style={styles.agentPillIcon} />
+      <ActivityIndicator size="small" color={colors.accent} style={styles.agentPillSpinner} />
+      <Ionicons name="build-outline" size={16} color={colors.subtext} style={styles.agentPillIcon} />
       <Text style={styles.agentPillText} numberOfLines={1}>{displayedText}</Text>
     </View>
   );
@@ -75,6 +107,10 @@ const AgentActionIndicator = ({ text }) => {
 
 export default function ChatThread({ navigation, route }) {
   const { threadId, name } = route.params || {};
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
+  const markdownStyles = getMarkdownStyles(colors);
+  
   const {
     modelName, titleModelName, agentModelName, systemPrompt,
     agentSystemPrompt, apiKey, tavilyApiKey
@@ -376,25 +412,21 @@ ${agentInstructions}
     if (item.role === 'agent-thinking') {
       return (
         <View style={styles.aiRow}>
-          <View style={styles.avatar}>
-            <AiAvatar characterId={item.characterId} />
-          </View>
+          <AiAvatar characterId={item.characterId} />
           <AgentActionIndicator text={item.text} />
         </View>
       );
     }
     return (
       <View style={styles.aiRow}>
-        <View style={styles.avatar}>
-          <AiAvatar characterId={item.characterId} />
-        </View>
+        <AiAvatar characterId={item.characterId} />
         <Pressable onLongPress={() => handleLongPress(item)} style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? <Text style={styles.errorText}>{item.text}</Text> : (() => {
             const processedText = item.text.replace(/\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi, '![$1]($2)');
             return <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={markdownImageRules}>{processedText}</Markdown>;
           })()}
           <View style={styles.bubbleFooter}>
-            {isPinned && <Ionicons name="pin" size={12} color="#9CA3AF" style={{ marginRight: 6 }} />}
+            {isPinned && <Ionicons name="pin" size={12} color={colors.subtext} style={{ marginRight: 6 }} />}
             <Text style={[styles.time, item.error && styles.errorTime]}>{item.ts}</Text>
           </View>
         </Pressable>
@@ -412,7 +444,7 @@ ${agentInstructions}
       <View style={styles.suggestionsContainer}>
         <FlatList data={suggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `${item}-${index}`} renderItem={({ item }) => (
           <TouchableOpacity style={styles.suggestionPill} onPress={() => handleSuggestionTap(item)}>
-            <Ionicons name="search-outline" size={14} color="#6366F1" /><Text style={styles.suggestionText}>{item}</Text>
+            <Ionicons name="search-outline" size={14} color={colors.accent} /><Text style={styles.suggestionText}>{item}</Text>
           </TouchableOpacity>
         )} contentContainerStyle={{ paddingHorizontal: 12 }} />
       </View>
@@ -425,7 +457,7 @@ ${agentInstructions}
       <View style={styles.suggestionsContainer}>
         <FlatList data={followUpSuggestions} horizontal showsHorizontalScrollIndicator={false} keyExtractor={(item, index) => `followup-${index}`} renderItem={({ item }) => (
           <TouchableOpacity style={styles.followUpPill} onPress={() => handleFollowUpTap(item)}>
-            <Ionicons name="sparkles-outline" size={14} color="#059669" /><Text style={styles.followUpText}>{item}</Text>
+            <Ionicons name="sparkles-outline" size={14} color={colors.success} /><Text style={styles.followUpText}>{item}</Text>
           </TouchableOpacity>
         )} contentContainerStyle={{ paddingHorizontal: 12 }} />
       </View>
@@ -434,9 +466,8 @@ ${agentInstructions}
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.chatHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color="#475569" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color={colors.subtext} /></TouchableOpacity>
         {currentCharacter && <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />}
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
 
@@ -448,12 +479,6 @@ ${agentInstructions}
           />
         )}
       </View>
-      {/* <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined} // Using undefined for Android relies on Composer's KAV
-        keyboardVerticalOffset={CHAT_HEADER_HEIGHT}
-      > */}
-      {/* The main view that contains FlatList and Composer will handle layout */}
       <View style={{flex: 1}}>
         <FlatList
           style={{ flex: 1 }}
@@ -474,14 +499,13 @@ ${agentInstructions}
           loading={loading}
           placeholder={mode === 'agent' ? "Ask the agent..." : "Type a message..."}
         />
-      {/* </KeyboardAvoidingView> */}
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F9FAFB' },
+const useStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   chatHeader: {
     height: CHAT_HEADER_HEIGHT,
     flexDirection: 'row',
@@ -489,32 +513,58 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFF'
+    borderColor: colors.border,
+    backgroundColor: colors.headerBg
   },
   headerIconButton: { padding: 8 },
   headerAvatar: { width: 32, height: 32, borderRadius: 16, marginLeft: 8 },
-  chatTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginHorizontal: 12, flex: 1 },
+  chatTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginHorizontal: 12, flex: 1 },
   chatContent: { flexGrow: 1, padding: 12, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
-  userBubble: { backgroundColor: '#4F46E5', padding: 12, borderRadius: 20, maxWidth: '80%' },
-  userText: { color: '#FFF', fontSize: 16 },
+  userBubble: { backgroundColor: colors.accent, padding: 12, borderRadius: 20, maxWidth: '80%' },
+  userText: { color: '#FFF', fontSize: 16 }, // Keep user text white for contrast
   aiRow: { flexDirection: 'row', marginVertical: 4, alignItems: 'flex-end' },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  avatarImage: { width: '100%', height: '100%', borderRadius: 16 },
-  aiBubble: { backgroundColor: '#FFF', padding: 12, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', maxWidth: '80%' },
-  errorBubble: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
-  errorText: { color: '#B91C1C', fontSize: 16 },
+  aiBubble: { backgroundColor: colors.card, padding: 12, borderRadius: 20, borderWidth: 1, borderColor: colors.border, maxWidth: '80%' },
+  errorBubble: { backgroundColor: colors.danger + '20', borderColor: colors.danger },
+  errorText: { color: colors.danger, fontSize: 16 },
   bubbleFooter: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', marginTop: 4 },
-  time: { fontSize: 10, color: '#9CA3AF' },
-  errorTime: { color: '#FCA5A5' },
-  agentPillContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start', maxWidth: '80%' },
-  agentPillSpinner: { marginRight: 8 },
-  agentPillIcon: { marginRight: 6 },
-  agentPillText: { color: '#4B5563', fontSize: 14, fontWeight: '500', flexShrink: 1 },
-  suggestionsContainer: { height: 50, justifyContent: 'center', borderTopWidth: 1, borderTopColor: '#E5E7EB', backgroundColor: '#F9FAFB', paddingVertical: 4 },
-  suggestionPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginRight: 10, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 },
-  suggestionText: { color: '#4F46E5', fontSize: 14, fontWeight: '600', marginLeft: 6 },
-  followUpPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginRight: 10, borderWidth: 1, borderColor: '#A7F3D0' },
-  followUpText: { color: '#065F46', fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  time: { fontSize: 10, color: colors.subtext },
+  errorTime: { color: colors.danger },
+  suggestionsContainer: {
+    height: 50,
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    paddingVertical: 4
+  },
+  suggestionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2
+  },
+  suggestionText: { color: colors.accent, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  followUpPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: colors.success + '40'
+  },
+  followUpText: { color: colors.success, fontSize: 14, fontWeight: '600', marginLeft: 6 },
 });

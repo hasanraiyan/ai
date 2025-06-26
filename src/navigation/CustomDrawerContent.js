@@ -8,25 +8,33 @@ import {
 } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../utils/theme';
 
-const DrawerItem = ({ label, icon, activeIcon, isActive, onPress }) => (
-  <Pressable
-    onPress={onPress}
-    style={({ pressed }) => [ styles.drawerItem, isActive && styles.drawerItemActive, pressed && styles.drawerItemPressed ]}
-    android_ripple={{ color: '#E0E7FF' }}
-  >
-    <View style={[styles.activeIndicator, isActive && styles.activeIndicatorVisible]} />
-    <Ionicons
-      name={isActive ? activeIcon : icon}
-      size={22}
-      color={isActive ? styles.drawerTextActive.color : styles.drawerIcon.color}
-      style={styles.drawerIcon}
-    />
-    <Text style={[styles.drawerText, isActive && styles.drawerTextActive]}>{label}</Text>
-  </Pressable>
-);
+const DrawerItem = ({ label, icon, activeIcon, isActive, onPress }) => {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
+  
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [ styles.drawerItem, isActive && styles.drawerItemActive, pressed && styles.drawerItemPressed ]}
+      android_ripple={{ color: colors.accent20 }}
+    >
+      <View style={[styles.activeIndicator, isActive && styles.activeIndicatorVisible]} />
+      <Ionicons
+        name={isActive ? activeIcon : icon}
+        size={22}
+        color={isActive ? styles.drawerTextActive.color : styles.drawerIcon.color}
+        style={styles.drawerIcon}
+      />
+      <Text style={[styles.drawerText, isActive && styles.drawerTextActive]}>{label}</Text>
+    </Pressable>
+  );
+};
 
 function CustomDrawerContent(props) {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
   const activeRouteName = props.state.routes[props.state.index].name;
 
   const navigateToScreen = screenName => {
@@ -47,7 +55,7 @@ function CustomDrawerContent(props) {
   return (
     <View style={styles.drawerContainer}>
       <View style={styles.headerContainer}>
-        <Ionicons name="sparkles-sharp" size={32} color="#6366F1" style={styles.headerLogo} />
+        <Ionicons name="sparkles-sharp" size={32} color={colors.accent} style={styles.headerLogo} />
         <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>AI Assistant</Text>
         </View>
@@ -80,35 +88,35 @@ function CustomDrawerContent(props) {
   );
 }
 
-const styles = StyleSheet.create({
-  drawerContainer: { flex: 1, backgroundColor: '#fff' },
+const useStyles = (colors) => StyleSheet.create({
+  drawerContainer: { flex: 1, backgroundColor: colors.background },
   scrollContainer: { flex: 1 },
   headerContainer: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 24,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9', backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.background,
   },
   headerLogo: { marginRight: 15 },
   headerTextContainer: { flexDirection: 'column' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text },
   menuSection: { paddingTop: 10 },
   drawerItem: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20,
     marginHorizontal: 12, borderRadius: 8, marginBottom: 4, overflow: 'hidden',
   },
-  drawerItemActive: { backgroundColor: '#EEF2FF' },
-  drawerItemPressed: { backgroundColor: '#E0E7FF' },
-  drawerIcon: { marginRight: 20, width: 24, textAlign: 'center', color: '#475569' },
-  drawerText: { fontSize: 15, color: '#334155', fontWeight: '500' },
-  drawerTextActive: { color: '#6366F1', fontWeight: '700' },
+  drawerItemActive: { backgroundColor: colors.accent20 },
+  drawerItemPressed: { backgroundColor: colors.accent20 },
+  drawerIcon: { marginRight: 20, width: 24, textAlign: 'center', color: colors.subtext },
+  drawerText: { fontSize: 15, color: colors.subtext, fontWeight: '500' },
+  drawerTextActive: { color: colors.accent, fontWeight: '700' },
   activeIndicator: {
     position: 'absolute', left: 0, top: '20%', bottom: '20%', width: 4,
-    backgroundColor: '#6366F1', borderTopRightRadius: 4, borderBottomRightRadius: 4, opacity: 0,
+    backgroundColor: colors.accent, borderTopRightRadius: 4, borderBottomRightRadius: 4, opacity: 0,
   },
   activeIndicatorVisible: { opacity: 1 },
   footerContainer: {
-    paddingBottom: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9',
+    paddingBottom: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border,
   },
-  appVersionText: { textAlign: 'center', color: '#94A3B8', fontSize: 12, marginTop: 10, },
+  appVersionText: { textAlign: 'center', color: colors.subtext, fontSize: 12, marginTop: 10, },
 });
 
 export default CustomDrawerContent;

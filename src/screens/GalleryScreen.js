@@ -1,4 +1,4 @@
-// GalleryScreen.js
+// screens/GalleryScreen.js
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -12,7 +12,6 @@ import {
   Alert,
   Dimensions,
   Platform,
-  StatusBar,
   RefreshControl,
   Clipboard,
   ToastAndroid,
@@ -28,6 +27,7 @@ import * as MediaLibrary from 'expo-media-library';
 import Toast from 'react-native-toast-message';
 import ImageViewing from 'react-native-image-viewing';
 import ScreenHeader from '../components/ScreenHeader';
+import { useTheme, spacing } from '../utils/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -36,8 +36,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 const { width } = Dimensions.get('window');
 
-const PADDING = 16;
-const SPACING = 12;
+const PADDING = spacing.md;
+const SPACING = spacing.sm;
 const HALF_WIDTH = (width - PADDING * 2 - SPACING) / 2;
 const FULL_WIDTH = width - PADDING * 2;
 
@@ -49,6 +49,9 @@ async function ensureDirExists() {
 }
 
 export default function GalleryScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
+  
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -109,9 +112,14 @@ export default function GalleryScreen({ navigation }) {
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadImages);
-    loadImages();
     return unsub;
   }, [loadImages, navigation]);
+  
+  // Also load images on initial mount
+  useEffect(() => {
+      loadImages();
+  },[]);
+
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -224,13 +232,13 @@ export default function GalleryScreen({ navigation }) {
   
   const renderContent = () => {
     if (loading && !refreshing) {
-      return <View style={styles.center}><ActivityIndicator size="large" color="#6366F1" /><Text style={styles.status}>Loading images…</Text></View>;
+      return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /><Text style={styles.status}>Loading images…</Text></View>;
     }
     if (error) {
-      return <View style={styles.center}><Ionicons name="alert-circle-outline" size={60} color="#dc2626" /><Text style={[styles.status, { color: '#dc2626' }]}>{error}</Text><TouchableOpacity onPress={loadImages} style={styles.btnPrimary}><Text style={styles.btnText}>Retry</Text></TouchableOpacity></View>;
+      return <View style={styles.center}><Ionicons name="alert-circle-outline" size={60} color={colors.danger} /><Text style={[styles.status, { color: colors.danger }]}>{error}</Text><TouchableOpacity onPress={loadImages} style={styles.btnPrimary}><Text style={styles.btnText}>Retry</Text></TouchableOpacity></View>;
     }
     if (images.length === 0) {
-      return <View style={styles.center}><Ionicons name="images-outline" size={80} color="#cbd5e1" /><Text style={styles.emptyTitle}>No images yet</Text><Text style={styles.emptySub}>Tap the '+' button to generate your first masterpiece.</Text></View>;
+      return <View style={styles.center}><Ionicons name="images-outline" size={80} color={colors.emptyIcon} /><Text style={styles.emptyTitle}>No images yet</Text><Text style={styles.emptySub}>Tap the '+' button to generate your first masterpiece.</Text></View>;
     }
     return (
         <FlatList
@@ -238,7 +246,7 @@ export default function GalleryScreen({ navigation }) {
           data={viewMode === 'grid' ? groupedRows : images}
           keyExtractor={(item, index) => viewMode === 'grid' ? `row-${index}` : item.id}
           renderItem={viewMode === 'grid' ? renderRow : ({ item }) => renderRow({ item: [item] })}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           contentContainerStyle={{ paddingHorizontal: PADDING, paddingTop: PADDING }}
           showsVerticalScrollIndicator={false}
         />
@@ -247,14 +255,13 @@ export default function GalleryScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
       <ScreenHeader
         navigation={navigation}
         title="AI Gallery"
         subtitle="Your generated masterpieces"
         rightAction={
           <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>
-            <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={28} color="#475569" />
+            <Ionicons name={viewMode === 'grid' ? 'list-outline' : 'grid-outline'} size={28} color={colors.subtext} />
           </TouchableOpacity>
         }
       />
@@ -263,7 +270,7 @@ export default function GalleryScreen({ navigation }) {
 
       <View style={styles.fabContainer}>
         <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('ImageGeneration')}>
-          <AntDesign name="plus" size={24} color="#fff" />
+          <AntDesign name="plus" size={24} color={colors.fabText} />
         </TouchableOpacity>
       </View>
 
@@ -281,8 +288,6 @@ export default function GalleryScreen({ navigation }) {
             setIsOverlayVisible(!isOverlayVisible);
           };
           
-          // --- NEW LOGIC ---
-          // Determine the specific image generation model and its corresponding icon.
           const imageGenModel = currentImage.imageGenModel || 'flux'; // Default to flux for older images
           const modelIcon = imageGenModel === 'turbo' ? 'rocket-outline' : 'flash-outline';
           const modelName = imageGenModel.charAt(0).toUpperCase() + imageGenModel.slice(1);
@@ -299,7 +304,6 @@ export default function GalleryScreen({ navigation }) {
                     <View style={styles.metadataRow}>
                       <View style={styles.metadataChip}><Ionicons name="color-palette-outline" size={14} color="#ccc" style={styles.chipIcon} /><Text style={styles.chipText}>{currentImage.styleName || 'N/A'}</Text></View>
                       
-                      {/* --- MODIFIED CHIP --- */}
                       <View style={styles.metadataChip}>
                         <Ionicons name={modelIcon} size={14} color="#ccc" style={styles.chipIcon} />
                         <Text style={styles.chipText}>{modelName}</Text>
@@ -312,7 +316,7 @@ export default function GalleryScreen({ navigation }) {
                       <TouchableOpacity onPress={() => onCopyUrl(currentImage.imageUrl)}><Feather name="link" size={24} color="#fff" /></TouchableOpacity>
                       <TouchableOpacity onPress={() => onShare(currentImage.uri)}><Feather name="share-2" size={24} color="#fff" /></TouchableOpacity>
                       <TouchableOpacity onPress={() => onDownload(currentImage.uri)}><Feather name="download" size={24} color="#fff" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => onDelete(currentImage)}><Feather name="trash-2" size={24} color="#E57373" /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => onDelete(currentImage)}><Feather name="trash-2" size={24} color={colors.danger} /></TouchableOpacity>
                     </View>
                   </>
                 ) : (
@@ -331,17 +335,17 @@ export default function GalleryScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+const useStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: PADDING },
-  status: { marginTop: 12, fontSize: 16, color: '#475569' },
-  btnPrimary: { marginTop: 16, backgroundColor: '#6366F1', paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  emptyTitle: { marginTop: 16, fontSize: 22, fontWeight: '600', color: '#64748B' },
-  emptySub: { marginTop: 8, fontSize: 15, color: '#9CA3AF', textAlign: 'center' },
+  status: { marginTop: 12, fontSize: 16, color: colors.subtext },
+  btnPrimary: { marginTop: 16, backgroundColor: colors.accent, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8 },
+  btnText: { color: colors.fabText, fontSize: 16, fontWeight: '600' },
+  emptyTitle: { marginTop: 16, fontSize: 22, fontWeight: '600', color: colors.text },
+  emptySub: { marginTop: 8, fontSize: 15, color: colors.subtext, textAlign: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     overflow: 'hidden',
     elevation: 2,
@@ -349,10 +353,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
   },
-  image: { width: '100%', height: '100%', backgroundColor: '#E2E8F0' },
+  image: { width: '100%', height: '100%', backgroundColor: colors.imagePlaceholder },
   fabContainer: { position: 'absolute', bottom: 32, right: 24 },
   fab: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center',
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.fabBg, justifyContent: 'center', alignItems: 'center',
     elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }
   },
   lightboxFooter: {

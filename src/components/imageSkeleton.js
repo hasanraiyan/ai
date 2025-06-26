@@ -1,6 +1,11 @@
+// src/components/imageSkeleton.js
+
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Image, Animated, ActivityIndicator } from 'react-native';
+import { View, Image, Animated } from 'react-native';
+import { useTheme } from '../utils/theme';
+
 function SkeletonPlaceholder({ width, height }) {
+  const { colors } = useTheme();
   const opacityAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -25,7 +30,7 @@ function SkeletonPlaceholder({ width, height }) {
       style={{
         width,
         height,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: colors.imagePlaceholder,
         borderRadius: 8,
         opacity: opacityAnim,
       }}

@@ -1,16 +1,16 @@
 // src/App.js
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   ActivityIndicator,
   StyleSheet,
-  StatusBar,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import Toast from 'react-native-toast-message';
+import { StatusBar } from 'expo-status-bar';
 
 import { SettingsContext } from './src/contexts/SettingsContext';
 import { ThreadsContext } from './src/contexts/ThreadsContext';
@@ -19,6 +19,7 @@ import { FinanceProvider } from './src/contexts/FinanceContext';
 import { useSettings } from './src/hooks/useSettings';
 import { useThreads } from './src/hooks/useThreads';
 import { useCharacters } from './src/hooks/useCharacters';
+import { useTheme } from './src/utils/theme';
 
 import ThreadsList from './src/screens/ThreadsList';
 import ChatThread from './src/screens/ChatThread';
@@ -34,31 +35,44 @@ import FinanceScreen from './src/screens/FinanceScreen'; // --- NEW ---
 
 const Drawer = createDrawerNavigator();
 
+const LoadingIndicator = () => {
+  const theme = useTheme();
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={[styles.root, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
+};
+
+const ThemeWrapper = ({ children }) => {
+  const theme = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <StatusBar style="auto" />
+      {children}
+    </View>
+  );
+};
+
 export default function App() {
   const settingsValue = useSettings();
   const threadsValue = useThreads();
   const charactersValue = useCharacters();
-  // --- MODIFIED: Added financeReady to the check ---
   const ready = settingsValue.settingsReady && threadsValue.threadsReady && charactersValue.charactersReady;
 
   if (!ready) {
-    return (
-      <SafeAreaProvider>
-        <SafeAreaView style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="large" color="#6366F1" />
-        </SafeAreaView>
-      </SafeAreaProvider>
-    );
+    return <LoadingIndicator />;
   }
 
   return (
     <SafeAreaProvider>
-      <View style={styles.root}>
-        <SettingsContext.Provider value={settingsValue}>
-          <CharactersContext.Provider value={charactersValue}>
-            <ThreadsContext.Provider value={threadsValue}>
-              <FinanceProvider>
-                <StatusBar barStyle="dark-content" />
+      <SettingsContext.Provider value={settingsValue}>
+        <CharactersContext.Provider value={charactersValue}>
+          <ThreadsContext.Provider value={threadsValue}>
+            <FinanceProvider>
+              <ThemeWrapper>
                 <NavigationContainer>
                   <Drawer.Navigator
                     drawerContent={props => <CustomDrawerContent {...props} />}
@@ -77,15 +91,15 @@ export default function App() {
                   </Drawer.Navigator>
                 </NavigationContainer>
                 <Toast position="bottom" />
-              </FinanceProvider>
-            </ThreadsContext.Provider>
-          </CharactersContext.Provider>
-        </SettingsContext.Provider>
-      </View>
+              </ThemeWrapper>
+            </FinanceProvider>
+          </ThreadsContext.Provider>
+        </CharactersContext.Provider>
+      </SettingsContext.Provider>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fff' },
+  root: { flex: 1 },
 });

@@ -1,3 +1,5 @@
+// src/components/ModeToggle.js
+
 import React, { useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -8,10 +10,12 @@ import {
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useTheme } from '../utils/theme';
 
 const TOGGLE_WIDTH = 140;
 
 export default function ModeToggle({ mode, onToggle, isAgentModeSupported }) {
+  const { colors } = useTheme();
   const animatedValue = useRef(new Animated.Value(mode === 'chat' ? 0 : 1)).current;
 
   useEffect(() => {
@@ -41,13 +45,14 @@ export default function ModeToggle({ mode, onToggle, isAgentModeSupported }) {
   });
 
   return (
-    <View style={[styles.container, { width: TOGGLE_WIDTH }]}>
+    <View style={[styles.container, { width: TOGGLE_WIDTH, backgroundColor: colors.toggleBg }]}>
       <Animated.View
         style={[
           styles.selectorIndicator,
           {
             width: TOGGLE_WIDTH / 2,
             transform: [{ translateX }],
+            backgroundColor: colors.accent,
           },
         ]}
       />
@@ -58,6 +63,7 @@ export default function ModeToggle({ mode, onToggle, isAgentModeSupported }) {
       >
         <Text style={[
           styles.buttonText,
+          { color: colors.subtext },
           mode === 'chat' && styles.activeButtonText,
         ]}>
           Chat
@@ -74,8 +80,9 @@ export default function ModeToggle({ mode, onToggle, isAgentModeSupported }) {
       >
         <Text style={[
           styles.buttonText,
+          { color: colors.subtext },
           mode === 'agent' && styles.activeButtonText,
-          !isAgentModeSupported && styles.disabledButtonText,
+          !isAgentModeSupported && { color: colors.subtext },
         ]}>
           Agent
         </Text>
@@ -87,7 +94,6 @@ export default function ModeToggle({ mode, onToggle, isAgentModeSupported }) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
     borderRadius: 30,
     padding: 3,
     overflow: 'hidden',
@@ -103,30 +109,26 @@ const styles = StyleSheet.create({
   },
   selectorIndicator: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    backgroundColor: '#6366F1',
+    top: 3,
+    bottom: 3,
     borderRadius: 30,
-    zIndex: -1,
+    zIndex: 1,
   },
   button: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   buttonText: {
     fontWeight: '600',
-    color: '#374151',
     fontSize: 14,
   },
   activeButtonText: {
-    color: '#FFFFFF',
+    color: '#FFFFFF', // Active text is almost always white
   },
   disabledButton: {
-    opacity: 0.4,
-  },
-  disabledButtonText: {
-    color: '#9CA3AF',
+    opacity: 0.5,
   },
 });

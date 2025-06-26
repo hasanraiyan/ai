@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Pressable,
-  StatusBar,
   Platform,
   Alert,
   Switch,
@@ -27,15 +26,19 @@ import { FinanceContext } from '../contexts/FinanceContext';
 import { getAvailableTools } from '../services/tools';
 import { deleteAllImageData } from '../services/fileService';
 import ScreenHeader from '../components/ScreenHeader';
+import { useTheme } from '../utils/theme';
 
 function ApiKeyLink({ text, url }) {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
+  
   const handlePress = () => {
     Linking.openURL(url).catch(err => Alert.alert("Couldn't open page.", err.message));
   };
 
   return (
     <TouchableOpacity onPress={handlePress} style={styles.linkContainer}>
-      <Ionicons name="open-outline" size={16} color="#6366F1" style={styles.linkIcon} />
+      <Ionicons name="open-outline" size={16} color={colors.accent} style={styles.linkIcon} />
       <Text style={styles.linkText}>{text}</Text>
     </TouchableOpacity>
   );
@@ -48,6 +51,8 @@ function ModelSelector({
   onSelect,
   placeholder = 'Search...',
 }) {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
 
@@ -69,7 +74,7 @@ function ModelSelector({
         <Text style={styles.selectorButtonText} numberOfLines={1}>
           {selectedItem ? selectedItem.name : `Select ${label}`}
         </Text>
-        <Ionicons name="chevron-down-outline" size={20} color="#475569" />
+        <Ionicons name="chevron-down-outline" size={20} color={colors.subtext} />
       </TouchableOpacity>
 
       <Modal
@@ -84,12 +89,12 @@ function ModelSelector({
               value={searchText}
               onChangeText={setSearchText}
               placeholder={placeholder}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.subtext}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseButton}>
-              <Ionicons name="close-outline" size={28} color="#475569" />
+              <Ionicons name="close-outline" size={28} color={colors.subtext} />
             </TouchableOpacity>
           </View>
           <FlatList
@@ -122,6 +127,9 @@ function ModelSelector({
 
 
 function SettingsScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useStyles(colors);
+  
   const {
     modelName, setModelName,
     titleModelName, setTitleModelName,
@@ -150,7 +158,6 @@ function SettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScreenHeader
         navigation={navigation}
         title="Settings"
@@ -165,7 +172,7 @@ function SettingsScreen({ navigation }) {
 
           <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="key-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Ionicons name="key-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
             <Text style={styles.cardTitle}>API Keys</Text>
           </View>
           
@@ -176,13 +183,13 @@ function SettingsScreen({ navigation }) {
               value={apiKey}
               onChangeText={setApiKey}
               placeholder="Enter your Google AI API Key"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.subtext}
               secureTextEntry={!showApiKey}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <TouchableOpacity onPress={() => setShowApiKey(!showApiKey)} style={styles.eyeIcon}>
-              <Ionicons name={showApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
+              <Ionicons name={showApiKey ? "eye-off-outline" : "eye-outline"} size={24} color={colors.subtext} />
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>Your Google key is used for chat, agents, and image generation.</Text>
@@ -199,13 +206,13 @@ function SettingsScreen({ navigation }) {
               value={tavilyApiKey}
               onChangeText={setTavilyApiKey}
               placeholder="Enter your Tavily AI API Key"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.subtext}
               secureTextEntry={!showTavilyApiKey}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <TouchableOpacity onPress={() => setShowTavilyApiKey(!showTavilyApiKey)} style={styles.eyeIcon}>
-              <Ionicons name={showTavilyApiKey ? "eye-off-outline" : "eye-outline"} size={24} color="#64748B" />
+              <Ionicons name={showTavilyApiKey ? "eye-off-outline" : "eye-outline"} size={24} color={colors.subtext} />
             </TouchableOpacity>
           </View>
           <Text style={styles.infoText}>Your Tavily key is required for the `search_web` tool.</Text>
@@ -217,7 +224,7 @@ function SettingsScreen({ navigation }) {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="person-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Ionicons name="person-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
             <Text style={styles.cardTitle}>AI Persona</Text>
           </View>
           <TextInput
@@ -225,14 +232,14 @@ function SettingsScreen({ navigation }) {
             value={systemPrompt}
             onChangeText={setSystemPrompt}
             placeholder="Define the AI's persona, e.g., 'You are a helpful pirate assistant.'"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.subtext}
             multiline
           />
         </View>
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="hardware-chip-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Ionicons name="hardware-chip-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Model Configuration</Text>
           </View>
           <ModelSelector label="Main Chat Model" items={chatModels} selectedId={modelName} onSelect={setModelName} />
@@ -246,7 +253,7 @@ function SettingsScreen({ navigation }) {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="build-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Ionicons name="build-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Agent Tools</Text>
           </View>
           {!selectedAgentModel?.isAgentModel ? (
@@ -278,8 +285,8 @@ function SettingsScreen({ navigation }) {
                         )}
                       </View>
                       <Switch
-                        trackColor={{ false: '#D1D5DB', true: '#A5B4FC' }}
-                        thumbColor={isUserEnabled && !isToolDisabled ? '#6366F1' : '#f4f3f4'}
+                        trackColor={{ false: '#D1D5DB', true: colors.accent + '80' }}
+                        thumbColor={isUserEnabled && !isToolDisabled ? colors.accent : colors.border}
                         ios_backgroundColor="#D1D5DB"
                         onValueChange={() => toggleTool(tool.agent_id)}
                         value={isUserEnabled}
@@ -295,7 +302,7 @@ function SettingsScreen({ navigation }) {
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="document-text-outline" size={20} color="#475569" style={styles.cardIcon} />
+            <Ionicons name="document-text-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
             <Text style={styles.cardTitle}>Agent System Prompt</Text>
           </View>
           <Text style={styles.infoText}>This is the instruction the agent receives based on the tools you've enabled. It is not editable.</Text>
@@ -308,8 +315,8 @@ function SettingsScreen({ navigation }) {
 
         <View style={[styles.card, styles.dangerCard]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="warning-outline" size={20} color="#DC2626" style={styles.cardIcon} />
-            <Text style={[styles.cardTitle, { color: '#DC2626' }]}>Danger Zone</Text>
+            <Ionicons name="warning-outline" size={20} color={colors.danger} style={styles.cardIcon} />
+            <Text style={[styles.cardTitle, { color: colors.danger }]}>Danger Zone</Text>
           </View>
 
           <TouchableOpacity
@@ -319,7 +326,7 @@ function SettingsScreen({ navigation }) {
                 [ { text: "Cancel", style: "cancel" }, { text: "Clear History", style: "destructive", onPress: clearAllThreads } ]
               );
             }}>
-            <Ionicons name="trash-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
+            <Ionicons name="trash-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />
             <Text style={styles.dangerButtonText}>Clear All Chat History</Text>
           </TouchableOpacity>
           
@@ -332,7 +339,7 @@ function SettingsScreen({ navigation }) {
                 [ { text: "Cancel", style: "cancel" }, { text: "Delete Data", style: "destructive", onPress: clearAllTransactions }]
               );
             }}>
-            <Ionicons name="wallet-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
+            <Ionicons name="wallet-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />
             <Text style={styles.dangerButtonText}>Clear All Financial Data</Text>
           </TouchableOpacity>
 
@@ -345,7 +352,7 @@ function SettingsScreen({ navigation }) {
                 [ { text: "Cancel", style: "cancel" }, { text: "Delete Images", style: "destructive", onPress: deleteAllImageData }]
               );
             }}>
-            <Ionicons name="images-outline" size={18} color="#991B1B" style={{ marginRight: 8 }} />
+            <Ionicons name="images-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />
             <Text style={styles.dangerButtonText}>Clear All Image Data</Text>
           </TouchableOpacity>
         </View>
@@ -355,46 +362,46 @@ function SettingsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8FAFC' },
+const useStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.background },
   scrollContainer: { padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+  card: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   cardIcon: { marginRight: 12 },
-  cardTitle: { fontSize: 17, fontWeight: '600', color: '#1E293B' },
-  cardSubTitle: { fontSize: 15, fontWeight: '600', color: '#334155', marginTop: 8, marginBottom: 4 },
-  infoText: { fontSize: 13, color: '#64748B', lineHeight: 18, marginTop: 4, marginBottom: 8 },
-  separator: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 16 },
-  apiKeyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 8, paddingHorizontal: 12 },
-  apiKeyInput: { flex: 1, paddingVertical: Platform.OS === 'ios' ? 14 : 12, color: '#1E293B', fontSize: 15 },
+  cardTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
+  cardSubTitle: { fontSize: 15, fontWeight: '600', color: colors.text, marginTop: 8, marginBottom: 4 },
+  infoText: { fontSize: 13, color: colors.subtext, lineHeight: 18, marginTop: 4, marginBottom: 8 },
+  separator: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
+  apiKeyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.input, borderRadius: 8, paddingHorizontal: 12 },
+  apiKeyInput: { flex: 1, paddingVertical: Platform.OS === 'ios' ? 14 : 12, color: colors.text, fontSize: 15 },
   eyeIcon: { padding: 8 },
-  personaInput: { backgroundColor: '#F1F5F9', borderRadius: 8, padding: 12, minHeight: 120, textAlignVertical: 'top', color: '#1E293B', fontSize: 15, lineHeight: 22 },
+  personaInput: { backgroundColor: colors.input, borderRadius: 8, padding: 12, minHeight: 120, textAlignVertical: 'top', color: colors.text, fontSize: 15, lineHeight: 22 },
   selectorContainer: { marginTop: 8 },
-  selectorButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F1F5F9', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E2E8F0' },
-  selectorButtonText: { flex: 1, fontSize: 14, color: '#334155', marginRight: 8 },
-  modalRoot: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderColor: '#E2E8F0' },
-  modalSearchInput: { flex: 1, backgroundColor: '#F1F5F9', borderRadius: 8, paddingVertical: Platform.OS === 'ios' ? 12 : 10, paddingHorizontal: 12, fontSize: 15, color: '#1E293B' },
+  selectorButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.input, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border },
+  selectorButtonText: { flex: 1, fontSize: 14, color: colors.text, marginRight: 8 },
+  modalRoot: { flex: 1, backgroundColor: colors.background },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  modalSearchInput: { flex: 1, backgroundColor: colors.input, borderRadius: 8, paddingVertical: Platform.OS === 'ios' ? 12 : 10, paddingHorizontal: 12, fontSize: 15, color: colors.text },
   modalCloseButton: { marginLeft: 8 },
-  modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: '#F1F5F9' },
-  modalItemSelected: { backgroundColor: '#EEF2FF' },
-  modalItemText: { fontSize: 15, color: '#334155' },
-  modalItemTextSelected: { fontWeight: '600', color: '#4338CA' },
+  modalItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: colors.border },
+  modalItemSelected: { backgroundColor: colors.accent20 },
+  modalItemText: { fontSize: 15, color: colors.text },
+  modalItemTextSelected: { fontWeight: '600', color: colors.accent },
   toolRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
   toolRowDisabled: { opacity: 0.5 },
   toolInfo: { flex: 1, marginRight: 16 },
-  toolName: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
-  toolDescription: { fontSize: 13, color: '#475569', marginTop: 2, lineHeight: 18 },
-  toolSupportText: { fontSize: 12, color: '#DC2626', fontStyle: 'italic', marginTop: 4 },
-  promptDisplayContainer: { backgroundColor: '#F1F5F9', borderRadius: 8, padding: 12, marginTop: 4, maxHeight: 250 },
-  promptDisplayText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, color: '#475569', lineHeight: 20 },
-  dangerCard: { borderColor: '#FCA5A5' },
-  dangerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16 },
-  dangerButtonText: { color: '#B91C1C', fontSize: 15, fontWeight: '600' },
+  toolName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  toolDescription: { fontSize: 13, color: colors.subtext, marginTop: 2, lineHeight: 18 },
+  toolSupportText: { fontSize: 12, color: colors.danger, fontStyle: 'italic', marginTop: 4 },
+  promptDisplayContainer: { backgroundColor: colors.input, borderRadius: 8, padding: 12, marginTop: 4, maxHeight: 250 },
+  promptDisplayText: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13, color: colors.subtext, lineHeight: 20 },
+  dangerCard: { borderColor: colors.danger + '80' },
+  dangerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger + '20', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16 },
+  dangerButtonText: { color: colors.danger, fontSize: 15, fontWeight: '600' },
   dangerSeparator: { height: 12 },
   linkContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4, alignSelf: 'flex-start' },
   linkIcon: { marginRight: 6 },
-  linkText: { color: '#6366F1', fontSize: 14, fontWeight: '600' },
+  linkText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
 });
 
 export default SettingsScreen;
