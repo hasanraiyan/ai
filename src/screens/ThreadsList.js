@@ -101,31 +101,24 @@ const QuickActions = ({ navigation }) => {
 const SelectableCharacters = ({ navigation }) => {
   const { characters } = useContext(CharactersContext);
   const { createThread } = useContext(ThreadsContext);
-  const { systemPrompt } = useContext(SettingsContext);
   const { colors } = useTheme();
-
-  const defaultAi = useMemo(() => ({
-    id: 'default-ai',
-    name: 'Arya',
-    avatarUrl: require('../../assets/icon.png'), // This uses a local asset
-    systemPrompt: systemPrompt,
-    greeting: "Hello! How can I help you today?",
-    isDefault: true,
-  }), [systemPrompt]);
 
   const handleSelectCharacter = (character) => {
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const isDefault = character.id === 'default-ai';
     const initialMessages = [
       { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
-      { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: isDefault ? null : character.id, ts },
+      { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, ts },
     ];
-    const threadName = isDefault ? "New Chat" : character.name;
-    const newThreadId = createThread(threadName, initialMessages, isDefault ? null : character.id);
+    const threadName = character.name === 'Arya' ? "New Chat" : character.name;
+    const newThreadId = createThread(threadName, initialMessages, character.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: threadName });
   };
 
-  const allSelectable = [defaultAi, ...characters];
+  const allSelectable = useMemo(() => {
+    const arya = characters.find(c => c.id === 'arya-default-assistant');
+    const others = characters.filter(c => c.id !== 'arya-default-assistant');
+    return arya ? [arya, ...others] : others;
+  }, [characters]);
 
   return (
     <DashboardSection
@@ -140,32 +133,26 @@ const SelectableCharacters = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalListContainer}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => {
-          const imageSource = typeof item.avatarUrl === 'string'
-            ? { uri: item.avatarUrl }
-            : item.avatarUrl;
-
-          return (
-            <TouchableOpacity
-              onPress={() => handleSelectCharacter(item)}
-              style={[ styles.charCard, { backgroundColor: colors.card, borderColor: colors.border } ]}
-              activeOpacity={0.8}
-            >
-              <View>
-                <Image
-                  source={imageSource}
-                  style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
-                />
-                {item.id === 'default-ai' && (
-                  <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
-                    <Ionicons name="star" size={10} color="#fff" />
-                  </View>
-                )}
-              </View>
-              <Text style={[styles.charName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleSelectCharacter(item)}
+            style={[ styles.charCard, { backgroundColor: colors.card, borderColor: colors.border } ]}
+            activeOpacity={0.8}
+          >
+            <View>
+              <Image
+                source={{ uri: item.avatarUrl }}
+                style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
+              />
+              {item.id === 'arya-default-assistant' && (
+                <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
+                  <Ionicons name="star" size={10} color="#fff" />
+                </View>
+              )}
+            </View>
+            <Text style={[styles.charName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+          </TouchableOpacity>
+        )}
       />
     </DashboardSection>
   );
@@ -402,7 +389,7 @@ const RecentConversations = ({ navigation }) => {
 // --- Main Dashboard Screen ---
 export default function ThreadsList({ navigation }) {
   const { createThread } = useContext(ThreadsContext);
-  const { systemPrompt } = useContext(SettingsContext);
+  const { characters } = useContext(CharactersContext);
   const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -412,13 +399,18 @@ export default function ThreadsList({ navigation }) {
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  const handleCreateGenericThread = () => {
+  const handleCreateDefaultChat = () => {
+    const aryaCharacter = characters.find(c => c.id === 'arya-default-assistant');
+    if (!aryaCharacter) {
+      Alert.alert("Default Character Not Found", "Could not find the default AI assistant to start a chat.");
+      return;
+    }
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const initialMessages = [
-        { id: `u-system-${Date.now()}`, text: systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: "Understood. I'm ready to assist. How can I help you today?", role: 'model', ts },
+        { id: `u-system-${Date.now()}`, text: aryaCharacter.systemPrompt, role: 'user', isHidden: true },
+        { id: `a-system-${Date.now()}`, text: aryaCharacter.greeting, role: 'model', characterId: aryaCharacter.id, ts },
     ];
-    const newThreadId = createThread("New Chat", initialMessages, null);
+    const newThreadId = createThread("New Chat", initialMessages, aryaCharacter.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
   };
 
@@ -439,10 +431,10 @@ export default function ThreadsList({ navigation }) {
 
      <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.fabBg }]}
-        onPress={handleCreateGenericThread}
+        onPress={handleCreateDefaultChat}
         activeOpacity={0.8}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -507,7 +499,6 @@ const styles = StyleSheet.create({
 
   // Floating Action Button (FAB)
   fab: { position: 'absolute', margin: spacing.lg, right: 0, bottom: 0, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, },
-  fabText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
 
   // --- Styles for Rename Modal ---
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.lg },

@@ -21,6 +21,7 @@
     "expo-file-system": "~18.1.10",
     "expo-haptics": "~14.1.4",
     "expo-linear-gradient": "~14.1.5",
+    "expo-localization": "^16.1.5",
     "expo-media-library": "~17.1.7",
     "expo-sharing": "~13.1.5",
     "expo-speech": "~13.1.7",

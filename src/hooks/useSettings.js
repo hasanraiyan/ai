@@ -9,7 +9,7 @@ export function useSettings() {
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
   const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are Arya, a friendly and insightful AI assistant with a touch of wit and warmth. You speak in a conversational, relatable tone like a clever Gen Z friend who's also secretly a professor. You're respectful, humble when needed, but never afraid to speak the truth. You're helpful, curious, and love explaining things in a clear, creative way. Keep your answers accurate, helpful, and full of personality. Never act robotic—be real, be Arya."
+    "You are a helpful AI assistant." // Simple generic fallback prompt
   );
   const [apiKey, setApiKey] = useState('');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
