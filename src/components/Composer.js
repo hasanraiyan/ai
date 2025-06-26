@@ -65,12 +65,14 @@ const getStyles = (theme) =>
       // Styles for KeyboardAvoidingView itself, if needed
       // For example, if it needs to flex or have specific layout properties
       // By default, it might not need specific styles if it's just a wrapper
+
     },
     composerContainer: {
       padding: spacing.md,
       backgroundColor: theme.colors.background,
       borderTopWidth: 1,
       borderColor: theme.colors.border,
+      zIndex: 100,
     },
     inputContainer: {
       flexDirection: 'row',
