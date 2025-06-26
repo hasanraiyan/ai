@@ -1,6 +1,9 @@
 // src/screens/ThreadsList.js
 import React, { useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
   StyleSheet,
   Text,
   View,
@@ -18,6 +21,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// ... other imports unchanged
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { ThreadsContext } from '../contexts/ThreadsContext';
@@ -509,3 +513,17 @@ const styles = StyleSheet.create({
   modalButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: 10 },
   modalButtonText: { fontSize: typography.body, fontWeight: '600' },
 });
+
+// Wrap with keyboard handling
+export function ThreadsListWithKeyboard(props) {
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ThreadsList {...props} />
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  );
+}

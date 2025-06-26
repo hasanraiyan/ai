@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, typography } from '../utils/theme';
@@ -27,52 +29,51 @@ export default function Composer({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.keyboardAvoidingView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 60} // Adjust offset as needed
+      style={styles.wrapper}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      <View style={styles.composerContainer}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.promptInput}
-          placeholder={placeholder}
-          placeholderTextColor={colors.subtext}
-          multiline
-          value={value}
-          onChangeText={onValueChange}
-          editable={!loading}
-        />
-        <TouchableOpacity
-          style={[styles.generateBtn, !canSend && styles.generateBtnDisabled]}
-          onPress={onSend}
-          disabled={!canSend}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Ionicons name="arrow-up" size={20} color="#fff" />
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.composerContainer}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.promptInput}
+              placeholder={placeholder}
+              placeholderTextColor={colors.subtext}
+              multiline
+              value={value}
+              onChangeText={onValueChange}
+              editable={!loading}
+              keyboardShouldPersistTaps="handled"
+            />
+            <TouchableOpacity
+              style={[styles.generateBtn, !canSend && styles.generateBtnDisabled]}
+              onPress={onSend}
+              disabled={!canSend}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Ionicons name="arrow-up" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
 
 const getStyles = (theme) =>
   StyleSheet.create({
-    keyboardAvoidingView: {
-      // Styles for KeyboardAvoidingView itself, if needed
-      // For example, if it needs to flex or have specific layout properties
-      // By default, it might not need specific styles if it's just a wrapper
-
+    wrapper: {
+      width: '100%',
     },
     composerContainer: {
       padding: spacing.md,
       backgroundColor: theme.colors.background,
       borderTopWidth: 1,
       borderColor: theme.colors.border,
-      zIndex: 100,
     },
     inputContainer: {
       flexDirection: 'row',
@@ -91,7 +92,7 @@ const getStyles = (theme) =>
       color: theme.colors.text,
       minHeight: 40,
       maxHeight: 120,
-      paddingVertical: Platform.OS === 'ios' ? spacing.sm : 0,
+      paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs,
     },
     generateBtn: {
       width: 40,
