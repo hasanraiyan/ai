@@ -1,6 +1,6 @@
 // src/screens/FinanceScreen.js
 
-import React, { useContext, useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useContext, useMemo, useState, useEffect, useCallback, memo } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, Modal, TextInput, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
@@ -13,6 +13,28 @@ import { improveDescription } from '../agents/textImprovementAgent';
 import { useTheme, spacing, typography } from '../utils/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import ToggleSwitch from '../components/ToggleSwitch';
+
+// --- Reusable Section Component ---
+const DashboardSection = memo(({ title, children, icon }) => {
+  const { colors } = useTheme();
+  const styles = useStyles({ colors });
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          {icon && (
+            <View style={[styles.sectionIconContainer, { backgroundColor: colors.accent + '1A' }]}>
+              <Ionicons name={icon} size={20} color={colors.accent} />
+            </View>
+          )}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+});
+
 
 // --- NEW: Restructured categories for dynamic display ---
 const transactionCategories = {
@@ -227,10 +249,57 @@ const SummaryCard = ({ title, value, icon, color }) => {
   );
 };
 
+// --- NEW: Budget Status Component ---
+const BudgetStatus = ({ budgets, transactions, onDeleteBudget }) => {
+  const { colors } = useTheme();
+  const styles = useStyles({ colors });
+
+  const monthlyExpenses = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return transactions
+      .filter(tx => tx.type === 'expense' && new Date(tx.date) >= startOfMonth)
+      .reduce((acc, tx) => {
+        acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
+        return acc;
+      }, {});
+  }, [transactions]);
+
+  if (Object.keys(budgets).length === 0) {
+    return (
+        <DashboardSection title="Budget Status (This Month)" icon="shield-checkmark-outline">
+            <Text style={[styles.emptyBudget, {color: colors.subtext}]}>No budgets set. Ask the AI Finance Manager to set one for you!</Text>
+        </DashboardSection>
+    );
+  }
+  
+  return (
+    <DashboardSection title="Budget Status (This Month)" icon="shield-checkmark-outline">
+        {Object.entries(budgets).map(([category, budgetAmount]) => {
+            const spent = monthlyExpenses[category] || 0;
+            const remaining = budgetAmount - spent;
+            const progress = budgetAmount > 0 ? spent / budgetAmount : 0;
+            const categoryInfo = getCategoryInfo(category);
+
+            return (
+              <TouchableOpacity key={category} style={[styles.budgetCard, {borderColor: colors.border}]} onLongPress={() => onDeleteBudget(category)}>
+                <View style={styles.budgetHeader}>
+                    <Ionicons name={categoryInfo.icon} size={16} color={categoryInfo.color} />
+                    <Text style={[styles.budgetCategory, {color: colors.text}]}>{category}</Text>
+                </View>
+                <View style={styles.budgetBar}><View style={[styles.budgetProgress, { width: `${Math.min(progress * 100, 100)}%`, backgroundColor: categoryInfo.color }]} /></View>
+                <Text style={[styles.budgetText, { color: colors.subtext }]}>${spent.toFixed(2)} of ${budgetAmount.toFixed(2)} spent</Text>
+              </TouchableOpacity>
+            )
+        })}
+    </DashboardSection>
+  );
+};
+
 export default function FinanceScreen({ navigation }) {
   const { colors } = useTheme();
   const styles = useStyles({ colors });
-  const { transactions, addTransaction, updateTransaction, deleteTransaction } = useContext(FinanceContext);
+  const { transactions, budgets, addTransaction, updateTransaction, deleteTransaction, deleteBudget } = useContext(FinanceContext);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
 
@@ -276,6 +345,21 @@ export default function FinanceScreen({ navigation }) {
     } else {
       addTransaction(data);
     }
+  };
+
+  const handleDeleteBudget = (category) => {
+    Alert.alert(
+      `Delete Budget for "${category}"?`,
+      "Are you sure you want to remove this budget? This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteBudget(category),
+        },
+      ]
+    );
   };
 
   const handleLongPress = (tx) => {
@@ -349,6 +433,10 @@ export default function FinanceScreen({ navigation }) {
               <SummaryCard title="Total Income" value={stats.income} icon="arrow-up-circle-outline" color="#10B981" />
               <SummaryCard title="Total Expenses" value={stats.expenses} icon="arrow-down-circle-outline" color="#EF4444" />
             </View>
+            
+            {/* --- NEW: Budget Component --- */}
+            <BudgetStatus budgets={budgets} transactions={transactions} onDeleteBudget={handleDeleteBudget} />
+
             {pieChartData.length > 0 && (
               <View style={[styles.chartContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Expense Breakdown</Text>
@@ -391,6 +479,13 @@ export default function FinanceScreen({ navigation }) {
 
 const useStyles = ({ colors }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  // --- NEW: Dashboard Section Styles ---
+  sectionContainer: { marginBottom: spacing.lg },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md, marginBottom: spacing.md },
+  sectionTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  sectionIconContainer: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  // --- End New Styles ---
+
   listContainer: { paddingBottom: 100 },
   summaryGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   summaryCard: { flex: 1, padding: spacing.md, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
@@ -441,5 +536,18 @@ const useStyles = ({ colors }) => StyleSheet.create({
   saveButtonText: {
     ...typography.body,
     fontWeight: '700',
-  }
+  },
+  // --- NEW: Budget Card Styles ---
+  emptyBudget: { paddingHorizontal: spacing.md, ...typography.body },
+  budgetCard: { padding: spacing.md, marginHorizontal: spacing.md, borderRadius: 12, borderWidth: 1, marginBottom: spacing.sm, gap: spacing.sm },
+  budgetHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  budgetCategory: { ...typography.body, fontWeight: 'bold' },
+  budgetBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.emptyBg,
+    overflow: 'hidden',
+  },
+  budgetProgress: { height: '100%', borderRadius: 4 },
+  budgetText: { ...typography.small, fontWeight: '500' },
 });

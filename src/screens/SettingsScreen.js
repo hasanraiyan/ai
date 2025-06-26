@@ -141,7 +141,7 @@ function SettingsScreen({ navigation }) {
     enabledTools, setEnabledTools
   } = useContext(SettingsContext);
   const { clearAllThreads } = useContext(ThreadsContext);
-  const { clearAllTransactions } = useContext(FinanceContext);
+  const { clearAllFinanceData } = useContext(FinanceContext);
   const availableTools = getAvailableTools();
   const [showApiKey, setShowApiKey] = useState(false);
   const [showTavilyApiKey, setShowTavilyApiKey] = useState(false);
@@ -336,7 +336,7 @@ function SettingsScreen({ navigation }) {
             style={styles.dangerButton}
             onPress={() => {
               Alert.alert("Clear All Financial Data?", "This will permanently delete all your income and expense records. This action cannot be undone.",
-                [ { text: "Cancel", style: "cancel" }, { text: "Delete Data", style: "destructive", onPress: clearAllTransactions }]
+                [ { text: "Cancel", style: "cancel" }, { text: "Delete Data", style: "destructive", onPress: clearAllFinanceData }]
               );
             }}>
             <Ionicons name="wallet-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />

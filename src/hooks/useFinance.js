@@ -4,16 +4,22 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const FINANCE_STORAGE_KEY = '@finance_transactions';
+const BUDGET_STORAGE_KEY = '@finance_budgets'; // --- NEW ---
 
 export function useFinance() {
   const [transactions, setTransactions] = useState([]);
+  const [budgets, setBudgets] = useState({}); // --- NEW ---
   const [financeReady, setFinanceReady] = useState(false);
 
-  // Effect to load transactions from storage on mount
+  // Effect to load transactions and budgets from storage on mount
   useEffect(() => {
-    const loadTransactions = async () => {
+    const loadFinanceData = async () => {
       try {
-        const storedTransactionsJSON = await AsyncStorage.getItem(FINANCE_STORAGE_KEY);
+        const [storedTransactionsJSON, storedBudgetsJSON] = await Promise.all([
+          AsyncStorage.getItem(FINANCE_STORAGE_KEY),
+          AsyncStorage.getItem(BUDGET_STORAGE_KEY) // --- NEW ---
+        ]);
+
         if (storedTransactionsJSON !== null) {
           const parsed = JSON.parse(storedTransactionsJSON);
           if (Array.isArray(parsed)) {
@@ -23,14 +29,24 @@ export function useFinance() {
             setTransactions(validTransactions);
           }
         }
+        
+        // --- NEW: Load budgets ---
+        if (storedBudgetsJSON !== null) {
+          const parsedBudgets = JSON.parse(storedBudgetsJSON);
+          if (typeof parsedBudgets === 'object' && parsedBudgets !== null) {
+            setBudgets(parsedBudgets);
+          }
+        }
+
       } catch (e) {
         console.warn('Error loading or parsing financial data from AsyncStorage:', e);
         setTransactions([]);
+        setBudgets({}); // --- NEW ---
       } finally {
         setFinanceReady(true);
       }
     };
-    loadTransactions();
+    loadFinanceData();
   }, []);
 
   // Effect to save transactions to storage whenever the list changes
@@ -39,6 +55,13 @@ export function useFinance() {
       AsyncStorage.setItem(FINANCE_STORAGE_KEY, JSON.stringify(transactions));
     }
   }, [transactions, financeReady]);
+
+  // --- NEW: Effect to save budgets ---
+  useEffect(() => {
+    if (financeReady) {
+      AsyncStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(budgets));
+    }
+  }, [budgets, financeReady]);
 
   const addTransaction = useCallback((newTransactionData) => {
     const amount = parseFloat(newTransactionData.amount);
@@ -78,8 +101,34 @@ export function useFinance() {
     return transactions;
   }, [transactions]);
 
-  const clearAllTransactions = useCallback(() => {
+  // --- NEW: Budget management functions ---
+  const setBudget = useCallback((category, amount) => {
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0 || !category) {
+      console.error("Validation failed: Invalid budget data.", { category, amount });
+      throw new Error("Invalid budget data provided. Please provide a valid category and a positive number for the amount.");
+    }
+    setBudgets(prev => ({ ...prev, [category]: numAmount }));
+    console.log(`Set budget for ${category}: ${numAmount}`);
+  }, []);
+
+  const deleteBudget = useCallback((category) => {
+    setBudgets(prev => {
+        const newBudgets = { ...prev };
+        delete newBudgets[category];
+        return newBudgets;
+    });
+    console.log(`Deleted budget for ${category}`);
+  }, []);
+
+  const getBudgets = useCallback(() => {
+    return budgets;
+  }, [budgets]);
+  
+  // --- MODIFIED: Clear all financial data ---
+  const clearAllFinanceData = useCallback(() => {
     setTransactions([]);
+    setBudgets({}); // --- NEW ---
     console.log('All financial data cleared.');
   }, []);
 
@@ -174,11 +223,15 @@ export function useFinance() {
 
   return {
     transactions,
+    budgets, // --- NEW ---
     addTransaction,
     updateTransaction,
     deleteTransaction,
     getTransactions,
-    clearAllTransactions,
+    clearAllFinanceData, // --- MODIFIED ---
+    setBudget, // --- NEW ---
+    deleteBudget, // --- NEW ---
+    getBudgets, // --- NEW ---
     financeReady,
     getFinancialReport, 
   };

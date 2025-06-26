@@ -1,4 +1,3 @@
-// src/screens/ChatThread.js
 
 import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
@@ -117,7 +116,7 @@ export default function ChatThread({ navigation, route }) {
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
-  const { addTransaction, getTransactions, getFinancialReport } = useContext(FinanceContext);
+  const { addTransaction, getTransactions, getFinancialReport, setBudget, getBudgets, deleteBudget } = useContext(FinanceContext);
 
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const currentCharacter = useMemo(() => characters.find(c => c.id === thread.characterId), [characters, thread.characterId]);
@@ -290,6 +289,9 @@ ${agentInstructions}
           addTransaction,
           getTransactions,
           getFinancialReport,
+          setBudget,
+          getBudgets,
+          deleteBudget,
         },
       });
       const aiMsg = { id: `a${Date.now()}`, text: reply, role: 'model', ts, characterId: thread.characterId };
