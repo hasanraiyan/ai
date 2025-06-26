@@ -140,6 +140,8 @@ export default function ChatThread({ navigation, route }) {
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 300) }, []);
 
   useEffect(() => {
+    // --- BUG FIX: Reset loading state when navigating between chats ---
+    setLoading(false); 
     setInput('');
     setSuggestions([]);
     setFollowUpSuggestions([]);

@@ -34,7 +34,6 @@ export function useThreads() {
     return id;
   }, []);
 
-  // --- FIX START: Add a `preserveOrder` flag to prevent reordering on system prompt updates ---
   const updateThreadMessages = useCallback((threadId, messages, preserveOrder = false) =>
     setThreads(prev => {
       const threadToUpdate = prev.find(t => t.id === threadId);
@@ -50,7 +49,6 @@ export function useThreads() {
       const otherThreads = prev.filter(t => t.id !== threadId);
       return [updatedThread, ...otherThreads];
     }), []);
-  // --- FIX END ---
 
   const renameThread = useCallback((threadId, name) =>
     setThreads(prev => prev.map(t => (t.id === threadId ? { ...t, name } : t))), []);
