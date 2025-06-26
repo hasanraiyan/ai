@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-gifted-charts';
 import { FinanceContext } from '../contexts/FinanceContext';
 import { SettingsContext } from '../contexts/SettingsContext';
-import { improveDescription } from '../agents/descriptionAgent';
+import { improveDescription } from '../agents/textImprovementAgent';
 import { useTheme, spacing, typography } from '../utils/theme';
 import ScreenHeader from '../components/ScreenHeader';
 import ToggleSwitch from '../components/ToggleSwitch';
@@ -438,4 +438,8 @@ const useStyles = ({ colors }) => StyleSheet.create({
   inputLabel: { ...typography.small, fontWeight: '600', marginBottom: spacing.xs, marginLeft: spacing.xs },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   improveButton: { padding: 10 },
+  saveButtonText: {
+    ...typography.body,
+    fontWeight: '700',
+  }
 });

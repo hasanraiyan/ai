@@ -29,7 +29,7 @@ export default function Composer({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardAvoidingView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 60} // Adjust offset as needed
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 60} 
     >
       <View style={styles.composerContainer}>
         <View style={styles.inputContainer}>

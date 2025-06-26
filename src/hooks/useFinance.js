@@ -139,9 +139,9 @@ export function useFinance() {
 
     // Build Markdown report
     let report = `# Financial Report (${period.charAt(0).toUpperCase() + period.slice(1)})\n\n`;
-    report += `**Total Income:** $${totalIncome.toFixed(2)}\n`;
-    report += `**Total Expenses:** $${totalExpense.toFixed(2)}\n`;
-    report += `**Net Balance:** $${balance.toFixed(2)}\n\n`;
+    report += `**Total Income:** Rs ${totalIncome.toFixed(2)}\n`;
+    report += `**Total Expenses:** Rs ${totalExpense.toFixed(2)}\n`;
+    report += `**Net Balance:** Rs ${balance.toFixed(2)}\n\n`;
 
     // Detailed section
     report += `## Income by Category\n`;
@@ -149,7 +149,7 @@ export function useFinance() {
       report += 'No income recorded.\n';
     } else {
       for (const [cat, amt] of Object.entries(incomeByCat)) {
-        report += `- ${cat}: $${amt.toFixed(2)}\n`;
+        report += `- ${cat}: Rs ${amt.toFixed(2)}\n`;
       }
     }
     report += `\n## Expenses by Category\n`;
@@ -157,7 +157,7 @@ export function useFinance() {
       report += 'No expenses recorded.\n';
     } else {
       for (const [cat, amt] of Object.entries(expenseByCat)) {
-        report += `- ${cat}: $${amt.toFixed(2)}\n`;
+        report += `- ${cat}: Rs ${amt.toFixed(2)}\n`;
       }
     }
 
@@ -165,7 +165,7 @@ export function useFinance() {
     if (txs.length > 0) {
       report += `\n## Recent Transactions\n`;
       txs.slice(0, 5).forEach(tx => {
-        report += `- [${tx.type.toUpperCase()}] $${tx.amount.toFixed(2)} | ${tx.category} | ${tx.description} | ${new Date(tx.date).toLocaleString()}\n`;
+        report += `- [${tx.type.toUpperCase()}] Rs ${tx.amount.toFixed(2)} | ${tx.category} | ${tx.description} | ${new Date(tx.date).toLocaleString()}\n`;
       });
     }
 
@@ -180,6 +180,6 @@ export function useFinance() {
     getTransactions,
     clearAllTransactions,
     financeReady,
-    getFinancialReport, // <-- ADDED
+    getFinancialReport, 
   };
 }
