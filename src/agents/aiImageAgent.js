@@ -105,8 +105,8 @@ Only respond with JSON. No extra commentary or text.
     );
 
     const imageUrls = imageResults
-        .filter(res => res?.image_generated && res?.imageUrl)
-        .map(res => res.imageUrl);
+        .filter(res => res?.success && res?.data?.imageUrl) // <-- FIXED
+        .map(res => res.data.imageUrl); // <-- FIXED
 
     console.log("Generated image URLs:", imageUrls);
 
