@@ -82,5 +82,6 @@ export function useSettings() {
     apiKey, setApiKey,
     tavilyApiKey, setTavilyApiKey,
     settingsReady,
+    availableModels: models, // Expose availableModels
   };
 }
