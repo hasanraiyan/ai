@@ -93,8 +93,8 @@ This app requires a **Google AI API Key** to function.
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd ai-assistant
+git clone https://github.com/hasanraiyan/ai
+cd ai
 
 # Install dependencies
 npm install
