@@ -34,20 +34,29 @@ export function useThreads() {
     return id;
   }, []);
 
-  const updateThreadMessages = useCallback((threadId, messages, preserveOrder = false) =>
+  const updateThreadMessages = useCallback((threadId, messages, preserveOrder = false, updatedThreadData = null) =>
     setThreads(prev => {
-      const threadToUpdate = prev.find(t => t.id === threadId);
-      if (!threadToUpdate) return prev;
+      const threadIndex = prev.findIndex(t => t.id === threadId);
+      if (threadIndex === -1) return prev;
 
-      const updatedThread = { ...threadToUpdate, messages };
+      const threadToUpdate = prev[threadIndex];
+      // Merge with updatedThreadData if provided, otherwise just update messages
+      const updatedThread = {
+        ...threadToUpdate,
+        messages,
+        ...(updatedThreadData || {}) // Spread updatedThreadData to override properties like modeOverride
+      };
       
       if (preserveOrder) {
-        return prev.map(t => (t.id === threadId ? updatedThread : t));
+        const newThreads = [...prev];
+        newThreads[threadIndex] = updatedThread;
+        return newThreads;
       }
 
       // Default behavior: move updated thread to the top
-      const otherThreads = prev.filter(t => t.id !== threadId);
-      return [updatedThread, ...otherThreads];
+      const newThreads = [...prev];
+      newThreads.splice(threadIndex, 1); // Remove from current position
+      return [updatedThread, ...newThreads]; // Add to the beginning
     }), []);
 
   const renameThread = useCallback((threadId, name) =>

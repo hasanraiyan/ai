@@ -24,6 +24,7 @@ import { getMarkdownStyles } from '../styles/markdownStyles';
 import { ImageWithLoader } from '../components/imageSkeleton';
 import Composer from '../components/Composer';
 import ScreenHeader from '../components/ScreenHeader'; // Added
+import ModeToggle from '../components/ModeToggle'; // Added
 import { useTheme } from '../utils/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -113,7 +114,7 @@ export default function ChatThread({ navigation, route }) {
   
   const {
     modelName, titleModelName, agentModelName, systemPrompt,
-    apiKey, tavilyApiKey
+    apiKey, tavilyApiKey, availableModels // Added availableModels
   } = useContext(SettingsContext);
   const { threads, updateThreadMessages, renameThread, pinnedMessages, pinMessage, unpinMessage } = useContext(ThreadsContext);
   const { characters } = useContext(CharactersContext);
@@ -130,7 +131,7 @@ export default function ChatThread({ navigation, route }) {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('chat'); // 'chat' or 'agent'
+  const [currentMode, setCurrentMode] = useState('chat'); // Renamed from mode to currentMode
   const [suggestions, setSuggestions] = useState([]);
   const [followUpSuggestions, setFollowUpSuggestions] = useState([]);
   const [showFollowUps, setShowFollowUps] = useState(false);
@@ -161,9 +162,12 @@ export default function ChatThread({ navigation, route }) {
 
     if (currentCharacter) {
       const hasTools = currentCharacter.supportedTools && currentCharacter.supportedTools.length > 0;
-      finalMode = hasTools ? 'agent' : 'chat';
+      // Default to 'agent' if tools are supported, otherwise 'chat'. User can override.
+      const initialMode = hasTools ? 'agent' : 'chat';
+      setCurrentMode(thread.modeOverride || initialMode); // Use override if available
 
-      if (finalMode === 'agent') {
+      // Determine the system prompt based on the current mode (which might be an override)
+      if (thread.modeOverride === 'agent' || (initialMode === 'agent' && !thread.modeOverride)) {
         const agentInstructions = generateAgentPrompt(currentCharacter.supportedTools, agentModelName);
         finalSystemPrompt = `
 You are a character with a specific persona. Adhere to it strictly.
@@ -176,16 +180,16 @@ In addition to your persona, you have access to tools to perform tasks.
 ${agentInstructions}
 --- END TOOL INSTRUCTIONS ---
         `.trim();
-      } else {
+      } else { // chat mode (either by default or by override)
         finalSystemPrompt = currentCharacter.systemPrompt;
       }
     } else {
-      // For default chat, mode is always 'chat'
-      finalMode = 'chat';
+      // For default chat, mode is always 'chat', no override possible.
+      finalMode = 'chat'; // This local finalMode is still used for system message update
+      setCurrentMode('chat');
       finalSystemPrompt = systemPrompt;
     }
-    
-    setMode(finalMode);
+    // setMode(finalMode); // setCurrentMode is now handling this based on override or default
 
     const systemMessageIndex = thread.messages.findIndex(m => m.id.startsWith('u-system-'));
     if (systemMessageIndex !== -1 && thread.messages[systemMessageIndex].text !== finalSystemPrompt) {
@@ -216,14 +220,14 @@ ${agentInstructions}
 
   useEffect(() => {
     // Only fetch suggestions in agent mode for characters that support search
-    if (mode === 'agent' && currentCharacter?.supportedTools?.includes('search_web')) {
+    if (currentMode === 'agent' && currentCharacter?.supportedTools?.includes('search_web')) {
       debouncedFetchSuggestions(input);
     } else if (suggestions.length > 0) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setSuggestions([]);
     }
     return () => debouncedFetchSuggestions.cancel();
-  }, [input, mode, debouncedFetchSuggestions, suggestions.length, currentCharacter]);
+  }, [input, currentMode, debouncedFetchSuggestions, suggestions.length, currentCharacter]);
   
   const scrollToBottom = () => listRef.current?.scrollToEnd({ animated: true });
 
@@ -256,7 +260,7 @@ ${agentInstructions}
     let newMessages = [...historyForAPI, userMsg];
     updateThreadMessages(threadId, newMessages);
 
-    const modelForRequest = mode === 'agent' ? agentModelName : modelName;
+    const modelForRequest = currentMode === 'agent' ? agentModelName : modelName;
 
     let thinkingMessageId = null;
     const handleToolCall = (toolCall) => {
@@ -275,7 +279,7 @@ ${agentInstructions}
         modelName: modelForRequest,
         historyMessages: historyForAPI,
         newMessageText: text,
-        isAgentMode: mode === 'agent',
+        isAgentMode: currentMode === 'agent',
         onToolCall: handleToolCall,
         tavilyApiKey: tavilyApiKey,
         financeContext: {
@@ -422,8 +426,35 @@ ${agentInstructions}
         <AiAvatar characterId={item.characterId} />
         <Pressable onLongPress={() => handleLongPress(item)} style={[styles.aiBubble, item.error && styles.errorBubble]}>
           {item.error ? <Text style={styles.errorText}>{item.text}</Text> : (() => {
-            const processedText = item.text.replace(/\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi, '![$1]($2)');
-            return <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={markdownImageRules}>{processedText}</Markdown>;
+            let messageText = item.text;
+            let actionButton = null;
+            const actionRegex = /\[action:(.*?)\]/g;
+            const match = actionRegex.exec(messageText);
+
+            if (match) {
+              messageText = messageText.replace(actionRegex, '').trim(); // Remove action string from text
+              const actionType = match[1];
+
+              if (actionType === 'view_finance_dashboard') {
+                actionButton = (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => navigation.navigate('Finance')}
+                  >
+                    <Ionicons name="stats-chart-outline" size={16} color={colors.accentContrast} style={{marginRight: 8}} />
+                    <Text style={styles.actionButtonText}>View Full Report</Text>
+                  </TouchableOpacity>
+                );
+              }
+            }
+
+            const processedText = messageText.replace(/\[(.*?)]\((file:\/\/.+?\.(?:png|jpg|jpeg|gif|webp))\)/gi, '![$1]($2)');
+            return (
+              <>
+                <Markdown style={markdownStyles} onLinkPress={onLinkPress} rules={markdownImageRules}>{processedText}</Markdown>
+                {actionButton}
+              </>
+            );
           })()}
           <View style={styles.bubbleFooter}>
             {isPinned && <Ionicons name="pin" size={12} color={colors.subtext} style={{ marginRight: 6 }} />}
@@ -437,6 +468,25 @@ ${agentInstructions}
   const displayMessages = thread.messages.filter(m => !m.isHidden);
   const lastMessage = displayMessages[displayMessages.length - 1];
   const showTypingIndicator = loading && lastMessage?.role !== 'agent-thinking';
+
+  const handleModeToggle = (newMode) => {
+    if (newMode === currentMode) return;
+    // Persist the override
+    const updatedThread = { ...thread, modeOverride: newMode };
+    // This will trigger the useEffect that recalculates system prompt and updates messages
+    updateThreadMessages(threadId, thread.messages, false, updatedThread);
+    setCurrentMode(newMode);
+    // Potentially clear suggestions if mode changes from agent to chat
+    if (newMode === 'chat' && suggestions.length > 0) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSuggestions([]);
+    }
+  };
+
+  const isAgentModelToolCapable = useMemo(() => {
+    const model = availableModels.find(m => m.name === agentModelName);
+    return model?.supportsToolUse || false;
+  }, [agentModelName, availableModels]);
 
   const renderSuggestions = () => {
     if (suggestions.length === 0) return null;
@@ -470,6 +520,15 @@ ${agentInstructions}
         navigation={navigation}
         title={threadName}
         subtitle={headerSubtitle}
+        rightAction={
+          isAgentModelToolCapable && currentCharacter ? ( // Only show if model is tool capable AND a character is selected
+            <ModeToggle
+              mode={currentMode}
+              onToggle={handleModeToggle}
+              isAgentModeSupported={currentCharacter?.supportedTools && currentCharacter.supportedTools.length > 0}
+            />
+          ) : null
+        }
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -551,4 +610,20 @@ const useStyles = (colors) => StyleSheet.create({
     borderColor: colors.success + '40'
   },
   followUpText: { color: colors.success, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  actionButtonText: {
+    color: colors.accentContrast, // Assuming you have a contrasting color for accent
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

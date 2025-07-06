@@ -223,7 +223,11 @@ const tools = {
     if (!getFinancialReport) return { success: false, message: "Internal error: getFinancialReport function not available.", data: null };
 
     try {
-        const report = await getFinancialReport(period);
+        let report = await getFinancialReport(period);
+        // Append action string if the report is not an error/empty message
+        if (report && !report.startsWith("No transactions") && !report.startsWith("Error:")) {
+            report += "\n\n[action:view_finance_dashboard]";
+        }
         return { success: true, message: "Financial report generated successfully.", data: { report } };
     } catch (e) {
         return { success: false, message: `Failed to generate financial report: ${e.message}`, data: null };
@@ -268,6 +272,7 @@ const tools = {
         const remaining = budgetAmount - spent;
         report += `## ${category}\n- **Budget:** $${budgetAmount.toFixed(2)}\n- **Spent:** $${spent.toFixed(2)}\n- **Remaining:** $${remaining.toFixed(2)}\n\n`;
       }
+      report += "\n[action:view_finance_dashboard]"; // Append action string
       return { success: true, message: "Budget status report generated.", data: { report } };
     } catch (e) {
       return { success: false, message: `Failed to generate budget status report: ${e.message}`, data: null };
