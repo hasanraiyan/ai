@@ -112,7 +112,7 @@ const ChartLegend = ({ data, total }) => {
   );
 };
 
-const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
+const TransactionInputModal = ({ visible, onClose, onSave, transaction, navigation }) => { // <-- RECEIVE NAVIGATION PROP
   const { colors } = useTheme();
   const styles = useStyles({ colors });
   const isEditMode = !!transaction;
@@ -144,7 +144,15 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
     if (!apiKey) {
       return Alert.alert(
         "API Key Required",
-        "Please set your Google AI API Key in Settings to use this feature."
+        "Please set your Google AI API Key in Settings to use this feature.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Go to Settings", onPress: () => {
+              onClose(); // Close the modal first
+              navigation.navigate('Settings');
+            }
+          },
+        ]
       );
     }
     setIsImproving(true);
@@ -161,7 +169,7 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction }) => {
     } finally {
       setIsImproving(false);
     }
-  }, [description, isImproving, apiKey, agentModelName]);
+  }, [description, isImproving, apiKey, agentModelName, navigation, onClose]);
   const handleSave = () => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
@@ -472,7 +480,7 @@ export default function FinanceScreen({ navigation }) {
       <TouchableOpacity style={[styles.fab, { backgroundColor: colors.accent }]} onPress={() => { setSelectedTransaction(null); setModalVisible(true); }}>
         <Ionicons name="add-outline" size={32} color="#fff" />
       </TouchableOpacity>
-      <TransactionInputModal visible={modalVisible} onClose={() => setModalVisible(false)} onSave={handleSave} transaction={selectedTransaction} />
+      <TransactionInputModal visible={modalVisible} onClose={() => setModalVisible(false)} onSave={handleSave} transaction={selectedTransaction} navigation={navigation} />
     </SafeAreaView>
   );
 }

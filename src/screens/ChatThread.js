@@ -237,7 +237,14 @@ ${agentInstructions}
 
   const sendAI = async (text) => {
     if (!apiKey) {
-      Alert.alert('API Key Missing', 'Please set your Google AI API Key in Settings.');
+      Alert.alert(
+        'API Key Missing',
+        'Please set your Google AI API Key in Settings to continue.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings') },
+        ]
+      );
       return;
     }
     setLoading(true);

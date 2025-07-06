@@ -118,7 +118,16 @@ export default function LanguageTutorScreen({ navigation }) {
   const handleProcess = useCallback(async () => {
     Keyboard.dismiss();
     if (!inputText.trim() || loading) return;
-    if (!apiKey) return Alert.alert('API Key Missing', 'Please set it in Settings.');
+    if (!apiKey) {
+      return Alert.alert(
+        'API Key Missing',
+        'Please set your API Key in Settings to use the Language Lab.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings') },
+        ]
+      );
+    }
 
     setLoading(true);
     setResult(null);
@@ -134,7 +143,7 @@ export default function LanguageTutorScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [apiKey, agentModelName, inputText, sourceLangCode, targetLangCode, mode, loading]);
+  }, [apiKey, agentModelName, inputText, sourceLangCode, targetLangCode, mode, loading, navigation]);
 
   const swapLanguages = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
