@@ -113,15 +113,15 @@ const SelectableCharacters = ({ navigation }) => {
       { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
       { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, ts },
     ];
-    const threadName = character.name === 'Arya' ? "New Chat" : character.name;
+    const threadName = character.name === 'AI' ? "New Chat" : character.name;
     const newThreadId = createThread(threadName, initialMessages, character.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: threadName });
   };
 
   const allSelectable = useMemo(() => {
-    const arya = characters.find(c => c.id === 'arya-default-assistant');
-    const others = characters.filter(c => c.id !== 'arya-default-assistant');
-    return arya ? [arya, ...others] : others;
+    const AI = characters.find(c => c.id === 'AI-default-assistant');
+    const others = characters.filter(c => c.id !== 'AI-default-assistant');
+    return AI ? [AI, ...others] : others;
   }, [characters]);
 
   return (
@@ -148,7 +148,7 @@ const SelectableCharacters = ({ navigation }) => {
                 source={{ uri: item.avatarUrl }}
                 style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
               />
-              {item.id === 'arya-default-assistant' && (
+              {item.id === 'AI-default-assistant' && (
                 <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
                   <Ionicons name="star" size={10} color="#fff" />
                 </View>
@@ -404,17 +404,17 @@ export default function ThreadsList({ navigation }) {
   }, []);
 
   const handleCreateDefaultChat = () => {
-    const aryaCharacter = characters.find(c => c.id === 'arya-default-assistant');
-    if (!aryaCharacter) {
+    const AICharacter = characters.find(c => c.id === 'AI-default-assistant');
+    if (!AICharacter) {
       Alert.alert("Default Character Not Found", "Could not find the default AI assistant to start a chat.");
       return;
     }
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const initialMessages = [
-        { id: `u-system-${Date.now()}`, text: aryaCharacter.systemPrompt, role: 'user', isHidden: true },
-        { id: `a-system-${Date.now()}`, text: aryaCharacter.greeting, role: 'model', characterId: aryaCharacter.id, ts },
+        { id: `u-system-${Date.now()}`, text: AICharacter.systemPrompt, role: 'user', isHidden: true },
+        { id: `a-system-${Date.now()}`, text: AICharacter.greeting, role: 'model', characterId: AICharacter.id, ts },
     ];
-    const newThreadId = createThread("New Chat", initialMessages, aryaCharacter.id);
+    const newThreadId = createThread("New Chat", initialMessages, AICharacter.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: "New Chat" });
   };
 
