@@ -20,7 +20,7 @@ import {
   UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, AntDesign, Feather } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
@@ -270,7 +270,7 @@ export default function GalleryScreen({ navigation }) {
 
       <View style={styles.fabContainer}>
         <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('ImageGeneration')}>
-          <AntDesign name="plus" size={24} color={colors.fabText} />
+          <Ionicons name="add" size={24} color={colors.fabText} />
         </TouchableOpacity>
       </View>
 
