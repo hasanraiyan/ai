@@ -11,6 +11,7 @@ import {
   StatusBar,
   Platform,
   Keyboard,
+  KeyboardAvoidingView, // Added
   Alert,
   LayoutAnimation,
   UIManager,
@@ -220,9 +221,11 @@ export default function LanguageTutorScreen({ navigation }) {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={scheme === 'dark' ? "light-content" : "dark-content"} backgroundColor={colors.background} />
       <ScreenHeader navigation={navigation} title="Language Lab" subtitle="AI-powered learning assistant" />
-      {/* Screen-level KAV removed, Composer's KAV will handle the input area.
-          The main content area is wrapped in a View to ensure proper flex behavior. */}
-      <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={HEADER_HEIGHT} // Use defined HEADER_HEIGHT
+      >
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContainer}
@@ -253,7 +256,7 @@ export default function LanguageTutorScreen({ navigation }) {
           loading={loading}
           placeholder={mode === 'Translate' ? 'Type text...' : 'Ask your tutor...'}
         />
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

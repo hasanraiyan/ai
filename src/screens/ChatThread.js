@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } 
 import {
   StyleSheet, Text, View, FlatList,
   Platform, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
-  ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager
+  ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager, KeyboardAvoidingView // Added
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
@@ -462,7 +462,11 @@ ${agentInstructions}
         <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
         <View style={{ width: 40 }} />
       </View>
-      <View style={{flex: 1}}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={CHAT_HEADER_HEIGHT}
+      >
         <FlatList
           style={{ flex: 1 }}
           ref={listRef}
@@ -482,7 +486,7 @@ ${agentInstructions}
           loading={loading}
           placeholder={currentCharacter ? `Chat with ${currentCharacter.name}...` : "Type a message..."}
         />
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

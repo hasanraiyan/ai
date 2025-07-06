@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Keyboard,
+  // KeyboardAvoidingView, // Removed
+  // TouchableWithoutFeedback, // Removed
+  // Keyboard, // Removed
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, typography } from '../utils/theme';
@@ -27,17 +27,13 @@ export default function Composer({
 
   const canSend = value.trim().length > 0 && !loading;
 
+  // No KeyboardAvoidingView wrapper needed here
+  // No TouchableWithoutFeedback wrapper needed here
   return (
-    <KeyboardAvoidingView
-      style={styles.wrapper}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={styles.composerContainer}>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.promptInput}
+    <View style={styles.composerContainer}>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.promptInput}
               placeholder={placeholder}
               placeholderTextColor={colors.subtext}
               multiline
@@ -59,16 +55,12 @@ export default function Composer({
             </TouchableOpacity>
           </View>
         </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
   );
 }
 
 const getStyles = (theme) =>
   StyleSheet.create({
-    wrapper: {
-      width: '100%',
-    },
+    // wrapper style is no longer needed
     composerContainer: {
       padding: spacing.md,
       backgroundColor: theme.colors.background,
