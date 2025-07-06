@@ -23,13 +23,15 @@ import TypingIndicator from '../components/TypingIndicator';
 import { getMarkdownStyles } from '../styles/markdownStyles';
 import { ImageWithLoader } from '../components/imageSkeleton';
 import Composer from '../components/Composer';
+import ScreenHeader from '../components/ScreenHeader'; // Added
 import { useTheme } from '../utils/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const CHAT_HEADER_HEIGHT = 70;
+// const CHAT_HEADER_HEIGHT = 70; // No longer needed, use consistent HEADER_HEIGHT
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 60 : 0; // Use a consistent offset value
 
 const AiAvatar = ({ characterId }) => {
   const { characters } = useContext(CharactersContext);
@@ -120,6 +122,11 @@ export default function ChatThread({ navigation, route }) {
   const thread = threads.find(t => t.id === threadId) || { id: threadId, name: name || 'Chat', messages: [] };
   const currentCharacter = useMemo(() => characters.find(c => c.id === thread.characterId), [characters, thread.characterId]);
   const pinnedMessageIds = new Set(pinnedMessages.map(p => p.message.id));
+
+  // For ScreenHeader
+  const threadName = thread.name || 'Chat';
+  const characterName = currentCharacter ? currentCharacter.name : null;
+  const headerSubtitle = characterName && threadName !== characterName ? characterName : `Model: ${modelName}`;
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -449,23 +456,16 @@ ${agentInstructions}
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <View style={styles.chatHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}><Ionicons name="arrow-back" size={24} color={colors.subtext} /></TouchableOpacity>
-        {currentCharacter ? (
-            <Image source={{ uri: currentCharacter.avatarUrl }} style={styles.headerAvatar} />
-        ) : (
-            <View style={styles.headerIconContainer}>
-                <Ionicons name="sparkles-outline" size={20} color={colors.accent} />
-            </View>
-        )}
-        <Text style={styles.chatTitle} numberOfLines={1}>{thread.name}</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <ScreenHeader
+        navigation={navigation}
+        title={threadName}
+        subtitle={headerSubtitle}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={CHAT_HEADER_HEIGHT}
+        keyboardVerticalOffset={HEADER_HEIGHT} // Use the correct, consistent offset
       >
         <FlatList
           style={{ flex: 1 }}
@@ -493,20 +493,7 @@ ${agentInstructions}
 
 const useStyles = (colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  chatHeader: {
-    height: CHAT_HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.headerBg
-  },
-  headerIconButton: { padding: 8 },
-  headerAvatar: { width: 32, height: 32, borderRadius: 16 },
-  headerIconContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.accent20, justifyContent: 'center', alignItems: 'center' },
-  chatTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginHorizontal: 12, flex: 1 },
+  // chatHeader, headerIconButton, headerAvatar, headerIconContainer, chatTitle styles are no longer needed
   chatContent: { flexGrow: 1, padding: 12, paddingTop: 8 },
   userRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 4 },
   userBubble: { backgroundColor: colors.accent, padding: 12, borderRadius: 20, maxWidth: '80%' },
