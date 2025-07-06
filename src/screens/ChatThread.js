@@ -296,10 +296,12 @@ ${agentInstructions}
       setTimeout(scrollToBottom, 100);
 
       (async () => {
-        if (isFirstRealMessage && !titled.current && !currentCharacter) {
+        // Check if it's the first message AND we haven't titled it yet AND it's the default assistant.
+        if (isFirstRealMessage && !titled.current && currentCharacter?.id === 'AI-default-assistant') {
           await handleGenerateTitle(text);
           titled.current = true;
         } else if (!isFirstRealMessage) {
+          // Follow-up suggestions logic (remains the same)
           const followUps = await generateFollowUpSuggestions(apiKey, titleModelName, newMessages);
           if (followUps.length > 0) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
