@@ -149,7 +149,7 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction, navigati
           { text: "Cancel", style: "cancel" },
           { text: "Go to Settings", onPress: () => {
               onClose(); // Close the modal first
-              navigation.navigate('Settings');
+              navigation.navigate('Settings', { focusSection: 'apiKey' });
             }
           },
         ]

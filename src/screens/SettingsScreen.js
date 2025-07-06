@@ -1,6 +1,6 @@
 // src/screens/SettingsScreen.js
 
-import React, { useState, useContext, useMemo } from 'react';
+import React, { useState, useContext, useMemo, useRef, useEffect } from 'react'; // Added useRef, useEffect
 import {
   StyleSheet,
   Text,
@@ -124,9 +124,35 @@ function ModelSelector({
 }
 
 
-function SettingsScreen({ navigation }) {
+function SettingsScreen({ navigation, route }) { // Added route
   const { colors } = useTheme();
   const styles = useStyles(colors);
+  const { focusSection } = route.params || {}; // Get focusSection from route params
+
+  const apiKeyInputRef = useRef(null); // Ref for API Key TextInput
+  const scrollViewRef = useRef(null); // Ref for ScrollView
+
+  useEffect(() => {
+    if (focusSection === 'apiKey' && apiKeyInputRef.current) {
+      // Need to ensure the input is visible before focusing, especially if it's off-screen.
+      // A simple way is to scroll to the top or to a known position of the API key section.
+      // For this example, let's assume scrolling to top is enough, or the section is near the top.
+      // A more robust solution might involve measuring the position of the apiKeyInputRef.
+      if (scrollViewRef.current) {
+        // Attempt to scroll to where the API key input is.
+        // This y-coordinate (e.g., 100) is an estimation and might need adjustment
+        // or a more dynamic way to find the component's position.
+        // For simplicity, we'll use a fixed value or scroll to top.
+        // A better approach would be to find the layout of apiKeyInputRef using onLayout
+        // and then scroll to it.
+        // scrollViewRef.current.scrollTo({ y: 0, animated: true }); // Or a specific y-offset
+      }
+      // Timeout to allow scroll to complete and keyboard to not interfere
+      setTimeout(() => {
+        apiKeyInputRef.current.focus();
+      }, 300);
+    }
+  }, [focusSection]);
   
   const {
     modelName, setModelName,
@@ -157,7 +183,7 @@ function SettingsScreen({ navigation }) {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0} // Adjust as needed
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
 
           <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -168,6 +194,7 @@ function SettingsScreen({ navigation }) {
           <Text style={styles.cardSubTitle}>Google AI API Key</Text>
           <View style={styles.apiKeyContainer}>
             <TextInput
+               ref={apiKeyInputRef} // Assign ref here
               style={styles.apiKeyInput}
               value={apiKey}
               onChangeText={setApiKey}

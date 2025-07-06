@@ -242,7 +242,7 @@ ${agentInstructions}
         'Please set your Google AI API Key in Settings to continue.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings') },
+          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings', { focusSection: 'apiKey' }) },
         ]
       );
       return;

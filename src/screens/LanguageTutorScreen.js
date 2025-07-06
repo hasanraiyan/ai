@@ -124,7 +124,7 @@ export default function LanguageTutorScreen({ navigation }) {
         'Please set your API Key in Settings to use the Language Lab.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings') },
+          { text: 'Go to Settings', onPress: () => navigation.navigate('Settings', { focusSection: 'apiKey' }) },
         ]
       );
     }
