@@ -3,6 +3,16 @@
 import { toolImplementations } from './tools';
 import { enhancedToolImplementations } from './enhancedTools';
 import { IS_DEBUG } from '../constants';
+import { 
+  HandsError, 
+  ToolError, 
+  ErrorTypes, 
+  ErrorSeverity, 
+  validateRequired, 
+  withTimeout,
+  globalErrorHandler
+} from '../utils/errorHandling';
+import { handsLogger, LogCategory } from '../utils/logging';
 
 /**
  * Hands Service - The tool execution engine for the AI agent
@@ -75,30 +85,35 @@ const isToolAllowed = (toolName, allowedTools = []) => {
 };
 
 /**
- * Creates a standardized error result for enhanced feedback to Brain
+ * Creates a standardized error result using the error handling framework
  * @param {string} message - Error message
  * @param {string} errorType - Type of error for categorization
  * @param {Object} additionalMetadata - Additional context for the error
  * @returns {Object} Standardized error result
  */
 const createErrorResult = (message, errorType, additionalMetadata = {}) => {
+  const handsError = new HandsError(message, errorType, {
+    ...additionalMetadata,
+    brainToHandsFlow: {
+      commandReceived: true,
+      parametersValid: errorType !== ErrorTypes.PARAMETER_VALIDATION_ERROR,
+      executionSuccessful: false,
+      feedbackQuality: 'high',
+      errorCategory: errorType
+    }
+  });
+
   return {
     success: false,
-    message,
+    message: handsError.getUserFriendlyMessage(),
     data: null,
-    tool_name: additionalMetadata.toolName || 'unknown', // Include tool name for Brain feedback
+    tool_name: additionalMetadata.toolName || 'unknown',
     metadata: {
       errorType,
-      timestamp: Date.now(),
-      // Enhanced feedback for Brain-Hands communication
-      brainToHandsFlow: {
-        commandReceived: true,
-        parametersValid: errorType !== 'parameter_validation_error',
-        executionSuccessful: false,
-        feedbackQuality: 'high',
-        errorCategory: errorType
-      },
-      ...additionalMetadata
+      timestamp: handsError.timestamp,
+      recoverable: handsError.recoverable,
+      recoveryStrategy: handsError.recoveryStrategy,
+      ...handsError.metadata
     }
   };
 };
@@ -110,11 +125,31 @@ const createErrorResult = (message, errorType, additionalMetadata = {}) => {
  * @returns {Promise<Object>} Tool execution result
  */
 export const executeCommand = async (command, context = {}) => {
+  const executionId = `hands_execute_${Date.now()}`;
   const executionStartTime = Date.now();
+  
+  // Start performance monitoring
+  handsLogger.startPerformanceTimer(executionId, {
+    operation: 'tool_execution',
+    commandType: typeof command,
+    hasContext: !!context
+  });
+  
+  handsLogger.info(LogCategory.HANDS, 'Starting tool command execution', {
+    commandType: typeof command,
+    contextKeys: Object.keys(context)
+  });
   
   // Enhanced command validation with detailed error feedback
   if (!command || typeof command !== 'object') {
-    return createErrorResult('Invalid command: must be an object', 'validation_error', {
+    handsLogger.error(LogCategory.VALIDATION, 'Invalid command structure', {
+      receivedType: typeof command,
+      expected: 'object'
+    });
+    
+    handsLogger.endPerformanceTimer(executionId, { success: false, error: 'invalid_command' });
+    
+    return createErrorResult('Invalid command: must be an object', ErrorTypes.VALIDATION_ERROR, {
       receivedType: typeof command,
       executionTime: Date.now() - executionStartTime
     });
@@ -122,18 +157,39 @@ export const executeCommand = async (command, context = {}) => {
   
   const { tool_name: toolName, parameters } = command;
   
+  handsLogger.debug(LogCategory.HANDS, 'Command structure validated', {
+    toolName,
+    hasParameters: !!parameters,
+    parameterCount: parameters ? Object.keys(parameters).length : 0
+  });
+  
   if (!toolName || typeof toolName !== 'string') {
+    handsLogger.error(LogCategory.VALIDATION, 'Invalid tool name', {
+      receivedToolName: toolName,
+      expectedType: 'string'
+    });
+    
+    handsLogger.endPerformanceTimer(executionId, { success: false, error: 'invalid_tool_name' });
+    
     return createErrorResult(
       'Invalid command: tool_name is required and must be a string',
-      'validation_error',
+      ErrorTypes.VALIDATION_ERROR,
       { receivedToolName: toolName, executionTime: Date.now() - executionStartTime }
     );
   }
   
   if (!parameters || typeof parameters !== 'object') {
+    handsLogger.error(LogCategory.VALIDATION, 'Invalid parameters', {
+      receivedType: typeof parameters,
+      expectedType: 'object',
+      toolName
+    });
+    
+    handsLogger.endPerformanceTimer(executionId, { success: false, error: 'invalid_parameters' });
+    
     return createErrorResult(
       'Invalid command: parameters is required and must be an object',
-      'validation_error',
+      ErrorTypes.VALIDATION_ERROR,
       { receivedParameters: parameters, toolName, executionTime: Date.now() - executionStartTime }
     );
   }
@@ -141,10 +197,23 @@ export const executeCommand = async (command, context = {}) => {
   const { allowedTools = [], availableTools = [] } = context;
   
   // Enhanced authorization check with detailed feedback
+  handsLogger.debug(LogCategory.HANDS, 'Checking tool authorization', {
+    toolName,
+    allowedToolsCount: allowedTools.length,
+    isSpecialTool: toolName === 'clarify' || toolName === 'answerUser'
+  });
+  
   if (!isToolAllowed(toolName, allowedTools)) {
+    handsLogger.error(LogCategory.HANDS, 'Tool not authorized', {
+      toolName,
+      allowedToolsCount: allowedTools.length
+    });
+    
+    handsLogger.endPerformanceTimer(executionId, { success: false, error: 'unauthorized_tool' });
+    
     return createErrorResult(
       `Tool '${toolName}' is not authorized for execution`,
-      'authorization_error',
+      ErrorTypes.AUTHORIZATION_ERROR,
       { 
         toolName, 
         allowedTools: allowedTools.slice(0, 5), // Limit for security
@@ -155,11 +224,25 @@ export const executeCommand = async (command, context = {}) => {
   
   // Enhanced parameter validation for regular tools
   if (toolName !== 'clarify' && toolName !== 'answerUser') {
+    handsLogger.debug(LogCategory.VALIDATION, 'Validating tool parameters', {
+      toolName,
+      parameterCount: Object.keys(parameters).length,
+      availableToolsCount: availableTools.length
+    });
+    
     const validation = validateToolParameters(toolName, parameters, availableTools);
     if (!validation.success) {
+      handsLogger.error(LogCategory.VALIDATION, 'Parameter validation failed', {
+        toolName,
+        validationMessage: validation.message,
+        providedParameters: Object.keys(parameters)
+      });
+      
+      handsLogger.endPerformanceTimer(executionId, { success: false, error: 'parameter_validation_failed' });
+      
       return createErrorResult(
         validation.message,
-        'parameter_validation_error',
+        ErrorTypes.PARAMETER_VALIDATION_ERROR,
         { 
           toolName, 
           parameters: Object.keys(parameters),
@@ -169,17 +252,33 @@ export const executeCommand = async (command, context = {}) => {
     }
   }
   
-  if (IS_DEBUG) {
-    console.log(`Hands: Executing tool '${toolName}' with parameters:`, parameters);
-  }
+  handsLogger.info(LogCategory.HANDS, 'Executing tool', {
+    toolName,
+    parameterCount: Object.keys(parameters).length,
+    parameters: Object.keys(parameters)
+  });
   
   try {
     let result;
+    const toolExecutionTimer = `tool_${toolName}_${Date.now()}`;
+    
+    // Start tool-specific performance monitoring
+    handsLogger.startPerformanceTimer(toolExecutionTimer, {
+      operation: 'individual_tool_execution',
+      toolName,
+      parameterCount: Object.keys(parameters).length
+    });
     
     // Handle special tools with enhanced feedback
     if (toolName === 'clarify') {
+      handsLogger.debug(LogCategory.TOOLS, 'Executing clarify tool', {
+        questionLength: parameters.question?.length
+      });
       result = await handleClarifyTool(parameters);
     } else if (toolName === 'answerUser') {
+      handsLogger.debug(LogCategory.TOOLS, 'Executing answerUser tool', {
+        answerLength: parameters.answer?.length
+      });
       result = await handleAnswerUserTool(parameters);
     } else {
       // Execute regular tool with enhanced error handling
@@ -187,9 +286,17 @@ export const executeCommand = async (command, context = {}) => {
       let toolFunction = enhancedToolImplementations[toolName] || toolImplementations[toolName];
       
       if (!toolFunction) {
+        handsLogger.error(LogCategory.TOOLS, 'Tool implementation not found', {
+          toolName,
+          availableEnhancedTools: Object.keys(enhancedToolImplementations).length,
+          availableLegacyTools: Object.keys(toolImplementations).length
+        });
+        
+        handsLogger.endPerformanceTimer(executionId, { success: false, error: 'tool_not_found' });
+        
         return createErrorResult(
           `Tool implementation not found for '${toolName}'`,
-          'implementation_not_found',
+          ErrorTypes.TOOL_NOT_FOUND,
           { 
             toolName, 
             availableTools: [
@@ -201,14 +308,42 @@ export const executeCommand = async (command, context = {}) => {
         );
       }
       
+      handsLogger.debug(LogCategory.TOOLS, 'Executing regular tool', {
+        toolName,
+        isEnhancedTool: !!enhancedToolImplementations[toolName],
+        isLegacyTool: !!toolImplementations[toolName]
+      });
+      
       result = await toolFunction(parameters, context);
     }
     
+    // End tool-specific performance monitoring
+    const toolMetric = handsLogger.endPerformanceTimer(toolExecutionTimer, {
+      success: result?.success !== false,
+      toolName,
+      hasData: !!result?.data
+    });
+    
+    handsLogger.debug(LogCategory.TOOLS, 'Tool execution completed', {
+      toolName,
+      success: result?.success !== false,
+      executionTime: toolMetric?.duration,
+      hasData: !!result?.data
+    });
+    
     // Enhanced result validation and feedback
     if (!result || typeof result !== 'object') {
+      handsLogger.error(LogCategory.TOOLS, 'Tool returned invalid result format', {
+        toolName,
+        resultType: typeof result,
+        expected: 'object'
+      });
+      
+      handsLogger.endPerformanceTimer(executionId, { success: false, error: 'invalid_result_format' });
+      
       return createErrorResult(
         `Tool '${toolName}' returned invalid result format`,
-        'invalid_result_format',
+        ErrorTypes.TOOL_EXECUTION_ERROR,
         { 
           toolName, 
           resultType: typeof result,
@@ -245,23 +380,43 @@ export const executeCommand = async (command, context = {}) => {
       }
     };
     
-    if (IS_DEBUG) {
-      console.log(`Hands: Tool '${toolName}' execution completed:`, {
-        success: enhancedResult.success,
-        executionTime: enhancedResult.metadata.executionTime,
-        hasData: !!enhancedResult.data
-      });
-    }
+    // End main performance monitoring
+    const executionMetric = handsLogger.endPerformanceTimer(executionId, {
+      success: enhancedResult.success,
+      toolName,
+      hasData: !!enhancedResult.data
+    });
+    
+    handsLogger.info(LogCategory.HANDS, 'Tool command execution completed', {
+      toolName,
+      success: enhancedResult.success,
+      totalExecutionTime: executionMetric?.duration,
+      hasData: !!enhancedResult.data,
+      resultType: enhancedResult.data?.type
+    });
     
     return enhancedResult;
     
   } catch (error) {
-    console.error(`Hands: Error executing tool '${toolName}':`, error);
+    // Log the error with comprehensive context
+    handsLogger.logError(error, {
+      operation: 'executeCommand',
+      toolName,
+      parameters: Object.keys(parameters),
+      executionTime: Date.now() - executionStartTime
+    });
+    
+    // End performance monitoring on error
+    handsLogger.endPerformanceTimer(executionId, {
+      success: false,
+      error: error.message,
+      toolName
+    });
     
     // Enhanced error result with comprehensive context for Brain feedback
-    return createErrorResult(
+    const errorResult = createErrorResult(
       `Tool execution failed: ${error.message}`,
-      'execution_exception',
+      ErrorTypes.TOOL_EXECUTION_ERROR,
       {
         toolName,
         parameters: Object.keys(parameters),
@@ -270,6 +425,15 @@ export const executeCommand = async (command, context = {}) => {
         executionTime: Date.now() - executionStartTime
       }
     );
+    
+    handsLogger.error(LogCategory.ERROR, 'Tool execution failed', {
+      toolName,
+      errorType: error.name,
+      recoverable: errorResult.metadata?.recoverable,
+      executionTime: Date.now() - executionStartTime
+    });
+    
+    return errorResult;
   }
 };
 

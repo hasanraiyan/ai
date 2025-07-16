@@ -4,6 +4,15 @@ import { processUserRequest, isTaskComplete, extractUserIntent } from './brainSe
 import { executeCommand, createExecutionContext } from './handsService';
 import { getEnhancedTools } from './enhancedTools';
 import { IS_DEBUG } from '../constants';
+import { 
+  ExecutorError, 
+  ErrorTypes, 
+  ErrorSeverity, 
+  validateRequired, 
+  withTimeout,
+  globalErrorHandler
+} from '../utils/errorHandling';
+import { executorLogger, LogCategory, conversationLogger } from '../utils/logging';
 
 /**
  * Agent Executor - Main orchestration service for the Brain and Hands architecture
@@ -47,45 +56,47 @@ const addToHistory = (history, role, content, metadata = {}) => {
 };
 
 /**
- * Validates the agent request parameters
+ * Validates the agent request parameters using error handling framework
  * @param {Object} params - Request parameters
  * @returns {Object} Validation result
  */
 const validateAgentRequest = (params) => {
-  const { userInput, context } = params;
-  
-  if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
+  try {
+    const { userInput, context } = params;
+    
+    // Validate user input
+    if (!userInput || typeof userInput !== 'string' || userInput.trim().length === 0) {
+      throw new ExecutorError(
+        'User input is required and must be a non-empty string',
+        ErrorTypes.USER_INPUT_ERROR,
+        { providedInput: typeof userInput, inputLength: userInput?.length }
+      );
+    }
+    
+    // Validate context object
+    if (!context || typeof context !== 'object') {
+      throw new ExecutorError(
+        'Context is required and must be an object',
+        ErrorTypes.PARAMETER_VALIDATION_ERROR,
+        { providedContext: typeof context }
+      );
+    }
+    
+    // Validate required context fields
+    validateRequired(context, ['apiKey', 'modelName'], 'Agent Executor context');
+    
+    return {
+      valid: true,
+      message: 'Request parameters are valid'
+    };
+    
+  } catch (error) {
     return {
       valid: false,
-      message: 'User input is required and must be a non-empty string'
+      message: error.message,
+      error: error instanceof ExecutorError ? error : new ExecutorError(error.message, ErrorTypes.VALIDATION_ERROR)
     };
   }
-  
-  if (!context || typeof context !== 'object') {
-    return {
-      valid: false,
-      message: 'Context is required and must be an object'
-    };
-  }
-  
-  if (!context.apiKey || typeof context.apiKey !== 'string') {
-    return {
-      valid: false,
-      message: 'API key is required in context'
-    };
-  }
-  
-  if (!context.modelName || typeof context.modelName !== 'string') {
-    return {
-      valid: false,
-      message: 'Model name is required in context'
-    };
-  }
-  
-  return {
-    valid: true,
-    message: 'Request parameters are valid'
-  };
 };
 
 /**
@@ -379,23 +390,52 @@ export const executeAgentRequest = async ({
   timeoutMs = DEFAULT_TIMEOUT_MS
 }) => {
   const startTime = Date.now();
+  const executionId = `executor_${Date.now()}`;
   
-  if (IS_DEBUG) {
-    console.log('Agent Executor: Starting request execution');
-    console.log('User Input:', userInput);
-    console.log('Max Iterations:', maxIterations);
-    console.log('Timeout:', timeoutMs + 'ms');
-  }
+  // Start comprehensive performance monitoring
+  executorLogger.startPerformanceTimer(executionId, {
+    operation: 'agent_request_execution',
+    userInputLength: userInput?.length,
+    conversationLength: conversationHistory.length,
+    maxIterations,
+    timeoutMs
+  });
+  
+  // Initialize conversation logger middleware
+  const convLogger = conversationLogger(executorLogger);
+  
+  executorLogger.info(LogCategory.EXECUTOR, 'Starting agent request execution', {
+    userInputLength: userInput?.length,
+    conversationLength: conversationHistory.length,
+    maxIterations,
+    timeoutMs,
+    contextKeys: Object.keys(context)
+  });
+  
+  // Log conversation start
+  convLogger.logStart(userInput, context);
   
   // Validate and sanitize iteration limit
   const safeMaxIterations = validateIterationLimit(maxIterations);
-  if (safeMaxIterations !== maxIterations && IS_DEBUG) {
-    console.log(`Agent Executor: Adjusted max iterations from ${maxIterations} to ${safeMaxIterations}`);
+  if (safeMaxIterations !== maxIterations) {
+    executorLogger.warn(LogCategory.EXECUTOR, 'Iteration limit adjusted for safety', {
+      requested: maxIterations,
+      adjusted: safeMaxIterations,
+      absoluteLimit: ABSOLUTE_MAX_ITERATIONS
+    });
   }
   
   // Validate request parameters
+  executorLogger.debug(LogCategory.VALIDATION, 'Validating agent request parameters');
   const validation = validateAgentRequest({ userInput, context });
   if (!validation.valid) {
+    executorLogger.error(LogCategory.VALIDATION, 'Agent request validation failed', {
+      validationMessage: validation.message,
+      errorType: validation.error?.type
+    });
+    
+    executorLogger.endPerformanceTimer(executionId, { success: false, error: 'validation_failed' });
+    
     return {
       success: false,
       response: validation.message,
@@ -404,14 +444,25 @@ export const executeAgentRequest = async ({
     };
   }
   
+  executorLogger.debug(LogCategory.VALIDATION, 'Agent request validation successful');
+  
   try {
     // Initialize working conversation history
     let workingHistory = [...conversationHistory];
+    
+    executorLogger.debug(LogCategory.EXECUTOR, 'Initializing conversation history', {
+      existingHistoryLength: conversationHistory.length,
+      workingHistoryLength: workingHistory.length
+    });
     
     // Add user input to history if it's not already there
     const lastEntry = workingHistory[workingHistory.length - 1];
     if (!lastEntry || lastEntry.role !== 'user' || lastEntry.content !== userInput) {
       workingHistory = addToHistory(workingHistory, 'user', userInput);
+      executorLogger.debug(LogCategory.CONVERSATION, 'Added user input to history', {
+        userInputLength: userInput.length,
+        newHistoryLength: workingHistory.length
+      });
     }
     
     // Get available tools
@@ -422,6 +473,13 @@ export const executeAgentRequest = async ({
       (context.allowedTools && context.allowedTools.includes(tool.agent_id))
     );
     
+    executorLogger.info(LogCategory.EXECUTOR, 'Tools configuration', {
+      totalAvailableTools: availableTools.length,
+      filteredToolsCount: filteredTools.length,
+      allowedToolsCount: context.allowedTools?.length || 0,
+      filteredTools: filteredTools.map(t => t.agent_id)
+    });
+    
     // Create execution context for tools
     const executionContext = createExecutionContext({
       ...context,
@@ -430,11 +488,32 @@ export const executeAgentRequest = async ({
     
     let currentIteration = 0;
     
+    executorLogger.info(LogCategory.EXECUTOR, 'Starting main iteration loop', {
+      maxIterations: safeMaxIterations,
+      timeoutMs,
+      startTime
+    });
+    
     // Main iteration loop with enhanced safety checks
     while (true) {
-      if (IS_DEBUG) {
-        console.log(`Agent Executor: Starting iteration ${currentIteration + 1}`);
-      }
+      const iterationId = `iteration_${currentIteration + 1}_${Date.now()}`;
+      
+      // Start iteration performance monitoring
+      executorLogger.startPerformanceTimer(iterationId, {
+        operation: 'single_iteration',
+        iterationNumber: currentIteration + 1,
+        conversationLength: workingHistory.length
+      });
+      
+      executorLogger.info(LogCategory.ITERATION, `Starting iteration ${currentIteration + 1}/${safeMaxIterations}`, {
+        iterationNumber: currentIteration + 1,
+        maxIterations: safeMaxIterations,
+        conversationLength: workingHistory.length,
+        elapsedTime: Date.now() - startTime
+      });
+      
+      // Log iteration details using conversation logger
+      convLogger.logIteration(currentIteration + 1, safeMaxIterations);
       
       // Check if we should continue with enhanced safety mechanisms
       const continueDecision = shouldContinueIteration(
@@ -446,14 +525,27 @@ export const executeAgentRequest = async ({
       );
       
       if (!continueDecision.shouldContinue) {
-        if (IS_DEBUG) {
-          console.log('Agent Executor: Stopping iteration -', continueDecision.reason);
-          if (continueDecision.safetyTrigger) {
-            console.log('Safety trigger:', continueDecision.safetyTrigger);
-          }
-        }
+        executorLogger.info(LogCategory.EXECUTOR, 'Stopping iteration loop', {
+          reason: continueDecision.reason,
+          safetyTrigger: continueDecision.safetyTrigger,
+          gracefulExit: continueDecision.gracefulExit,
+          iterationNumber: currentIteration + 1
+        });
+        
+        // End iteration performance monitoring
+        executorLogger.endPerformanceTimer(iterationId, {
+          success: false,
+          reason: continueDecision.reason,
+          safetyTrigger: continueDecision.safetyTrigger
+        });
         
         if (continueDecision.gracefulExit) {
+          executorLogger.warn(LogCategory.EXECUTOR, 'Graceful exit triggered', {
+            safetyTrigger: continueDecision.safetyTrigger,
+            reason: continueDecision.reason,
+            iterationsCompleted: currentIteration
+          });
+          
           const gracefulResponse = handleGracefulExit(workingHistory, userInput);
           // Add safety information to metadata
           gracefulResponse.metadata.safetyTrigger = continueDecision.safetyTrigger;
@@ -464,14 +556,38 @@ export const executeAgentRequest = async ({
           if (continueDecision.failureCount) {
             gracefulResponse.metadata.consecutiveFailures = continueDecision.failureCount;
           }
+          
+          // Log conversation end
+          convLogger.logEnd(gracefulResponse, context);
+          executorLogger.endPerformanceTimer(executionId, { 
+            success: true, 
+            gracefulExit: true,
+            iterationsCompleted: currentIteration
+          });
+          
           return gracefulResponse;
         }
         break;
       }
       
       // REASON: Brain processes the current state and decides next action
+      executorLogger.debug(LogCategory.BRAIN, 'Starting Brain reasoning phase', {
+        iterationNumber: currentIteration + 1,
+        conversationLength: workingHistory.length,
+        availableToolsCount: filteredTools.length
+      });
+      
       let command;
+      const brainTimer = `brain_${currentIteration + 1}_${Date.now()}`;
+      
       try {
+        // Start Brain performance monitoring
+        executorLogger.startPerformanceTimer(brainTimer, {
+          operation: 'brain_reasoning',
+          iteration: currentIteration + 1,
+          conversationLength: workingHistory.length
+        });
+        
         // Enhanced Brain processing with comprehensive context
         const brainPromise = processUserRequest({
           conversationHistory: workingHistory,
@@ -492,8 +608,34 @@ export const executeAgentRequest = async ({
         
         const timeoutPromise = createTimeoutPromise(timeoutMs / 2); // Use half timeout for individual operations
         command = await Promise.race([brainPromise, timeoutPromise]);
+        
+        // End Brain performance monitoring
+        const brainMetric = executorLogger.endPerformanceTimer(brainTimer, {
+          success: !!command,
+          hasCommand: !!command,
+          commandTool: command?.tool_name
+        });
+        
+        executorLogger.info(LogCategory.BRAIN, 'Brain reasoning completed', {
+          iterationNumber: currentIteration + 1,
+          hasCommand: !!command,
+          commandTool: command?.tool_name,
+          reasoningTime: brainMetric?.duration
+        });
+        
       } catch (error) {
-        console.error('Agent Executor: Brain processing failed:', error);
+        // End Brain performance monitoring on error
+        executorLogger.endPerformanceTimer(brainTimer, {
+          success: false,
+          error: error.message
+        });
+        
+        // Log Brain processing error
+        executorLogger.logError(error, {
+          operation: 'brain_processing',
+          iteration: currentIteration + 1,
+          conversationLength: workingHistory.length
+        });
         
         // Enhanced error context for better debugging and recovery
         const errorContext = {
@@ -512,6 +654,16 @@ export const executeAgentRequest = async ({
           }
         };
         
+        executorLogger.error(LogCategory.ERROR, 'Brain processing failed', {
+          errorType: errorContext.errorType,
+          iteration: currentIteration + 1,
+          recoverable: error.recoverable
+        });
+        
+        // End iteration and main performance monitoring
+        executorLogger.endPerformanceTimer(iterationId, { success: false, error: 'brain_failed' });
+        executorLogger.endPerformanceTimer(executionId, { success: false, error: 'brain_failed' });
+        
         return {
           success: false,
           response: `I encountered an error while processing your request: ${error.message}`,
@@ -525,11 +677,22 @@ export const executeAgentRequest = async ({
       
       // If Brain returns null, it means no action is needed
       if (!command) {
-        if (IS_DEBUG) {
-          console.log('Agent Executor: Brain returned no command, ending iteration');
-        }
+        executorLogger.info(LogCategory.BRAIN, 'Brain returned no command - ending iteration', {
+          iterationNumber: currentIteration + 1,
+          reason: 'no_command_needed'
+        });
+        
+        // End iteration performance monitoring
+        executorLogger.endPerformanceTimer(iterationId, {
+          success: true,
+          reason: 'no_command_needed'
+        });
+        
         break;
       }
+      
+      // Log Brain decision using conversation logger
+      convLogger.logIteration(currentIteration + 1, safeMaxIterations, command);
       
       // Add AI decision to history
       workingHistory = addToHistory(workingHistory, 'ai', command, {
@@ -537,30 +700,76 @@ export const executeAgentRequest = async ({
         reasoning: 'brain_decision'
       });
       
+      executorLogger.debug(LogCategory.CONVERSATION, 'Added Brain decision to history', {
+        iterationNumber: currentIteration + 1,
+        commandTool: command.tool_name,
+        historyLength: workingHistory.length
+      });
+      
       // ACT: Hands execute the command
+      executorLogger.debug(LogCategory.HANDS, 'Starting Hands execution phase', {
+        iterationNumber: currentIteration + 1,
+        commandTool: command.tool_name,
+        parameterCount: Object.keys(command.parameters).length
+      });
+      
       let toolResult;
+      const handsTimer = `hands_${currentIteration + 1}_${Date.now()}`;
+      
       try {
-        if (IS_DEBUG) {
-          console.log(`Agent Executor: Hands executing command:`, command);
-        }
+        // Start Hands performance monitoring
+        executorLogger.startPerformanceTimer(handsTimer, {
+          operation: 'hands_execution',
+          iteration: currentIteration + 1,
+          toolName: command.tool_name
+        });
+        
+        executorLogger.info(LogCategory.HANDS, 'Executing command via Hands', {
+          iterationNumber: currentIteration + 1,
+          toolName: command.tool_name,
+          parameters: Object.keys(command.parameters)
+        });
         
         toolResult = await executeCommand(command, executionContext);
+        
+        // End Hands performance monitoring
+        const handsMetric = executorLogger.endPerformanceTimer(handsTimer, {
+          success: toolResult?.success !== false,
+          toolName: command.tool_name,
+          hasData: !!toolResult?.data
+        });
         
         // Enhanced error propagation - ensure result has proper structure
         if (!toolResult || typeof toolResult !== 'object') {
           throw new Error('Tool execution returned invalid result format');
         }
         
-        if (IS_DEBUG) {
-          console.log(`Agent Executor: Hands execution result:`, {
-            success: toolResult.success,
-            message: toolResult.message,
-            hasData: !!toolResult.data
-          });
-        }
+        executorLogger.info(LogCategory.HANDS, 'Hands execution completed', {
+          iterationNumber: currentIteration + 1,
+          toolName: command.tool_name,
+          success: toolResult.success,
+          executionTime: handsMetric?.duration,
+          hasData: !!toolResult.data,
+          resultType: toolResult.data?.type
+        });
+        
+        // Log Hands execution using conversation logger
+        convLogger.logIteration(currentIteration + 1, safeMaxIterations, command, toolResult);
         
       } catch (error) {
-        console.error('Agent Executor: Tool execution failed:', error);
+        // End Hands performance monitoring on error
+        executorLogger.endPerformanceTimer(handsTimer, {
+          success: false,
+          error: error.message,
+          toolName: command.tool_name
+        });
+        
+        // Log Hands execution error
+        executorLogger.logError(error, {
+          operation: 'hands_execution',
+          iteration: currentIteration + 1,
+          toolName: command.tool_name
+        });
         
         // Enhanced error result with detailed error information
         toolResult = {
@@ -574,6 +783,12 @@ export const executeAgentRequest = async ({
             timestamp: Date.now()
           }
         };
+        
+        executorLogger.error(LogCategory.ERROR, 'Hands execution failed', {
+          iterationNumber: currentIteration + 1,
+          toolName: command.tool_name,
+          errorType: 'execution_failure'
+        });
       }
       
       // OBSERVE: Enhanced result feedback loop - Add comprehensive tool result to history
@@ -610,27 +825,58 @@ export const executeAgentRequest = async ({
     // Extract final response
     const finalResponse = extractFinalResponse(workingHistory);
     
-    return {
+    // End main performance monitoring
+    const executionMetric = executorLogger.endPerformanceTimer(executionId, {
+      success: true,
+      iterationsCompleted: currentIteration,
+      finalResponseLength: finalResponse.length
+    });
+    
+    // Log conversation end
+    const result = {
       success: true,
       response: finalResponse,
       conversationHistory: workingHistory,
       metadata: {
         iterationsUsed: currentIteration,
         maxIterations,
-        completionReason: isTaskComplete(workingHistory) ? 'task_complete' : 'iteration_limit'
+        completionReason: isTaskComplete(workingHistory) ? 'task_complete' : 'iteration_limit',
+        totalExecutionTime: executionMetric?.duration
       }
     };
     
+    convLogger.logEnd(result, context);
+    
+    executorLogger.info(LogCategory.EXECUTOR, 'Agent request execution completed successfully', {
+      iterationsUsed: currentIteration,
+      maxIterations,
+      totalExecutionTime: executionMetric?.duration,
+      finalResponseLength: finalResponse.length,
+      completionReason: result.metadata.completionReason
+    });
+    
+    return result;
+    
   } catch (error) {
-    console.error('Agent Executor: Unexpected error:', error);
+    // Use error handling framework for unexpected errors
+    const handledError = await globalErrorHandler.handleError(error, {
+      operation: { name: 'executeAgentRequest' },
+      logContext: {
+        userInputLength: userInput?.length,
+        conversationLength: conversationHistory?.length,
+        maxIterations: safeMaxIterations
+      }
+    });
     
     return {
       success: false,
-      response: `I encountered an unexpected error: ${error.message}`,
+      response: handledError.message || `I encountered an unexpected error: ${error.message}`,
       conversationHistory,
       metadata: { 
         error: 'unexpected_error',
-        errorMessage: error.message
+        errorType: handledError.error?.type || 'unknown',
+        recoverable: handledError.error?.recoverable || false,
+        ...handledError.metadata
       }
     };
   }

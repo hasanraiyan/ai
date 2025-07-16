@@ -4,6 +4,15 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createMasterPrompt } from '../prompts/masterPrompt';
 import { safetySettings } from '../constants/safetySettings';
 import { IS_DEBUG } from '../constants';
+import { 
+  BrainError, 
+  ErrorTypes, 
+  ErrorSeverity, 
+  validateRequired, 
+  withTimeout,
+  globalErrorHandler
+} from '../utils/errorHandling';
+import { brainLogger, LogCategory } from '../utils/logging';
 
 /**
  * Brain Service - The reasoning engine for the AI agent
@@ -97,108 +106,262 @@ export const processUserRequest = async ({
   modelName,
   executionContext = {}
 }) => {
-  if (!apiKey) {
-    throw new Error('API Key is required for Brain processing');
-  }
+  const operationId = `brain_process_${Date.now()}`;
   
-  if (!modelName) {
-    throw new Error('Model name is required for Brain processing');
+  // Start performance monitoring
+  brainLogger.startPerformanceTimer(operationId, {
+    conversationLength: conversationHistory.length,
+    availableToolsCount: availableTools.length,
+    iteration: executionContext.currentIteration || 0
+  });
+  
+  brainLogger.info(LogCategory.BRAIN, 'Starting user request processing', {
+    conversationLength: conversationHistory.length,
+    availableToolsCount: availableTools.length,
+    modelName,
+    iteration: executionContext.currentIteration || 0
+  });
+
+  // Enhanced parameter validation using error handling framework
+  try {
+    validateRequired({ apiKey, modelName }, ['apiKey', 'modelName'], 'Brain processing');
+    brainLogger.debug(LogCategory.VALIDATION, 'Parameter validation successful');
+  } catch (error) {
+    brainLogger.error(LogCategory.VALIDATION, 'Parameter validation failed', {
+      missingFields: error.metadata?.missingFields
+    });
+    throw new BrainError(error.message, ErrorTypes.PARAMETER_VALIDATION_ERROR, {
+      missingParameters: error.metadata?.missingFields,
+      context: 'processUserRequest'
+    });
   }
   
   try {
     // Enhanced analysis of conversation history with execution context
+    brainLogger.debug(LogCategory.BRAIN, 'Analyzing conversation context');
     const reasoningContext = analyzeConversationContext(conversationHistory, executionContext);
     
-    if (IS_DEBUG) {
-      console.log('Brain: Enhanced reasoning context:', {
-        hasRecentFailures: reasoningContext.hasRecentFailures,
-        lastToolResult: reasoningContext.lastToolResult?.success,
-        conversationLength: conversationHistory.length,
-        currentIteration: executionContext.currentIteration,
-        previousErrors: executionContext.previousErrors?.length || 0
-      });
-    }
+    brainLogger.debug(LogCategory.BRAIN, 'Reasoning context analysis complete', {
+      hasRecentFailures: reasoningContext.hasRecentFailures,
+      consecutiveFailures: reasoningContext.consecutiveFailures,
+      totalToolExecutions: reasoningContext.totalToolExecutions,
+      uniqueToolsUsed: reasoningContext.uniqueToolsUsed.length,
+      iterationProgress: reasoningContext.executionProgress?.iterationRatio
+    });
     
     // Enhanced feedback analysis from Hands
+    brainLogger.debug(LogCategory.BRAIN, 'Analyzing Hands feedback');
     const handsTobrainFeedback = analyzeHandsFeedback(conversationHistory, executionContext);
     
-    if (IS_DEBUG && handsTobrainFeedback.hasSignificantFeedback) {
-      console.log('Brain: Significant feedback from Hands:', {
-        errorPatterns: handsTobrainFeedback.errorPatterns,
-        successPatterns: handsTobrainFeedback.successPatterns,
-        recommendedActions: handsTobrainFeedback.recommendedActions
+    if (handsTobrainFeedback.hasSignificantFeedback) {
+      brainLogger.info(LogCategory.BRAIN, 'Significant feedback from Hands received', {
+        successRate: handsTobrainFeedback.successRate,
+        errorPatternsCount: handsTobrainFeedback.errorPatterns.length,
+        recommendedActions: handsTobrainFeedback.recommendedActions,
+        feedbackQuality: handsTobrainFeedback.feedbackQuality
       });
     }
     
     // Generate the master prompt with enhanced context
+    brainLogger.debug(LogCategory.BRAIN, 'Generating master prompt');
     const masterPrompt = createMasterPrompt(conversationHistory, availableTools, {
       reasoningContext,
       handsTobrainFeedback,
       executionContext
     });
     
-    if (IS_DEBUG) {
-      console.log('Brain: Generated master prompt length:', masterPrompt.length);
-      console.log('Brain: Available tools:', availableTools.map(t => t.agent_id));
-    }
+    brainLogger.debug(LogCategory.BRAIN, 'Master prompt generated', {
+      promptLength: masterPrompt.length,
+      availableToolsCount: availableTools.length,
+      availableTools: availableTools.map(t => t.agent_id)
+    });
     
     // Initialize Google Generative AI
+    brainLogger.debug(LogCategory.API, 'Initializing Google Generative AI', {
+      modelName,
+      hasSafetySettings: !!safetySettings
+    });
+    
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
       model: modelName, 
       safetySettings 
     });
     
-    // Send the master prompt to the AI
-    const result = await model.generateContent(masterPrompt);
-    const responseText = await result.response.text();
+    // Send the master prompt to the AI with timeout protection
+    brainLogger.info(LogCategory.API, 'Sending request to AI model', {
+      modelName,
+      promptLength: masterPrompt.length,
+      timeoutMs: 30000
+    });
     
-    if (IS_DEBUG) {
-      console.log('Brain: Raw AI response:', responseText);
-    }
+    const aiCallTimer = `ai_call_${Date.now()}`;
+    brainLogger.startPerformanceTimer(aiCallTimer, {
+      operation: 'ai_model_call',
+      modelName,
+      promptLength: masterPrompt.length
+    });
     
-    // Parse the response as JSON command
+    const aiOperation = async () => {
+      const result = await model.generateContent(masterPrompt);
+      return await result.response.text();
+    };
+    
+    const responseText = await withTimeout(
+      aiOperation(), 
+      30000, // 30 second timeout
+      'AI response timed out'
+    );
+    
+    const aiMetric = brainLogger.endPerformanceTimer(aiCallTimer, {
+      responseLength: responseText.length,
+      success: true
+    });
+    
+    brainLogger.info(LogCategory.API, 'AI model response received', {
+      responseLength: responseText.length,
+      executionTime: aiMetric?.duration,
+      success: true
+    });
+    
+    brainLogger.debug(LogCategory.BRAIN, 'Raw AI response received', {
+      responseLength: responseText.length,
+      responsePreview: responseText.substring(0, 100) + (responseText.length > 100 ? '...' : '')
+    });
+    
+    // Parse the response as JSON command with enhanced error handling
+    brainLogger.debug(LogCategory.BRAIN, 'Parsing AI response as JSON command');
     const command = safeJsonParse(responseText);
     
     if (!command) {
-      console.error('Brain: Failed to parse AI response as JSON');
-      
-      // Enhanced error handling - provide context about parsing failure
-      throw new Error('Brain failed to generate valid command from AI response');
+      brainLogger.error(LogCategory.BRAIN, 'Failed to parse AI response as JSON', {
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 100)
+      });
+      throw new BrainError(
+        'Failed to parse AI response as valid JSON command',
+        ErrorTypes.JSON_PARSE_ERROR,
+        {
+          rawResponse: responseText.substring(0, 200), // First 200 chars for debugging
+          responseLength: responseText.length,
+          context: 'AI response parsing'
+        }
+      );
     }
     
-    // Validate the command structure
+    // Validate the command structure with enhanced error details
+    brainLogger.debug(LogCategory.VALIDATION, 'Validating command structure', {
+      hasToolName: !!command.tool_name,
+      hasParameters: !!command.parameters,
+      toolName: command.tool_name
+    });
+    
     if (!validateCommand(command)) {
-      console.error('Brain: Invalid command structure:', command);
-      
-      // Enhanced error handling - provide details about validation failure
-      throw new Error(`Brain generated invalid command structure: ${JSON.stringify(command)}`);
+      brainLogger.error(LogCategory.VALIDATION, 'Invalid command structure', {
+        command: JSON.stringify(command),
+        expectedStructure: { tool_name: 'string', parameters: 'object' }
+      });
+      throw new BrainError(
+        'AI generated invalid command structure',
+        ErrorTypes.COMMAND_PARSE_ERROR,
+        {
+          command: JSON.stringify(command),
+          expectedStructure: { tool_name: 'string', parameters: 'object' },
+          context: 'command validation'
+        }
+      );
     }
     
     // Enhanced command validation - check if tool is available
     const isToolAvailable = availableTools.some(tool => tool.agent_id === command.tool_name);
     if (!isToolAvailable) {
-      console.error('Brain: Requested unavailable tool:', command.tool_name);
-      throw new Error(`Brain requested unavailable tool: ${command.tool_name}`);
+      brainLogger.error(LogCategory.VALIDATION, 'Requested tool not available', {
+        requestedTool: command.tool_name,
+        availableToolsCount: availableTools.length
+      });
+      throw new BrainError(
+        `Requested tool '${command.tool_name}' is not available`,
+        ErrorTypes.TOOL_NOT_FOUND,
+        {
+          requestedTool: command.tool_name,
+          availableTools: availableTools.map(t => t.agent_id),
+          context: 'tool availability check'
+        }
+      );
     }
     
-    if (IS_DEBUG) {
-      console.log('Brain: Generated command:', command);
-    }
+    // Log successful command generation
+    brainLogger.info(LogCategory.BRAIN, 'Successfully generated command', {
+      toolName: command.tool_name,
+      parameterCount: Object.keys(command.parameters).length,
+      parameters: Object.keys(command.parameters)
+    });
+    
+    // End performance monitoring
+    const operationMetric = brainLogger.endPerformanceTimer(operationId, {
+      success: true,
+      commandGenerated: true,
+      toolName: command.tool_name
+    });
+    
+    brainLogger.info(LogCategory.PERFORMANCE, 'Brain processing completed', {
+      totalDuration: operationMetric?.duration,
+      success: true
+    });
     
     return command;
     
   } catch (error) {
-    console.error('Brain: Error processing user request:', error);
+    // End performance monitoring on error
+    brainLogger.endPerformanceTimer(operationId, {
+      success: false,
+      error: error.message
+    });
     
-    // Enhanced error propagation with more context
+    // Log the error with context
+    brainLogger.logError(error, {
+      operation: 'processUserRequest',
+      conversationLength: conversationHistory.length,
+      availableToolsCount: availableTools.length,
+      executionIteration: executionContext.currentIteration
+    });
+    
+    // If it's already a BrainError, re-throw it
+    if (error instanceof BrainError) {
+      throw error;
+    }
+    
+    // Handle other errors with enhanced context
     const errorContext = {
       conversationLength: conversationHistory.length,
       availableToolsCount: availableTools.length,
-      errorType: error.message.includes('API') ? 'api_error' : 'processing_error'
+      executionIteration: executionContext.currentIteration,
+      originalError: error.message
     };
     
-    throw new Error(`Brain processing failed: ${error.message}`, { cause: errorContext });
+    // Determine error type based on error characteristics
+    let errorType = ErrorTypes.BRAIN_PROCESSING_ERROR;
+    if (error.message.includes('API') || error.message.includes('generateContent')) {
+      errorType = ErrorTypes.API_ERROR;
+    } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+      errorType = ErrorTypes.TIMEOUT_ERROR;
+    } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+      errorType = ErrorTypes.NETWORK_ERROR;
+    }
+    
+    const brainError = new BrainError(
+      `Brain processing failed: ${error.message}`,
+      errorType,
+      errorContext
+    );
+    
+    brainLogger.error(LogCategory.ERROR, 'Brain processing failed', {
+      errorType: brainError.type,
+      recoverable: brainError.recoverable,
+      severity: brainError.severity
+    });
+    
+    throw brainError;
   }
 };
 
