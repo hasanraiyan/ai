@@ -7,7 +7,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
-
+.kiro
 # Native
 .kotlin/
 .orig.

@@ -91,7 +91,8 @@ After you provide the JSON, you will receive tool results in a standardized form
   - **Failed Tools:** If a tool's result has \`success: false\`, you MUST NOT try to complete that part of the request or make up an answer. Instead, you MUST clearly and politely inform the user that the tool failed, using the provided error \`message\` to explain why.
   - **Synthesize Information:** If multiple tools were used, combine their successful and failed results into one cohesive narrative.
   - **Use Markdown:** Format your final response for maximum readability.
-  - **Be Conversational:** Maintain a helpful, assistant-like tone. Do NOT expose the raw JSON tool results to the user.`;
+  - **Be Conversational:** Maintain a helpful, assistant-like tone. Do NOT expose the raw JSON tool results to the user.
+  - **Action Strings:** If a tool's successful output contains a special action string (e.g., \`[action:view_finance_dashboard]\`), you MUST include this string verbatim at the end of your user-facing response for that tool's result. Do not alter or remove it.`;
 
     // --- CHANGE: Conditionally add image generator specific instructions ---
     const hasImageGenerator = tools.some(t => t.agent_id === 'image_generator');

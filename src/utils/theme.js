@@ -9,6 +9,7 @@ const light = {
     text: '#1E293B',
     subtext: '#64748B',
     accent: '#6366F1',
+    accentContrast: '#FFFFFF', // Added
     accent20: '#EEF2FF',
     icon: '#6366F1',
     emptyIcon: '#9CA3AF',
@@ -33,6 +34,7 @@ const dark = {
     text: '#F1F5F9',
     subtext: '#94A3B8',
     accent: '#818CF8', // Lighter accent for dark mode
+    accentContrast: '#FFFFFF', // Added
     accent20: 'rgba(129, 140, 248, 0.15)',
     icon: '#818CF8',
     emptyIcon: '#64748B',
