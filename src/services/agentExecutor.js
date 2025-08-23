@@ -181,6 +181,8 @@ const analyzeConsecutiveFailures = (conversationHistory, maxFailures = MAX_CONSE
  * @param {number} requestedMaxIterations - Requested max iterations
  * @returns {number} Safe max iterations value
  */
+
+
 const validateIterationLimit = (requestedMaxIterations) => {
   if (!requestedMaxIterations || requestedMaxIterations < 1) {
     return DEFAULT_MAX_ITERATIONS;
@@ -188,7 +190,7 @@ const validateIterationLimit = (requestedMaxIterations) => {
   
   if (requestedMaxIterations > ABSOLUTE_MAX_ITERATIONS) {
     if (IS_DEBUG) {
-      console.warn(`Agent Executor: Requested max iterations (${requestedMaxIterations}) exceeds absolute limit (${ABSOLUTE_MAX_ITERATIONS}). Using absolute limit.`);
+      executorLogger.warn(LogCategory.EXECUTOR, `Agent Executor: Requested max iterations (${requestedMaxIterations}) exceeds absolute limit (${ABSOLUTE_MAX_ITERATIONS}). Using absolute limit.`);
     }
     return ABSOLUTE_MAX_ITERATIONS;
   }
@@ -814,9 +816,9 @@ export const executeAgentRequest = async ({
         }
       });
       
-      if (IS_DEBUG) {
-        console.log(`Agent Executor: Iteration ${currentIteration + 1} completed`);
-        console.log('Tool Result:', toolResult);
+      if (__DEV__) {
+        executorLogger.debug(LogCategory.EXECUTOR, `Agent Executor: Iteration ${currentIteration + 1} completed`);
+        executorLogger.debug(LogCategory.EXECUTOR, 'Tool Result:', toolResult);
       }
       
       currentIteration++;

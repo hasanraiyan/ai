@@ -3,7 +3,7 @@ import { models } from '../constants/models';
 import { getAvailableTools } from '../services/tools';
 
 /**
- * Generates a dynamic system prompt for the AI agent based on the character's
+ * Generates a dynamic system prompt for the Axion agent based on the character's
  * supported tools.
  * @param {string[]} characterSupportedTools - An array of tool_id strings. e.g., ["calculator", "search_web"]
  * @param {string} agentModelId - The ID of the selected agent model.
@@ -23,7 +23,7 @@ export const generateAgentPrompt = (characterSupportedTools = [], agentModelId) 
     if (tools.length === 0) {
         // This case should ideally not be hit if called correctly, as it's for characters with tools.
         // But it's a safe fallback.
-        return `You are a helpful and intelligent AI assistant.
+        return `You are a helpful and intelligent Axion assistant.
 Behave like a standard conversational AI. You do not have any tools, so do not mention them.`;
     }
 
@@ -102,7 +102,7 @@ After you provide the JSON, you will receive tool results in a standardized form
     }
 
     // Assemble the final prompt with all dynamic parts.
-    return `You are a powerful AI agent that can use tools to answer user requests. Your primary goal is to determine if a tool is needed and, if so, to provide the correct JSON to call that tool.
+    return `You are a powerful Axion agent that can use tools to answer user requests. Your primary goal is to determine if a tool is needed and, if so, to provide the correct JSON to call that tool.
 
 You have access to the following tools:
 ${toolDetails}

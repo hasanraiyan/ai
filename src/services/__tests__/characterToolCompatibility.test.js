@@ -7,7 +7,7 @@ import { validateCharacterToolSupport, getCompatibilityReport } from '../toolCom
 const mockCharacterConfigs = [
   {
     id: 'ai-assistant',
-    name: 'AI Assistant',
+    name: 'Axion',
     supportedTools: ['calculator', 'search_web', 'image_generator']
   },
   {
@@ -66,7 +66,7 @@ jest.mock('../tools', () => ({
 
 describe('Character Tool Compatibility', () => {
   describe('validateCharacterToolCompatibility', () => {
-    test('should validate AI Assistant character tools', () => {
+    test('should validate Axion character tools', () => {
       const aiAssistant = mockCharacterConfigs[0];
       const result = validateCharacterToolCompatibility(aiAssistant.supportedTools);
 
@@ -119,7 +119,7 @@ describe('Character Tool Compatibility', () => {
   });
 
   describe('validateCharacterToolSupport (Adapter)', () => {
-    test('should provide detailed validation for AI Assistant', () => {
+    test('should provide detailed validation for Axion', () => {
       const aiAssistant = mockCharacterConfigs[0];
       const result = validateCharacterToolSupport(aiAssistant.supportedTools);
 

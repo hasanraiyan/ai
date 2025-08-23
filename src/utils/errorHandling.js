@@ -1,5 +1,7 @@
 // src/utils/errorHandling.js
 
+import { systemLogger, LogCategory } from '../utils/logging';
+
 /**
  * Comprehensive Error Handling Framework for AI Agent Architecture
  * Provides standardized error types, handling patterns, and recovery mechanisms
@@ -300,7 +302,7 @@ export class ErrorHandler {
     const delay = this.retryDelay * Math.pow(this.backoffMultiplier, attempt);
     
     if (this.enableLogging) {
-      console.log(`Retrying operation after ${delay}ms (attempt ${attempt + 1}/${this.maxRetries})`);
+      systemLogger.debug(LogCategory.SYSTEM, `Retrying operation after ${delay}ms (attempt ${attempt + 1}/${this.maxRetries})`);
     }
 
     await this.sleep(delay);
@@ -324,7 +326,9 @@ export class ErrorHandler {
 
     try {
       if (this.enableLogging) {
-        console.log('Attempting fallback operation due to error:', error.type);
+        systemLogger.debug(LogCategory.SYSTEM, 'Attempting fallback operation due to error', {
+          errorType: error.type
+        });
       }
       
       return await fallbackOperation(context);
@@ -349,7 +353,9 @@ export class ErrorHandler {
     };
 
     if (this.enableLogging) {
-      console.log('Graceful degradation applied for error:', error.type);
+      systemLogger.debug(LogCategory.SYSTEM, 'Graceful degradation applied for error', {
+        errorType: error.type
+      });
     }
 
     return degradedResult;
@@ -377,7 +383,9 @@ export class ErrorHandler {
    */
   handleAbort(error, context) {
     if (this.enableLogging) {
-      console.error('Critical error - aborting operation:', error.message);
+      systemLogger.error(LogCategory.SYSTEM, 'Critical error - aborting operation', {
+        errorMessage: error.message
+      });
     }
 
     return {
@@ -432,16 +440,16 @@ export class ErrorHandler {
 
     switch (error.severity) {
       case ErrorSeverity.CRITICAL:
-        console.error('CRITICAL ERROR:', logData);
+        systemLogger.error(LogCategory.ERROR, 'CRITICAL ERROR', logData);
         break;
       case ErrorSeverity.HIGH:
-        console.error('HIGH SEVERITY ERROR:', logData);
+        systemLogger.error(LogCategory.ERROR, 'HIGH SEVERITY ERROR', logData);
         break;
       case ErrorSeverity.MEDIUM:
-        console.warn('MEDIUM SEVERITY ERROR:', logData);
+        systemLogger.warn(LogCategory.ERROR, 'MEDIUM SEVERITY ERROR', logData);
         break;
       case ErrorSeverity.LOW:
-        console.log('LOW SEVERITY ERROR:', logData);
+        systemLogger.debug(LogCategory.ERROR, 'LOW SEVERITY ERROR', logData);
         break;
     }
   }

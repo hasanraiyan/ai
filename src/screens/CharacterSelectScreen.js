@@ -34,7 +34,7 @@ const EmptyState = ({ onCreateCharacter, isSearchEmpty = false }) => {
   const title = isSearchEmpty ? "No Results Found" : "Create Your First Character";
   const subtitle = isSearchEmpty
     ? "Try a different search term or clear the filter to see all characters."
-    : "Bring your conversations to life by creating AI characters with unique personalities and voices.";
+    : "Bring your conversations to life by creating Axion characters with unique personalities and voices.";
 
   return (
     <ScrollView contentContainerStyle={styles.emptyScrollContainer}>

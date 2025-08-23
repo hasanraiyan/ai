@@ -3,6 +3,7 @@
 import { toolDispatcher as legacyToolDispatcher, toolImplementations, toolMetadata } from './tools';
 import { enhancedToolImplementations, getEnhancedTools } from './enhancedTools';
 import { IS_DEBUG } from '../constants';
+import { toolsLogger, LogCategory } from '../utils/logging';
 
 /**
  * Tool Compatibility Adapter
@@ -75,7 +76,9 @@ export const mapNewResultsToLegacyFormat = (newResults) => {
  */
 export const compatibleToolDispatcher = async ({ toolCall, context = {} }) => {
   if (IS_DEBUG) {
-    console.log('Tool Compatibility Adapter: Processing tool call:', toolCall);
+    toolsLogger.debug(LogCategory.TOOLS, 'Tool Compatibility Adapter: Processing tool call', {
+      toolCall
+    });
   }
 
   try {
@@ -91,13 +94,13 @@ export const compatibleToolDispatcher = async ({ toolCall, context = {} }) => {
     if (isLegacyFormat) {
       // Use legacy tool dispatcher for backward compatibility
       if (IS_DEBUG) {
-        console.log('Tool Compatibility Adapter: Using legacy tool dispatcher');
+        toolsLogger.debug(LogCategory.TOOLS, 'Tool Compatibility Adapter: Using legacy tool dispatcher');
       }
       return await legacyToolDispatcher({ toolCall, context });
     } else if (isNewFormatSingle) {
       // Handle new format single tool call
       if (IS_DEBUG) {
-        console.log('Tool Compatibility Adapter: Using enhanced tools system for single command');
+        toolsLogger.debug(LogCategory.TOOLS, 'Tool Compatibility Adapter: Using enhanced tools system for single command');
       }
 
       const result = await executeCompatibleTool(toolCall, context);
@@ -105,12 +108,14 @@ export const compatibleToolDispatcher = async ({ toolCall, context = {} }) => {
     } else {
       // Handle new format array of commands or fallback to legacy
       if (IS_DEBUG) {
-        console.log('Tool Compatibility Adapter: Attempting legacy dispatcher as fallback');
+        toolsLogger.debug(LogCategory.TOOLS, 'Tool Compatibility Adapter: Attempting legacy dispatcher as fallback');
       }
       return await legacyToolDispatcher({ toolCall, context });
     }
   } catch (error) {
-    console.error('Tool Compatibility Adapter: Error processing tool call:', error);
+    toolsLogger.error(LogCategory.TOOLS, 'Tool Compatibility Adapter: Error processing tool call', {
+      error: error.message
+    });
     throw error;
   }
 };

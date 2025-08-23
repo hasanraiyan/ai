@@ -164,7 +164,9 @@ const TransactionInputModal = ({ visible, onClose, onSave, transaction, navigati
         Alert.alert("Improvement Failed", result.reason || "Could not improve the description.");
       }
     } catch (error) {
-      console.error("Description improvement error:", error);
+      brainLogger.error(LogCategory.BRAIN, "Description improvement error", {
+        error: error.message
+      });
       Alert.alert("Error", "An unexpected error occurred while improving the description.");
     } finally {
       setIsImproving(false);
@@ -276,7 +278,7 @@ const BudgetStatus = ({ budgets, transactions, onDeleteBudget }) => {
   if (Object.keys(budgets).length === 0) {
     return (
         <DashboardSection title="Budget Status (This Month)" icon="shield-checkmark-outline">
-            <Text style={[styles.emptyBudget, {color: colors.subtext}]}>No budgets set. Ask the AI Finance Manager to set one for you!</Text>
+            <Text style={[styles.emptyBudget, {color: colors.subtext}]}>No budgets set. Ask the Axion Finance Manager to set one for you!</Text>
         </DashboardSection>
     );
   }

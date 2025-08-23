@@ -63,7 +63,7 @@ Modified the hands service to:
 - `output_format` - Expected output structure
 
 ### ✅ Character Configurations Supported
-- **AI Assistant**: `['calculator', 'search_web', 'image_generator']`
+- **Axion**: `['calculator', 'search_web', 'image_generator']`
 - **Finance Manager**: `['add_transaction', 'get_financial_report', 'set_budget', 'get_budget_status']`
 - **Sarcastic Developer**: `['calculator', 'search_web']`
 

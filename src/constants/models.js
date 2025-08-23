@@ -83,15 +83,6 @@ export const models = [
         supported_tools: ['search_web', 'calculator', 'image_generator']
     },
     {
-        id: 'gemini-2.5-pro-preview-05-06',
-        name: 'Gemini 2.5 Pro Preview 05-06',
-        contextWindow: 1048576,
-        isChatModel: true,
-        isTitleModel: true,
-        isAgentModel: true,
-        supported_tools: ['search_web', 'calculator', 'image_generator']
-    },
-    {
         id: 'gemini-2.5-flash',
         name: 'Gemini 2.5 Flash',
         contextWindow: 1048576,
@@ -101,17 +92,8 @@ export const models = [
         supported_tools: ['search_web', 'calculator', 'image_generator']
     },
     {
-        id: 'gemini-2.5-flash-preview-04-17',
-        name: 'Gemini 2.5 Flash Preview 04-17',
-        contextWindow: 1048576,
-        isChatModel: true,
-        isTitleModel: true,
-        isAgentModel: true,
-        supported_tools: ['search_web', 'calculator', 'image_generator']
-    },
-    {
-        id: 'gemini-2.5-flash-lite-preview-06-17',
-        name: 'Gemini 2.5 Flash Lite Preview 06-17',
+        id: 'gemini-2.5-flash-lite',
+        name: 'Gemini 2.5 Flash Lite',
         contextWindow: 1048576,
         isChatModel: true,
         isTitleModel: true,

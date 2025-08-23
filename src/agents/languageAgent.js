@@ -1,6 +1,8 @@
 // src/agents/languageAgent.js
 
 import { AIAgent } from "../services/aiAgents";
+import { brainLogger } from "../utils/logging";
+import { LogCategory } from "../utils/logging";
 
 const getTranslateSystemInstruction = (sourceLang, targetLang) => `
 You are an expert language analysis and translation tool. Your task is to process a user's text from '${sourceLang}' and provide a detailed analysis and translation into '${targetLang}'.
@@ -78,7 +80,7 @@ export const processLanguageRequest = async (apiKey, modelName, { text, sourceLa
     }
 
     const agent = new AIAgent(apiKey, modelName);
-    console.log("Model used is:", modelName);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Model used is", { modelName });
     const systemInstruction = mode === 'Translate'
         ? getTranslateSystemInstruction(sourceLang, targetLang)
         : getTutorSystemInstruction(sourceLang, targetLang);
@@ -89,6 +91,6 @@ export const processLanguageRequest = async (apiKey, modelName, { text, sourceLa
         expectJson: mode === 'Translate',
     });
 
-    console.log("Language Agent Result:", result);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Language Agent Result", result);
     return result;
 };

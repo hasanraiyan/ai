@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AI",
-    "slug": "AI",
+    "name": "Axion",
+    "slug": "Axion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +22,7 @@
       },
       "softwareKeyboardLayoutMode": "resize",
       "edgeToEdgeEnabled": true,
-      "package": "com.hasanraiyan.ai"
+      "package": "com.hasanraiyan.axion"
     },
     "web": {
       "favicon": "./assets/favicon.png"

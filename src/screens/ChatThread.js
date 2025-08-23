@@ -236,7 +236,11 @@ ${agentInstructions}
     try {
       const title = await generateChatTitle(apiKey, titleModelName || 'gemma-3-1b-it', firstUserText);
       if (title) renameThread(threadId, title);
-    } catch (e) { console.error('Title generation failed:', e) }
+    } catch (e) { 
+      brainLogger.error(LogCategory.BRAIN, 'Title generation failed', {
+        error: e.message
+      });
+    }
   };
 
   const sendAI = async (text) => {
@@ -301,7 +305,7 @@ ${agentInstructions}
 
       (async () => {
         // Check if it's the first message AND we haven't titled it yet AND it's the default assistant.
-        if (isFirstRealMessage && !titled.current && currentCharacter?.id === 'AI-default-assistant') {
+        if (isFirstRealMessage && !titled.current && currentCharacter?.id === 'axion-default-assistant') {
           await handleGenerateTitle(text);
           titled.current = true;
         } else if (!isFirstRealMessage) {

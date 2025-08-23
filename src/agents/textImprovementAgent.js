@@ -1,6 +1,8 @@
 // src/agents/textImprovementAgent.js
 
 import { AIAgent } from "../services/aiAgents";
+import { brainLogger } from "../utils/logging";
+import { LogCategory } from "../utils/logging";
 
 export const improveDescription = async (apiKey, modelName, inputText) => {
     if (!apiKey || !modelName || !inputText) {
@@ -10,7 +12,7 @@ export const improveDescription = async (apiKey, modelName, inputText) => {
     const agent = new AIAgent(apiKey, modelName);
 
     const systemInstruction = `
-You are a "Transaction Description Enhancer" AI. Your task is to take a short, vague, or code-mixed (e.g., Hinglish) transaction description and make it more specific and meaningful — without inventing facts.
+You are a "Transaction Description Enhancer" Axion. Your task is to take a short, vague, or code-mixed (e.g., Hinglish) transaction description and make it more specific and meaningful — without inventing facts.
 
 You must support **English, Hindi, and Hinglish** input.
 
@@ -79,7 +81,7 @@ Output:
         expectJson: true,
     });
 
-    console.log("Description improvement result:", result);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Description improvement result", result);
 
     if (result?.improve && typeof result.description === "string") {
         return {
@@ -103,7 +105,7 @@ export const improvePrompt = async (apikey, modelName, inputText) => {
     const agent = new AIAgent(apikey, modelName);
 
     const systemInstruction = `
-You are an AI prompt enhancer that takes a single raw image prompt and upgrades it to a more visually rich, highly descriptive version suitable for advanced image generation. Follow these strict rules:
+You are an Axion prompt enhancer that takes a single raw image prompt and upgrades it to a more visually rich, highly descriptive version suitable for advanced image generation. Follow these strict rules:
 
 ---
 
@@ -143,7 +145,7 @@ If invalid: \`{"improve": false, "reason": "reason"}\`
         expectJson: true,
     });
 
-    console.log("Improved prompt result:", result);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Improved prompt result", result);
 
     if (!result?.improve || typeof result.prompt !== "string") {
         return {

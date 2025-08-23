@@ -207,7 +207,7 @@ describe('Tool Interface Preservation', () => {
   describe('Character Configuration Compatibility', () => {
     const existingCharacterConfigs = [
       {
-        name: 'AI Assistant',
+        name: 'Axion',
         supportedTools: ['calculator', 'search_web', 'image_generator']
       },
       {
@@ -240,7 +240,7 @@ describe('Tool Interface Preservation', () => {
     });
 
     test('should maintain tool availability for each character type', () => {
-      // AI Assistant tools
+      // Axion tools
       const aiAssistantValidation = validateCharacterToolSupport(['calculator', 'search_web', 'image_generator']);
       expect(aiAssistantValidation.isValid).toBe(true);
       expect(aiAssistantValidation.totalSupported).toBe(3);

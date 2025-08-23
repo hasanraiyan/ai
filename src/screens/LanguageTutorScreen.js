@@ -135,7 +135,7 @@ export default function LanguageTutorScreen({ navigation }) {
 
     try {
       const response = await processLanguageRequest(apiKey, agentModelName, { text: inputText, sourceLang: sourceLangCode, targetLang: targetLangCode, mode });
-      if (!response) throw new Error('Empty response from AI.');
+      if (!response) throw new Error('Empty response from Axion.');
       setResult(response);
       setInputText('');
     } catch (e) {
@@ -187,7 +187,7 @@ export default function LanguageTutorScreen({ navigation }) {
     if (mode === 'Tutor') {
       const tutorText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
       return (
-        <ResultCard title="AI Tutor Response" icon="school" color="#8B5CF6" isRTL={!!targetLangObj.isRTL} listenText={tutorText} listenLang={targetLangCode} highlight>
+        <ResultCard title="Axion Tutor Response" icon="school" color="#8B5CF6" isRTL={!!targetLangObj.isRTL} listenText={tutorText} listenLang={targetLangCode} highlight>
           <Markdown style={{ ...markdownStyles, body: { ...markdownStyles.body, textAlign: targetLangObj.isRTL ? 'right' : 'left' } }}>{tutorText}</Markdown>
         </ResultCard>
       );
@@ -229,7 +229,7 @@ export default function LanguageTutorScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle={scheme === 'dark' ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      <ScreenHeader navigation={navigation} title="Language Lab" subtitle="AI-powered learning assistant" />
+      <ScreenHeader navigation={navigation} title="Language Lab" subtitle="Axion-powered learning assistant" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

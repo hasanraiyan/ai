@@ -21,7 +21,6 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// ... other imports unchanged
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import { ThreadsContext } from '../contexts/ThreadsContext';
@@ -72,7 +71,7 @@ const QuickActions = ({ navigation }) => {
   const actions = useMemo(() => [
     // --- MODIFIED: Added Finance screen to quick actions ---
     { title: 'Finance Overview', icon: 'wallet-outline', screen: 'Finance', description: 'Track your money flow', color: '#6366F1' },
-    { title: 'Generate Image', icon: 'image-outline', screen: 'ImageGeneration', description: 'Create stunning AI art', color: '#FF6B6B' },
+    { title: 'Generate Image', icon: 'image-outline', screen: 'ImageGeneration', description: 'Create stunning Axion art', color: '#FF6B6B' },
     { title: 'Language Tutor', icon: 'language-outline', screen: 'LanguageTutor', description: 'Practice new languages', color: '#4ECDC4' },
   ], []);
 
@@ -113,14 +112,14 @@ const SelectableCharacters = ({ navigation }) => {
       { id: `u-system-${Date.now()}`, text: character.systemPrompt, role: 'user', isHidden: true },
       { id: `a-system-${Date.now()}`, text: character.greeting, role: 'model', characterId: character.id, ts },
     ];
-    const threadName = character.name === 'AI' ? "New Chat" : character.name;
+    const threadName = character.name === 'Axion' ? "New Chat" : character.name;
     const newThreadId = createThread(threadName, initialMessages, character.id);
     navigation.navigate('Chat', { threadId: newThreadId, name: threadName });
   };
 
   const allSelectable = useMemo(() => {
-    const AI = characters.find(c => c.id === 'AI-default-assistant');
-    const others = characters.filter(c => c.id !== 'AI-default-assistant');
+    const AI = characters.find(c => c.id === 'axion-default-assistant');
+    const others = characters.filter(c => c.id !== 'axion-default-assistant');
     return AI ? [AI, ...others] : others;
   }, [characters]);
 
@@ -148,7 +147,7 @@ const SelectableCharacters = ({ navigation }) => {
                 source={{ uri: item.avatarUrl }}
                 style={[styles.charAvatar, { backgroundColor: colors.imagePlaceholder }]}
               />
-              {item.id === 'AI-default-assistant' && (
+              {item.id === 'axion-default-assistant' && (
                 <View style={[styles.charBadge, { backgroundColor: colors.accent, borderColor: colors.card }]}>
                   <Ionicons name="star" size={10} color="#fff" />
                 </View>
@@ -228,7 +227,9 @@ const RecentImages = ({ navigation }) => {
       );
       setImages(fileData.sort((a, b) => b.time - a.time).slice(0, 6));
     } catch (e) {
-      console.error("Couldn't load recent images:", e);
+      systemLogger.error(LogCategory.SYSTEM, "Couldn't load recent images", {
+        error: e.message
+      });
       setImages([]);
     } finally {
       setLoading(false);
@@ -404,9 +405,9 @@ export default function ThreadsList({ navigation }) {
   }, []);
 
   const handleCreateDefaultChat = () => {
-    const AICharacter = characters.find(c => c.id === 'AI-default-assistant');
+    const AICharacter = characters.find(c => c.id === 'axion-default-assistant');
     if (!AICharacter) {
-      Alert.alert("Default Character Not Found", "Could not find the default AI assistant to start a chat.");
+      Alert.alert("Default Character Not Found", "Could not find the default Axion assistant to start a chat.");
       return;
     }
     const ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

@@ -78,7 +78,7 @@ describe('Tool Interface Preservation Verification', () => {
   describe('Character Configuration Compatibility', () => {
     const existingCharacterConfigs = [
       {
-        name: 'AI Assistant',
+        name: 'Axion',
         supportedTools: ['calculator', 'search_web']
       },
       {

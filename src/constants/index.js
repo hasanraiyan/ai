@@ -1,4 +1,4 @@
-export const IS_DEBUG = true;
+export const IS_DEBUG = __DEV__ || process.env.NODE_ENV === 'development';
 
 // Feature flags for agent system
 export const FEATURE_FLAGS = {

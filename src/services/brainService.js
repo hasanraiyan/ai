@@ -50,7 +50,9 @@ const safeJsonParse = (jsonString) => {
     return JSON.parse(jsonString);
   } catch (error) {
     if (IS_DEBUG) {
-      console.log('Initial JSON parse failed, attempting cleanup:', error.message);
+      brainLogger.debug(LogCategory.BRAIN, 'Initial JSON parse failed, attempting cleanup', {
+        error: error.message
+      });
     }
     
     try {

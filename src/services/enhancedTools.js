@@ -2,6 +2,7 @@
 
 import { toolImplementations, toolMetadata } from './tools';
 import { IS_DEBUG } from '../constants';
+import { toolsLogger, LogCategory } from '../utils/logging';
 
 /**
  * Enhanced Tools System for the Brain and Hands architecture
@@ -47,8 +48,8 @@ export const enhancedToolMetadata = [
  * @returns {Promise<Object>} Tool execution result
  */
 const clarifyTool = async ({ question }) => {
-  if (IS_DEBUG) {
-    console.log('Enhanced Tools: Clarify tool called with question:', question);
+  if (__DEV__) {
+    toolsLogger.debug(LogCategory.TOOLS, 'Enhanced Tools: Clarify tool called with question:', { question });
   }
   
   if (!question || typeof question !== 'string' || question.trim().length === 0) {
@@ -81,8 +82,8 @@ const clarifyTool = async ({ question }) => {
  * @returns {Promise<Object>} Tool execution result
  */
 const answerUserTool = async ({ answer }) => {
-  if (IS_DEBUG) {
-    console.log('Enhanced Tools: AnswerUser tool called with answer:', answer);
+  if (__DEV__) {
+    toolsLogger.debug(LogCategory.TOOLS, 'Enhanced Tools: AnswerUser tool called with answer:', { answer });
   }
   
   if (!answer || typeof answer !== 'string' || answer.trim().length === 0) {
@@ -243,7 +244,11 @@ export const executeEnhancedTool = async (toolName, parameters, context = {}) =>
     return result;
     
   } catch (error) {
-    console.error(`Enhanced Tools: Error executing '${toolName}':`, error);
+    toolsLogger.error(LogCategory.TOOLS, `Enhanced Tools: Error executing '${toolName}'`, {
+      error: error.message,
+      toolName,
+      parameters: Object.keys(parameters)
+    });
     
     return {
       success: false,

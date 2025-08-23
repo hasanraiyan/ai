@@ -23,7 +23,7 @@ const formatConversationHistory = (history) => {
       case 'user':
         return `[${timestamp}] USER: ${entry.content}`;
       case 'ai':
-        return `[${timestamp}] AI: ${entry.content}`;
+        return `[${timestamp}] Axion: ${entry.content}`;
       case 'tool':
         const toolResult = typeof entry.content === 'object' ? JSON.stringify(entry.content, null, 2) : entry.content;
         return `[${timestamp}] TOOL RESULT: ${toolResult}`;
@@ -254,10 +254,10 @@ export const createMasterPrompt = (history = [], availableTools = [], enhancedCo
 
 ${toolDeclarations}`;
 
-  return `# AI Agent - Brain (Reasoning Engine)
+  return `# Axion Agent - Brain (Reasoning Engine)
 
 ## Persona Definition
-You are the "Brain" component of an AI agent system that uses a "Reason-Act-Observe" pattern. Your role is to analyze user requests, reason about what actions to take, and decide which tools to use. You work in partnership with a "Hands" component that executes the tools you select.
+You are the "Brain" component of an Axion agent system that uses a "Reason-Act-Observe" pattern. Your role is to analyze user requests, reason about what actions to take, and decide which tools to use. You work in partnership with a "Hands" component that executes the tools you select.
 
 ## Your Responsibilities
 1. **Analyze** user requests and conversation context

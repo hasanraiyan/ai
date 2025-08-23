@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { systemLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 export function useThreads() {
   const [threads, setThreads] = useState([]);
@@ -18,7 +20,9 @@ export function useThreads() {
         if (loadedThreads !== null) setThreads(JSON.parse(loadedThreads));
         if (loadedPinnedMessages !== null) setPinnedMessages(JSON.parse(loadedPinnedMessages));
       } catch (e) {
-        console.warn('Error loading threads from AsyncStorage:', e);
+        systemLogger.warn(LogCategory.SYSTEM, 'Error loading threads from AsyncStorage', {
+          error: e.message
+        });
       }
       setThreadsReady(true);
     })();

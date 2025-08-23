@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { models } from '../constants/models';
+import { systemLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 export function useSettings() {
-  const [modelName, setModelName] = useState('gemma-3-27b-it');
+  const [modelName, setModelName] = useState('gemini-2.5-flash-lite');
   const [titleModelName, setTitleModelName] = useState('gemma-3-1b-it');
-  const [agentModelName, setAgentModelName] = useState('gemma-3-27b-it');
+  const [agentModelName, setAgentModelName] = useState('gemini-2.5-flash-lite');
   const [systemPrompt, setSystemPrompt] = useState(
-    "You are a helpful AI assistant." // Simple generic fallback prompt
+    "You are a helpful Axion assistant." 
   );
   const [apiKey, setApiKey] = useState('');
   const [tavilyApiKey, setTavilyApiKey] = useState('');
@@ -59,7 +61,9 @@ export function useSettings() {
         if (loadedTavilyApiKey !== null) setTavilyApiKey(loadedTavilyApiKey);
 
       } catch (e) {
-        console.warn('Error loading settings from AsyncStorage:', e);
+        systemLogger.warn(LogCategory.SYSTEM, 'Error loading settings from AsyncStorage', {
+          error: e.message
+        });
       }
       setSettingsReady(true);
     })();

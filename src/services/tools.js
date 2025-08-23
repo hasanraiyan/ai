@@ -4,6 +4,7 @@ import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
 import { encode as btoa } from 'base-64';
 import { IS_DEBUG } from '../constants';
+import { toolsLogger, LogCategory } from '../utils/logging';
 
 // --- DATE HELPER FUNCTIONS FOR REPORTING ---
 const getPeriodRange = (period) => {
@@ -40,7 +41,9 @@ export const getSearchSuggestions = async (query) => {
     const response = await axios.get(`https://duckduckgo.com/ac/?q=${encodeURIComponent(query)}&format=json`);
     return response.data.map(item => item.phrase).slice(0, 5);
   } catch (error) {
-    console.warn("Could not fetch search suggestions:", error);
+    toolsLogger.warn(LogCategory.TOOLS, "Could not fetch search suggestions", {
+      error: error.message
+    });
     return [];
   }
 };
@@ -113,10 +116,10 @@ export const getAvailableTools = () => toolMetadata;
  */
 const tools = {
   search_web: async ({ query }, { tavilyApiKey }) => {
-    console.log(`TOOL: Searching Tavily for "${query}"`);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Searching Tavily for "${query}"`);
     if (!tavilyApiKey) {
       const errorMsg = "Error: Tavily API key is not configured. Please add it in the settings.";
-      console.error(errorMsg);
+      toolsLogger.error(LogCategory.TOOLS, errorMsg);
       return { success: false, message: errorMsg, data: null };
     }
     try {
@@ -131,7 +134,7 @@ const tools = {
       const { answer, results } = response.data;
       
       if (IS_DEBUG) {
-          console.log("Tavily Search Response:", response.data);
+          toolsLogger.debug(LogCategory.TOOLS, "Tavily Search Response", response.data);
       }
       
       let summary = `**Search Answer:**\n${answer || 'No direct answer found.'}\n\n**Top Results:**\n`;
@@ -145,13 +148,15 @@ const tools = {
 
     } catch (error) {
       const errorMsg = "Error: Failed to perform web search. The API key might be invalid or the service may be unavailable.";
-      console.error("Tavily search failed:", error.response ? error.response.data : error.message);
+      toolsLogger.error(LogCategory.TOOLS, "Tavily search failed", {
+        error: error.response ? error.response.data : error.message
+      });
       return { success: false, message: errorMsg, data: null };
     }
   },
 
   calculator: async ({ expression }) => {
-    console.log(`TOOL: Calculating "${expression}"`);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Calculating "${expression}"`);
     try {
       const result = new Function(`return ${expression}`)(); 
       if (typeof result !== 'number' || !isFinite(result)) {
@@ -160,13 +165,13 @@ const tools = {
       return { success: true, message: `Calculation result: ${result}`, data: { result } };
     } catch (e) {
       const errorMsg = `Error evaluating expression: ${e.message}`;
-      console.error(errorMsg);
+      toolsLogger.error(LogCategory.TOOLS, errorMsg);
       return { success: false, message: errorMsg, data: null };
     }
   },
 
   image_generator: async ({ prompt, metadata = {} }) => {
-    console.log(`TOOL: Generating image for "${prompt}" with metadata:`, metadata);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Generating image for "${prompt}"`, metadata);
     const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
     const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
@@ -206,7 +211,7 @@ const tools = {
   },
 
   add_transaction: async (transactionData, { addTransaction }) => {
-    console.log(`TOOL: Adding transaction:`, transactionData);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Adding transaction`, transactionData);
     if (!addTransaction) return { success: false, message: "Internal error: addTransaction function not available.", data: null };
     if (!transactionData.type || !transactionData.amount || !transactionData.category) return { success: false, message: "Transaction failed: Missing required fields (type, amount, category).", data: null };
     
@@ -219,7 +224,7 @@ const tools = {
   },
 
   get_financial_report: async ({ period }, { getFinancialReport }) => {
-    console.log(`TOOL: Generating financial report for period: ${period}`);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Generating financial report for period: ${period}`);
     if (!getFinancialReport) return { success: false, message: "Internal error: getFinancialReport function not available.", data: null };
 
     try {
@@ -235,7 +240,7 @@ const tools = {
   },
 
   set_budget: async ({ category, amount }, { setBudget }) => {
-    console.log(`TOOL: Setting budget for ${category} to ${amount}`);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Setting budget for ${category} to ${amount}`);
     if (!setBudget) return { success: false, message: "Internal error: setBudget function not available.", data: null };
     try {
       setBudget(category, amount);
@@ -246,7 +251,7 @@ const tools = {
   },
   
   get_budget_status: async (_, { getBudgets, getTransactions }) => {
-    console.log(`TOOL: Generating budget status report`);
+    if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Generating budget status report`);
     if (!getBudgets || !getTransactions) return { success: false, message: "Internal error: Budget functions not available.", data: null };
     
     try {

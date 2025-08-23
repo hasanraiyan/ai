@@ -1,6 +1,6 @@
-# 🤖 AI Assistant: A Multi-Persona, Multi-Utility Platform
+# 🤖 Axion: A Multi-Persona, Multi-Utility Platform
 
-Welcome to the AI Assistant, a powerful and highly configurable showcase application built with React Native and powered by Google's latest Generative AI models. Evolved far beyond a simple chatbot, this is a feature-rich platform demonstrating a modern, tool-augmented, multi-persona AI experience on mobile.
+Welcome to Axion, a powerful and highly configurable showcase application built with React Native and powered by Google's latest Generative AI models. Evolved far beyond a simple chatbot, this is a feature-rich platform demonstrating a modern, tool-augmented, multi-persona AI experience on mobile.
 
 ![Made with React Native](https://img.shields.io/badge/Made%20with-React%20Native-61DAFB?logo=react&logoColor=white)
 ![Powered by Google AI](https://img.shields.io/badge/Powered%20by-Google%20AI-4285F4?logo=google&logoColor=white)
@@ -8,19 +8,19 @@ Welcome to the AI Assistant, a powerful and highly configurable showcase applica
 
 ## ✨ Core Features
 
-This application is packed with features that showcase a sophisticated, multi-faceted AI integration:
+This application is packed with features that showcase a sophisticated, multi-faceted Axion integration:
 
-*   🎭 **Dynamic Character System**: Don't just chat with one AI.
-    *   Choose from a diverse roster of pre-built AI characters, each with a unique personality, voice, and backstory.
-    *   Use the **Character Editor** to create, edit, and manage your own custom AI personas.
+*   🎭 **Dynamic Character System**: Don't just chat with one Axion.
+    *   Choose from a diverse roster of pre-built Axion characters, each with a unique personality, voice, and backstory.
+    *   Use the **Character Editor** to create, edit, and manage your own custom Axion personas.
     *   Characters can be equipped with specific tools, allowing for specialized agents like a `Finance Manager` or a `Code Wizard`.
 *   🛠️ **Tool-Augmented Agents**: In `Agent` mode, characters can leverage a set of tools to perform complex tasks beyond simple text responses:
     *   `search_web`: Performs real-time web searches for up-to-date information via the Tavily API.
     *   `calculator`: Evaluates mathematical expressions.
     *   `image_generator`: Creates images from text prompts and saves them locally.
     *   `add_transaction`, `get_financial_report`, `set_budget`: A suite of tools for the Finance Manager character.
-*   🧠 **AI-Powered Utilities**: The app includes several standalone, AI-driven screens:
-    *   💰 **Finance Manager**: A dedicated screen for personal finance tracking with a beautiful UI, charts, and AI-powered description enhancement.
+*   🧠 **Axion-Powered Utilities**: The app includes several standalone, Axion-driven screens:
+    *   💰 **Finance Manager**: A dedicated screen for personal finance tracking with a beautiful UI, charts, and Axion-powered description enhancement.
     *   🌐 **Language Lab**: A powerful learning tool with a "Translate" mode for detailed grammatical analysis and a "Tutor" mode for conversational practice.
     *   🎨 **Image Studio**: A specialized screen for generating images with fine-tuned control over styles, models, aspect ratios, and batch size.
 *   🖼️ **Image Gallery**: A dedicated screen to browse, share, download, and delete all images created by the AI. Each image stores its original prompt and generation settings as metadata.
@@ -84,7 +84,7 @@ The codebase is organized for clarity and scalability:
 
 ## 🚀 Getting Started
 
-Follow these steps to get the AI Assistant running on your local machine.
+Follow these steps to get Axion running on your local machine.
 
 ### 1. Prerequisites
 
@@ -110,8 +110,8 @@ This app uses two external services and requires API keys for both to be fully f
 
 ```bash
 # Clone the repository
-git clone https://github.com/hasanraiyan/ai
-cd ai
+git clone https://github.com/hasanraiyan/axion
+cd axion
 
 # Install dependencies
 npm install
@@ -132,14 +132,14 @@ npx expo start
 2.  Open the drawer menu (swipe from the left edge) and navigate to the **Settings** screen.
 3.  In the "API Keys" section, paste the **Google AI Key** you obtained.
 4.  Optionally, paste your **Tavily AI Key** to enable the web search tool.
-5.  That's it! Navigate back to the "Dashboard", select a character, and explore the app's capabilities.
+5.  That's it! Navigate back to the "Dashboard", select a character, and explore Axion's capabilities.
 
 ## ⚙️ Configuration Deep Dive
 
 The **Settings** screen is your control center.
 
 *   **API Keys**: Manage your keys for Google AI and Tavily. The app will gracefully handle missing keys by disabling the relevant features.
-*   **Default AI Persona**: Modify the `System Prompt` to change the personality of the generic AI used for new chats started from the Dashboard's floating action button.
+*   **Default AI Persona**: Modify the `System Prompt` to change the personality of Axion used for new chats started from the Dashboard's floating action button.
 *   **Model Configuration**:
     *   **Main Chat Model**: The primary model for non-agent conversations.
     *   **Title Generation Model**: A typically smaller, faster model used to automatically name your chats.

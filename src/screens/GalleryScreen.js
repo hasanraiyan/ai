@@ -28,6 +28,7 @@ import Toast from 'react-native-toast-message';
 import ImageViewing from 'react-native-image-viewing';
 import ScreenHeader from '../components/ScreenHeader';
 import { useTheme, spacing } from '../utils/theme';
+import { systemLogger, LogCategory } from '../utils/logging';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -102,7 +103,9 @@ export default function GalleryScreen({ navigation }) {
       data.sort((a, b) => b.time - a.time);
       setImages(data);
     } catch (e) {
-      console.error(e);
+      systemLogger.error(LogCategory.SYSTEM, "GalleryScreen: Error loading images", {
+        error: e.message
+      });
       setError('Couldn’t load images');
     } finally {
       setLoading(false);
@@ -163,9 +166,9 @@ export default function GalleryScreen({ navigation }) {
     }
     try {
       const asset = await MediaLibrary.createAssetAsync(uri);
-      let album = await MediaLibrary.getAlbumAsync('AI Generated');
+      let album = await MediaLibrary.getAlbumAsync('Axion Generated');
       if (!album) {
-        album = await MediaLibrary.createAlbumAsync('AI Generated', asset, false);
+        album = await MediaLibrary.createAlbumAsync('Axion Generated', asset, false);
       } else {
         await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
       }
@@ -257,7 +260,7 @@ export default function GalleryScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <ScreenHeader
         navigation={navigation}
-        title="AI Gallery"
+        title="Axion Gallery"
         subtitle="Your generated masterpieces"
         rightAction={
           <TouchableOpacity onPress={() => setViewMode(v => (v === 'grid' ? 'list' : 'grid'))}>

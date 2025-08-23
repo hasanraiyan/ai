@@ -3,6 +3,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { safetySettings } from '../constants/safetySettings';
 import { extractJson } from '../utils/extractJson'; // Use the single source of truth
+import { brainLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 export class AIAgent {
   constructor(apiKey, modelName = 'gemma-3-27b-it') {
@@ -46,7 +48,9 @@ export class AIAgent {
 
       return responseText;
     } catch (error) {
-      console.error("AIAgent prompt execution failed:", error);
+      brainLogger.error(LogCategory.BRAIN, "AIAgent prompt execution failed", {
+        error: error.message
+      });
       return null;
     }
   }

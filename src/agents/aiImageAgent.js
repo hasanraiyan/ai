@@ -3,6 +3,8 @@
 import { AIAgent } from "../services/aiAgents";
 // Import the actual tool implementation, not the dispatcher
 import { toolImplementations } from "../services/tools";
+import { brainLogger } from "../utils/logging";
+import { LogCategory } from "../utils/logging";
 
 // Updated function signature to accept metadataPayload
 export const generateImage = async (apikey, modelName, inputText, n = 1, metadataPayload = {}) => {
@@ -11,9 +13,9 @@ export const generateImage = async (apikey, modelName, inputText, n = 1, metadat
     }
 
     const agent = new AIAgent(apikey, modelName);
-    console.log("Agent created with model ", modelName);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Agent created with model", { modelName });
     const systemInstruction = `
-You are an AI prompt generation engine that takes user input and produces 'n' highly descriptive, image-ready prompts. Follow these rules exactly:
+You are an Axion prompt generation engine that takes user input and produces 'n' highly descriptive, image-ready prompts. Follow these rules exactly:
 
 ---
 
@@ -78,7 +80,7 @@ Only respond with JSON. No extra commentary or text.
         expectJson: true,
     });
 
-    console.log("Prompt generation result:", result);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Prompt generation result", result);
 
     if (!result?.generate || !Array.isArray(result.prompts)) {
         return {
@@ -98,7 +100,10 @@ Only respond with JSON. No extra commentary or text.
                     metadata: metadataPayload 
                 });
             } catch (e) {
-                console.error("Image generation failed for prompt:", p, e);
+                brainLogger.error(LogCategory.BRAIN, "Image generation failed for prompt", {
+                    prompt: p,
+                    error: e.message
+                });
                 return null;
             }
         })
@@ -108,7 +113,7 @@ Only respond with JSON. No extra commentary or text.
         .filter(res => res?.success && res?.data?.imageUrl) // <-- FIXED
         .map(res => res.data.imageUrl); // <-- FIXED
 
-    console.log("Generated image URLs:", imageUrls);
+    if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Generated image URLs", { imageUrls });
 
     return {
         success: true,

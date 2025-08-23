@@ -150,7 +150,7 @@ function SettingsScreen({ navigation }) {
       <ScreenHeader
         navigation={navigation}
         title="Settings"
-        subtitle="Configure your AI assistant"
+        subtitle="Configure Axion"
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -188,13 +188,13 @@ function SettingsScreen({ navigation }) {
           />
 
           <View style={styles.separator} />
-          <Text style={styles.cardSubTitle}>Tavily AI API Key</Text>
+          <Text style={styles.cardSubTitle}>Tavily Axion API Key</Text>
           <View style={styles.apiKeyContainer}>
             <TextInput
               style={styles.apiKeyInput}
               value={tavilyApiKey}
               onChangeText={setTavilyApiKey}
-              placeholder="Enter your Tavily AI API Key"
+              placeholder="Enter your Tavily Axion API Key"
               placeholderTextColor={colors.subtext}
               secureTextEntry={!showTavilyApiKey}
               autoCapitalize="none"
@@ -214,14 +214,14 @@ function SettingsScreen({ navigation }) {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="person-outline" size={20} color={colors.subtext} style={styles.cardIcon} />
-            <Text style={styles.cardTitle}>Default AI Persona</Text>
+            <Text style={styles.cardTitle}>Default Axion Persona</Text>
           </View>
           <Text style={styles.infoText}>This is the system prompt for new, generic chats that don't use a character.</Text>
           <TextInput
             style={styles.personaInput}
             value={systemPrompt}
             onChangeText={setSystemPrompt}
-            placeholder="Define the AI's persona, e.g., 'You are a helpful pirate assistant.'"
+            placeholder="Define the Axion's persona, e.g., 'You are a helpful pirate assistant.'"
             placeholderTextColor={colors.subtext}
             multiline
           />

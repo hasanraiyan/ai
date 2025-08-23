@@ -57,7 +57,7 @@ function CustomDrawerContent(props) {
       <View style={styles.headerContainer}>
         <Ionicons name="sparkles-sharp" size={32} color={colors.accent} style={styles.headerLogo} />
         <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>AI Assistant</Text>
+            <Text style={styles.headerTitle}>Axion</Text>
         </View>
       </View>
       <DrawerContentScrollView {...props} style={styles.scrollContainer}>

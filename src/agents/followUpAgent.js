@@ -1,25 +1,27 @@
 // src/agents/followUpAgent.js
 import { AIAgent } from "../services/aiAgents";
+import { brainLogger } from "../utils/logging";
+import { LogCategory } from "../utils/logging";
 
 const systemInstruction = `
-You are a helpful AI assistant. Your goal is to anticipate the user's next questions based on your last response and suggest 3 follow-up prompts for them to tap on.
+You are a helpful Axion assistant. Your goal is to anticipate the user's next questions based on your last response and suggest 3 follow-up prompts for them to tap on.
 
 **RULES:**
-1.  **Analyze Context:** Review the entire conversation, but focus your analysis on the last AI response to generate relevant next steps.
+1.  **Analyze Context:** Review the entire conversation, but focus your analysis on the last Axion response to generate relevant next steps.
 2.  **Generate 3 Suggestions:** Create exactly 3 follow-up prompts.
-3.  **WRITE FROM THE USER'S PERSPECTIVE:** This is the most important rule. Each suggestion MUST be phrased as something the *user* would type. They are questions or commands *to the AI*.
+3.  **WRITE FROM THE USER'S PERSPECTIVE:** This is the most important rule. Each suggestion MUST be phrased as something the *user* would type. They are questions or commands *to Axion*.
     *   **Correct:** "Tell me more about the aqueducts."
     *   **Incorrect:** "I can tell you more about the aqueducts."
     *   **Correct:** "What's the difference between .sort() and sorted()?"
     *   **Incorrect:** "Next, we could discuss the difference between .sort() and sorted()."
 4.  **Be Concise & Actionable:** Keep prompts to 5-10 words and start with an action (e.g., "Explain...", "Compare...", "What is...").
 5.  **Be Diverse & Insightful:** Do not just ask for "more details." Use these strategies:
-        *   **Go Deeper:** Zoom in on a specific term or concept from the AI's response. (e.g., If the AI mentions "aqueducts," suggest "Tell me more about Roman aqueducts.")
+        *   **Go Deeper:** Zoom in on a specific term or concept from the Axion's response. (e.g., If the Axion mentions "aqueducts," suggest "Tell me more about Roman aqueducts.")
         *   **Explore Tangents:** Connect the topic to a related field or a broader context. (e.g., "How did Roman law influence modern legal systems?")
         *   **Request Practical Application:** Ask how the information can be used. (e.g., "Show me a Python code example for this.")
         *   **Seek Alternative Perspectives:** Ask for a summary, a different format, a comparison, or a counter-argument. (e.g., "What was life like for a common Roman citizen?", "Summarize the key differences.")
 6.  **Avoid Redundancy:** Do not suggest a question that has already been clearly answered.
-7.  **Handle Simple Cases:** If the last AI response is a simple greeting, acknowledgement ("Okay," "I see"), error message, or if the conversation is just beginning, return an empty array of suggestions.
+7.  **Handle Simple Cases:** If the last Axion response is a simple greeting, acknowledgement ("Okay," "I see"), error message, or if the conversation is just beginning, return an empty array of suggestions.
 8.  **JSON ONLY:** You MUST respond with a single, valid JSON object. No extra text, explanations, or apologies.
 
 **JSON Schema:**
@@ -104,9 +106,14 @@ Your JSON Response (This is WRONG):
  * @returns {Promise<string[]>} A promise that resolves to an array of suggestion strings.
  */
 export const generateFollowUpSuggestions = async (apiKey, modelName, conversationHistory) => {
-    console.log("===============================================================================")
-    console.log("Generating follow-up suggestions with API key:", apiKey, "and model:", modelName);
-    console.log("===============================================================================");
+    if (__DEV__) {
+        brainLogger.debug(LogCategory.BRAIN, "Generating follow-up suggestions", { 
+            apiKey: apiKey ? '***' : null, 
+            modelName,
+            conversationLength: conversationHistory?.length 
+        });
+    }
+    
     if (!apiKey || !modelName || !conversationHistory || conversationHistory.length === 0) {
         return [];
     }
@@ -119,7 +126,7 @@ export const generateFollowUpSuggestions = async (apiKey, modelName, conversatio
         return [];
     }
     
-    // The last message must be from the AI (and not an error) to generate follow-ups.
+    // The last message must be from Axion (and not an error) to generate follow-ups.
     const lastMessage = nonSystemMessages[nonSystemMessages.length - 1];
     if (lastMessage.role !== 'model' || lastMessage.error) {
         return [];
@@ -138,7 +145,8 @@ export const generateFollowUpSuggestions = async (apiKey, modelName, conversatio
             systemInstruction,
             expectJson: true,
         });
-        console.log("Generated follow-up suggestions:", result);
+        
+        if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Generated follow-up suggestions", result);
 
         if (result && Array.isArray(result.suggestions)) {
             // Return exactly 3 suggestions as per the prompt's rules.
@@ -146,7 +154,9 @@ export const generateFollowUpSuggestions = async (apiKey, modelName, conversatio
         }
         return [];
     } catch (error) {
-        console.error("Failed to generate follow-up suggestions:", error);
+        brainLogger.error(LogCategory.BRAIN, "Failed to generate follow-up suggestions", {
+            error: error.message
+        });
         return [];
     }
 };

@@ -117,7 +117,10 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
             await MediaLibrary.createAssetAsync(uri);
             Alert.alert('Success!', 'Image saved to your gallery.');
         } catch (err) {
-            console.error('Download failed:', err); Alert.alert('Error', 'Failed to save image.');
+            brainLogger.error(LogCategory.BRAIN, 'Image download failed', {
+                error: err.message
+            }); 
+            Alert.alert('Error', 'Failed to save image.');
         } finally {
             setDownloading(false);
         }
@@ -202,7 +205,7 @@ export default function ImageGenerationScreen({ navigation }) {
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
             <ImageGalleryModal visible={modalVisible} images={urls} initialIndex={startIndex} onClose={() => setModalVisible(false)} />
-            <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with AI" />
+            <ScreenHeader title="Image Studio" navigation={navigation} subtitle="Craft your vision with Axion" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}

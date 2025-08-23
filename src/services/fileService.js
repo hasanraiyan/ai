@@ -2,6 +2,8 @@
 
 import * as FileSystem from 'expo-file-system';
 import Toast from 'react-native-toast-message';
+import { systemLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
 
@@ -22,7 +24,7 @@ export const deleteAllImageData = async () => {
       return;
     }
 
-    console.log('Deleting image directory:', IMAGE_DIR);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Deleting image directory', { IMAGE_DIR });
     await FileSystem.deleteAsync(IMAGE_DIR, { idempotent: true });
 
     // Re-create the directory for future use to prevent errors
@@ -35,7 +37,9 @@ export const deleteAllImageData = async () => {
     });
 
   } catch (error) {
-    console.error("Failed to delete image data:", error);
+    systemLogger.error(LogCategory.SYSTEM, "Failed to delete image data", {
+      error: error.message
+    });
     Toast.show({
       type: 'error',
       text1: 'Deletion Failed',

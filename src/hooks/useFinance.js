@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { systemLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 const FINANCE_STORAGE_KEY = '@finance_transactions';
 const BUDGET_STORAGE_KEY = '@finance_budgets'; // --- NEW ---
@@ -39,7 +41,9 @@ export function useFinance() {
         }
 
       } catch (e) {
-        console.warn('Error loading or parsing financial data from AsyncStorage:', e);
+        systemLogger.warn(LogCategory.SYSTEM, 'Error loading or parsing financial data from AsyncStorage', {
+          error: e.message
+        });
         setTransactions([]);
         setBudgets({}); // --- NEW ---
       } finally {
@@ -67,7 +71,7 @@ export function useFinance() {
     const amount = parseFloat(newTransactionData.amount);
 
     if (isNaN(amount) || !newTransactionData.type || !newTransactionData.description) {
-      console.error("Validation failed: Attempted to add an invalid transaction.", newTransactionData);
+      systemLogger.error(LogCategory.SYSTEM, "Validation failed: Attempted to add an invalid transaction.", newTransactionData);
       return;
     }
 
@@ -78,7 +82,7 @@ export function useFinance() {
       date: new Date().toISOString(),
     };
     setTransactions(prev => [transaction, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date))); // Keep sorted
-    console.log('Added transaction:', transaction);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Added transaction', transaction);
   }, []);
   
   // --- NEW: Function to update an existing transaction ---
@@ -88,13 +92,13 @@ export function useFinance() {
         .map(tx => (tx.id === updatedTransaction.id ? { ...tx, ...updatedTransaction } : tx))
         .sort((a, b) => new Date(b.date) - new Date(a.date)) // Re-sort after update
     );
-    console.log('Updated transaction:', updatedTransaction.id);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Updated transaction', { transactionId: updatedTransaction.id });
   }, []);
 
   // --- NEW: Function to delete a transaction by its ID ---
   const deleteTransaction = useCallback((transactionId) => {
     setTransactions(prev => prev.filter(tx => tx.id !== transactionId));
-    console.log('Deleted transaction:', transactionId);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Deleted transaction', { transactionId });
   }, []);
 
   const getTransactions = useCallback(() => {
@@ -105,11 +109,11 @@ export function useFinance() {
   const setBudget = useCallback((category, amount) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0 || !category) {
-      console.error("Validation failed: Invalid budget data.", { category, amount });
+      systemLogger.error(LogCategory.SYSTEM, "Validation failed: Invalid budget data.", { category, amount });
       throw new Error("Invalid budget data provided. Please provide a valid category and a positive number for the amount.");
     }
     setBudgets(prev => ({ ...prev, [category]: numAmount }));
-    console.log(`Set budget for ${category}: ${numAmount}`);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, `Set budget for ${category}`, { category, amount: numAmount });
   }, []);
 
   const deleteBudget = useCallback((category) => {
@@ -118,7 +122,7 @@ export function useFinance() {
         delete newBudgets[category];
         return newBudgets;
     });
-    console.log(`Deleted budget for ${category}`);
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, `Deleted budget for ${category}`, { category });
   }, []);
 
   const getBudgets = useCallback(() => {
@@ -129,7 +133,7 @@ export function useFinance() {
   const clearAllFinanceData = useCallback(() => {
     setTransactions([]);
     setBudgets({}); // --- NEW ---
-    console.log('All financial data cleared.');
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'All financial data cleared.');
   }, []);
 
   // --- NEW: Financial report generator ---
@@ -198,7 +202,7 @@ export function useFinance() {
       report += 'No income recorded.\n';
     } else {
       for (const [cat, amt] of Object.entries(incomeByCat)) {
-        report += `- ${cat}: Rs ${amt.toFixed(2)}\n`;
+        report += `- **${cat}:** Rs ${amt.toFixed(2)}\n`;
       }
     }
     report += `\n## Expenses by Category\n`;
@@ -206,16 +210,8 @@ export function useFinance() {
       report += 'No expenses recorded.\n';
     } else {
       for (const [cat, amt] of Object.entries(expenseByCat)) {
-        report += `- ${cat}: Rs ${amt.toFixed(2)}\n`;
+        report += `- **${cat}:** Rs ${amt.toFixed(2)}\n`;
       }
-    }
-
-    // Optionally, list recent transactions (5 most recent)
-    if (txs.length > 0) {
-      report += `\n## Recent Transactions\n`;
-      txs.slice(0, 5).forEach(tx => {
-        report += `- [${tx.type.toUpperCase()}] Rs ${tx.amount.toFixed(2)} | ${tx.category} | ${tx.description} | ${new Date(tx.date).toLocaleString()}\n`;
-      });
     }
 
     return report;
@@ -223,16 +219,16 @@ export function useFinance() {
 
   return {
     transactions,
-    budgets, // --- NEW ---
+    budgets,
+    financeReady,
     addTransaction,
     updateTransaction,
     deleteTransaction,
     getTransactions,
-    clearAllFinanceData, // --- MODIFIED ---
-    setBudget, // --- NEW ---
-    deleteBudget, // --- NEW ---
-    getBudgets, // --- NEW ---
-    financeReady,
-    getFinancialReport, 
+    setBudget,
+    deleteBudget,
+    getBudgets,
+    clearAllFinanceData,
+    getFinancialReport,
   };
 }

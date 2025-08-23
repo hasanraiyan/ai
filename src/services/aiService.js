@@ -6,6 +6,7 @@ import { toolDispatcher } from './tools';
 import { extractJson } from '../utils/extractJson';
 import { IS_DEBUG, FEATURE_FLAGS } from '../constants';
 import { executeAgentRequest } from './agentExecutor';
+import { brainLogger, LogCategory } from '../utils/logging';
 
 /**
  * Legacy AI service implementation (original single-shot approach)
@@ -29,7 +30,7 @@ const sendMessageToAI_Legacy = async ({
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
 
-  if (IS_DEBUG) console.log("Using model:", modelName);
+  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Using model:", { modelName });
 
   const chatHistory = historyMessages
     .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking')
@@ -38,14 +39,14 @@ const sendMessageToAI_Legacy = async ({
       parts: [{ text: m.text }],
     }));
 
-  if (IS_DEBUG) console.log("Chat History:", JSON.stringify(chatHistory, null, 2));
+  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Chat History:", { chatHistory });
 
   const chat = model.startChat({ history: chatHistory });
 
-  if (IS_DEBUG) console.log("New Message Text:", newMessageText);
+  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "New Message Text:", { newMessageText });
   const result = await chat.sendMessage(newMessageText);
   let responseText = await result.response.text();
-  if (IS_DEBUG) console.log("Initial AI Response Text:", responseText);
+  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Initial AI Response Text:", { responseText });
 
   if (isAgentMode) {
     const toolCall = extractJson(responseText);
@@ -64,11 +65,11 @@ const sendMessageToAI_Legacy = async ({
       });
 
       const toolResultText = `Tool results:\n${JSON.stringify(toolResults, null, 2)}`;
-      if (IS_DEBUG) console.log("Sending Tool Results to AI:", toolResultText);
+      if (IS_DEBUG) brainLogger.debug(LogCategory.BRAIN, "Sending Tool Results to AI", { toolResultText });
 
       const finalResult = await chat.sendMessage(toolResultText);
       responseText = await finalResult.response.text();
-      if (IS_DEBUG) console.log("Final AI Response Text:", responseText);
+      if (IS_DEBUG) brainLogger.debug(LogCategory.BRAIN, "Final AI Response Text", { responseText });
     }
   }
 
@@ -91,7 +92,7 @@ const sendMessageToAI_NewSystem = async ({
   allowedTools = [],
 }) => {
   if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-    console.log('AI Service: Using new Brain-Hands agent system');
+    brainLogger.debug(LogCategory.BRAIN, 'AI Service: Using new Brain-Hands agent system');
   }
 
   // Convert legacy message format to new conversation history format
@@ -212,7 +213,7 @@ export const sendMessageToAI = async (params) => {
     const validatedParams = validateAndMapParameters(params);
 
     if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-      console.log('AI Service: Processing request with parameters:', {
+      brainLogger.debug(LogCategory.BRAIN, 'AI Service: Processing request with parameters', {
         modelName: validatedParams.modelName,
         isAgentMode: validatedParams.isAgentMode,
         useNewSystem: FEATURE_FLAGS.USE_NEW_AGENT_SYSTEM,
@@ -226,12 +227,14 @@ export const sendMessageToAI = async (params) => {
       try {
         return await sendMessageToAI_NewSystem(validatedParams);
       } catch (error) {
-        console.error('AI Service: New system failed:', error);
+        brainLogger.error(LogCategory.BRAIN, 'AI Service: New system failed', {
+          error: error.message
+        });
         
         // Fallback to legacy system if enabled
         if (FEATURE_FLAGS.FALLBACK_ON_ERROR) {
           if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-            console.log('AI Service: Falling back to legacy system due to error');
+            brainLogger.debug(LogCategory.BRAIN, 'AI Service: Falling back to legacy system due to error');
           }
           return await sendMessageToAI_Legacy(validatedParams);
         } else {
@@ -241,13 +244,15 @@ export const sendMessageToAI = async (params) => {
     } else {
       // Use legacy system
       if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY && validatedParams.isAgentMode) {
-        console.log('AI Service: Using legacy system (new system disabled or non-agent mode)');
+        brainLogger.debug(LogCategory.BRAIN, 'AI Service: Using legacy system (new system disabled or non-agent mode)');
       }
       return await sendMessageToAI_Legacy(validatedParams);
     }
 
   } catch (error) {
-    console.error('AI Service: Request failed:', error);
+    brainLogger.error(LogCategory.BRAIN, 'AI Service: Request failed', {
+      error: error.message
+    });
     throw error;
   }
 };

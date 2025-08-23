@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { defaultCharacters } from '../constants/characters';
+import { systemLogger } from '../utils/logging';
+import { LogCategory } from '../utils/logging';
 
 const CHARACTERS_STORAGE_KEY = '@characters';
 
@@ -19,7 +21,7 @@ export function useCharacters() {
         if (storedCharactersJSON === null) {
           // --- SCENARIO 1: FIRST-TIME LAUNCH ---
           // No data in storage, so we seed the app with the default characters.
-          console.log("First launch: Seeding with default characters.");
+          if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, "First launch: Seeding with default characters.");
           setCharacters(defaultCharacters);
         } else {
           // --- SCENARIO 2: EXISTING USER ---
@@ -39,7 +41,9 @@ export function useCharacters() {
           setCharacters(finalCharacterList);
         }
       } catch (e) {
-        console.warn('Error loading or initializing characters, falling back to defaults:', e);
+        systemLogger.warn(LogCategory.SYSTEM, 'Error loading or initializing characters, falling back to defaults', {
+          error: e.message
+        });
         // --- SCENARIO 3: ERROR FALLBACK ---
         // If anything goes wrong (e.g., corrupted data), start fresh with defaults.
         setCharacters(defaultCharacters);
