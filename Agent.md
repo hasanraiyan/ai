@@ -45,14 +45,43 @@ Drawer
 ```
 - The `Chat` screen is also in the drawer but is navigated to from `ThreadsList` or `CharacterSelectScreen`, so it's not a primary drawer item.
 
-## Key Integrations
+## LLM Integration via LangChain
 
--   **Google Generative AI:**
-    -   **Purpose:** Powers all AI features, including chat, agent functionality, and text generation.
-    -   **Location:** The `@google/generative-ai` package is used in `src/services/aiService.js` and `src/services/aiAgents.js`.
+The application's AI capabilities are powered by a flexible LLM integration built with LangChain.js. This allows the app to be provider-agnostic, supporting LLMs from Google (Gemini), local instances via Ollama, and other providers as needed.
+
+-   **Purpose:** Powers all AI features, including chat, agent functionality, and text generation.
+-   **Core Logic:** The main integration is handled by a LangChain agent in `src/services/aiService.js`.
+-   **Adapter:** `src/lib/llm/llmAdapter.js` contains a factory function that creates the appropriate LLM client based on environment variables.
+-   **Tools:** `src/lib/llm/langchainTools.js` wraps the project's custom tool implementations (from `src/services/tools.js`) into a LangChain-compatible format.
+
+### Switching LLM Provider
+
+You can easily switch between LLM providers by setting environment variables in a `.env` file at the project root. See `.env.example` for a full template.
+
+1.  **Create a `.env` file** in the root of the project.
+2.  **Set the `LLM_PROVIDER`** variable to your desired provider.
+    -   Supported values: `"gemini"`, `"ollama"`.
+3.  **Configure the provider:**
+    -   **For Gemini:**
+        ```
+        LLM_PROVIDER="gemini"
+        LLM_MODEL="gemini-pro"
+        GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
+        ```
+    -   **For Ollama (local):**
+        ```
+        LLM_PROVIDER="ollama"
+        LLM_MODEL="llama3" # Or any other model you have pulled
+        # Optional: Specify a custom host if not running on the default port
+        # LLM_API_BASE_URL="http://192.168.1.100:11434"
+        ```
+4.  **Restart the application** for the changes to take effect.
+
+## Other Key Integrations
+
 -   **Tavily API:**
     -   **Purpose:** Provides real-time web search capabilities for the AI agent.
-    -   **Location:** The `search_web` tool in `src/services/tools.js` calls this API.
+    -   **Location:** The `search_web` tool in `src/services/tools.js` calls this API. Set the `TAVILY_API_KEY` in your `.env` file.
 -   **React Navigation:**
     -   **Purpose:** Manages all navigation within the app.
     -   **Location:** Setup is in `App.js` and `src/navigation/CustomDrawerContent.js`.

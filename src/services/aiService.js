@@ -1,257 +1,149 @@
 // src/services/aiService.js
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { safetySettings } from '../constants/safetySettings';
-import { toolDispatcher } from './tools';
-import { extractJson } from '../utils/extractJson';
-import { IS_DEBUG, FEATURE_FLAGS } from '../constants';
-import { executeAgentRequest } from './agentExecutor';
-import { brainLogger, LogCategory } from '../utils/logging';
+import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { BaseCallbackHandler } from "@langchain/core/callbacks";
+import { createLLMClient } from '../lib/llm/llmAdapter.js';
+import { getLangChainTools } from '../lib/llm/langchainTools.js';
+import { brainLogger, LogCategory } from '../utils/logging.js';
 
 /**
- * Legacy AI service implementation (original single-shot approach)
- * Used when FEATURE_FLAGS.USE_NEW_AGENT_SYSTEM is false
+ * A custom callback handler to bridge LangChain's tool events with the app's UI.
+ * This handler calls the `onToolCall` function passed from the UI, allowing the
+ * app to display feedback when the agent decides to use a tool.
  */
-const sendMessageToAI_Legacy = async ({
-  apiKey,
-  modelName,
-  historyMessages,
-  newMessageText,
-  isAgentMode,
-  onToolCall,
-  tavilyApiKey,
-  financeContext,
-  allowedTools = [],
-}) => {
-  if (!apiKey) {
-    throw new Error("API Key Missing. Please set your Google AI API Key in Settings.");
+class CustomToolCallbackHandler extends BaseCallbackHandler {
+  name = "CustomToolCallbackHandler";
+
+  constructor(onToolCallCallback) {
+    super();
+    this.onToolCallCallback = onToolCallCallback;
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: modelName, safetySettings });
-
-  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Using model:", { modelName });
-
-  const chatHistory = historyMessages
-    .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking')
-    .map(m => ({
-      role: m.role,
-      parts: [{ text: m.text }],
-    }));
-
-  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Chat History:", { chatHistory });
-
-  const chat = model.startChat({ history: chatHistory });
-
-  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "New Message Text:", { newMessageText });
-  const result = await chat.sendMessage(newMessageText);
-  let responseText = await result.response.text();
-  if (__DEV__) brainLogger.debug(LogCategory.BRAIN, "Initial AI Response Text:", { responseText });
-
-  if (isAgentMode) {
-    const toolCall = extractJson(responseText);
-    if (toolCall && toolCall['tools-required']) {
-      if (onToolCall) {
-        onToolCall(toolCall);
+  /**
+   * Called when a tool is about to start executing.
+   * @param {import("@langchain/core/tools").Tool} tool - The tool being called.
+   * @param {string} input - The string input to the tool.
+   */
+  handleToolStart(tool, input) {
+    if (this.onToolCallCallback) {
+      try {
+        // The input for structured tools is a JSON string.
+        const parameters = JSON.parse(input);
+        // Recreate the legacy tool call format for UI compatibility.
+        const legacyToolCall = {
+          'tools-required': [{
+            tool_name: tool.name,
+            parameters: parameters,
+          }],
+        };
+        this.onToolCallCallback(legacyToolCall);
+      } catch (error) {
+        brainLogger.error(LogCategory.BRAIN, "Failed to parse tool input in callback handler", { error, input });
       }
-
-      const toolResults = await toolDispatcher({
-        toolCall,
-        context: {
-          tavilyApiKey,
-          ...financeContext,
-          allowedTools,
-        },
-      });
-
-      const toolResultText = `Tool results:\n${JSON.stringify(toolResults, null, 2)}`;
-      if (IS_DEBUG) brainLogger.debug(LogCategory.BRAIN, "Sending Tool Results to AI", { toolResultText });
-
-      const finalResult = await chat.sendMessage(toolResultText);
-      responseText = await finalResult.response.text();
-      if (IS_DEBUG) brainLogger.debug(LogCategory.BRAIN, "Final AI Response Text", { responseText });
     }
   }
+}
 
-  return responseText;
+/**
+ * Transforms the application's message history into a format LangChain can understand.
+ * @param {Array<object>} historyMessages - The application's message history.
+ * @returns {Array<import("@langchain/core/messages").BaseMessage>} The history formatted for LangChain.
+ */
+const formatHistoryForLangChain = (historyMessages) => {
+  return historyMessages.map(msg => {
+    switch (msg.role) {
+      case 'user':
+        return new HumanMessage(msg.text);
+      case 'model':
+        return new AIMessage(msg.text);
+      default:
+        return null;
+    }
+  }).filter(Boolean);
 };
 
 /**
- * New Brain-Hands agent system implementation
- * Used when FEATURE_FLAGS.USE_NEW_AGENT_SYSTEM is true
+ * Main AI service function, now powered by LangChain.
+ * This function orchestrates the entire process of receiving a user message,
+ * running it through a LangChain agent, and returning the response.
  */
-const sendMessageToAI_NewSystem = async ({
-  apiKey,
-  modelName,
-  historyMessages,
-  newMessageText,
-  isAgentMode,
-  onToolCall,
-  tavilyApiKey,
-  financeContext,
-  allowedTools = [],
-}) => {
-  if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-    brainLogger.debug(LogCategory.BRAIN, 'AI Service: Using new Brain-Hands agent system');
-  }
-
-  // Convert legacy message format to new conversation history format
-  const conversationHistory = historyMessages
-    .filter(m => !m.error && m.role !== 'tool-result' && m.role !== 'agent-thinking')
-    .map(m => ({
-      role: m.role === 'model' ? 'ai' : m.role, // Convert 'model' to 'ai' for new system
-      content: m.text,
-      timestamp: m.ts || Date.now(),
-      metadata: {
-        characterId: m.characterId,
-        originalFormat: 'legacy'
-      }
-    }));
-
-  // Create context for new agent system
-  const agentContext = {
-    apiKey,
-    modelName,
-    tavilyApiKey,
-    allowedTools,
-    // Map finance context functions
-    ...(financeContext || {}),
-  };
-
-  // Execute agent request using new system
-  const result = await executeAgentRequest({
-    userInput: newMessageText,
-    conversationHistory,
-    context: agentContext,
-    maxIterations: 5
-  });
-
-  if (!result.success) {
-    throw new Error(result.response || 'Agent execution failed');
-  }
-
-  // Handle tool call notifications for UI compatibility
-  if (isAgentMode && onToolCall && result.conversationHistory) {
-    // Extract tool calls from conversation history for UI notification
-    const toolCalls = result.conversationHistory
-      .filter(entry => entry.role === 'ai' && entry.content && typeof entry.content === 'object')
-      .map(entry => entry.content);
-
-    if (toolCalls.length > 0) {
-      // Simulate the legacy tool call format for UI compatibility
-      const legacyToolCall = {
-        'tools-required': toolCalls.map(call => ({
-          tool_name: call.tool_name,
-          parameters: call.parameters
-        }))
-      };
-      onToolCall(legacyToolCall);
-    }
-  }
-
-  return result.response;
-};
-
-/**
- * Parameter mapping and validation for compatibility
- */
-const validateAndMapParameters = (params) => {
+export const sendMessageToAI = async (params) => {
   const {
     apiKey,
     modelName,
     historyMessages = [],
     newMessageText,
-    isAgentMode = false,
     onToolCall,
     tavilyApiKey,
     financeContext,
-    allowedTools = []
+    allowedTools = [],
   } = params;
 
-  // Validate required parameters
-  if (!apiKey || typeof apiKey !== 'string') {
-    throw new Error('API Key is required and must be a string');
-  }
+  brainLogger.info(LogCategory.BRAIN, "Processing request with LangChain agent", {
+    modelName,
+    historyLength: historyMessages.length,
+    allowedToolsCount: allowedTools.length,
+  });
 
-  if (!modelName || typeof modelName !== 'string') {
-    throw new Error('Model name is required and must be a string');
-  }
-
-  if (!newMessageText || typeof newMessageText !== 'string') {
-    throw new Error('New message text is required and must be a string');
-  }
-
-  if (!Array.isArray(historyMessages)) {
-    throw new Error('History messages must be an array');
-  }
-
-  if (!Array.isArray(allowedTools)) {
-    throw new Error('Allowed tools must be an array');
-  }
-
-  // Return validated and normalized parameters
-  return {
-    apiKey: apiKey.trim(),
-    modelName: modelName.trim(),
-    historyMessages,
-    newMessageText: newMessageText.trim(),
-    isAgentMode: Boolean(isAgentMode),
-    onToolCall,
-    tavilyApiKey,
-    financeContext: financeContext || {},
-    allowedTools
-  };
-};
-
-/**
- * Main AI service function - Compatibility wrapper that maintains existing interface
- * while providing the ability to switch between old and new agent systems
- */
-export const sendMessageToAI = async (params) => {
   try {
-    // Validate and normalize parameters
-    const validatedParams = validateAndMapParameters(params);
+    // 1. Create the LLM client using the adapter
+    const llm = createLLMClient({ modelName, apiKey });
 
-    if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-      brainLogger.debug(LogCategory.BRAIN, 'AI Service: Processing request with parameters', {
-        modelName: validatedParams.modelName,
-        isAgentMode: validatedParams.isAgentMode,
-        useNewSystem: FEATURE_FLAGS.USE_NEW_AGENT_SYSTEM,
-        historyLength: validatedParams.historyMessages.length,
-        allowedToolsCount: validatedParams.allowedTools.length
-      });
+    // 2. Create the context for the tools
+    const toolContext = { tavilyApiKey, ...financeContext, allowedTools };
+    const tools = getLangChainTools(toolContext);
+
+    // 3. Define the agent prompt
+    const prompt = ChatPromptTemplate.fromMessages([
+      ["system", "You are a helpful assistant. You have access to a set of tools to help you answer questions. When you use a tool, the result will be provided to you. Use the tools as needed to answer the user's request."],
+      new MessagesPlaceholder("chat_history"),
+      ["human", "{input}"],
+      new MessagesPlaceholder("agent_scratchpad"),
+    ]);
+
+    // 4. Create the agent
+    const agent = await createToolCallingAgent({
+      llm,
+      tools,
+      prompt,
+    });
+
+    // 5. Create the Agent Executor
+    const agentExecutor = new AgentExecutor({
+      agent,
+      tools,
+      verbose: process.env.NODE_ENV === 'development',
+    });
+
+    // 6. Format the conversation history
+    const chatHistory = formatHistoryForLangChain(historyMessages);
+
+    // 7. Set up callbacks
+    const callbacks = [];
+    if (onToolCall) {
+      callbacks.push(new CustomToolCallbackHandler(onToolCall));
     }
 
-    // Route to appropriate implementation based on feature flag
-    if (FEATURE_FLAGS.USE_NEW_AGENT_SYSTEM && validatedParams.isAgentMode) {
-      try {
-        return await sendMessageToAI_NewSystem(validatedParams);
-      } catch (error) {
-        brainLogger.error(LogCategory.BRAIN, 'AI Service: New system failed', {
-          error: error.message
-        });
-        
-        // Fallback to legacy system if enabled
-        if (FEATURE_FLAGS.FALLBACK_ON_ERROR) {
-          if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY) {
-            brainLogger.debug(LogCategory.BRAIN, 'AI Service: Falling back to legacy system due to error');
-          }
-          return await sendMessageToAI_Legacy(validatedParams);
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      // Use legacy system
-      if (FEATURE_FLAGS.DEBUG_AGENT_COMPATIBILITY && validatedParams.isAgentMode) {
-        brainLogger.debug(LogCategory.BRAIN, 'AI Service: Using legacy system (new system disabled or non-agent mode)');
-      }
-      return await sendMessageToAI_Legacy(validatedParams);
-    }
+    // 8. Invoke the agent
+    const result = await agentExecutor.invoke(
+      {
+        input: newMessageText,
+        chat_history: chatHistory,
+      },
+      { callbacks }
+    );
+
+    brainLogger.info(LogCategory.BRAIN, "LangChain agent finished processing.", { output: result.output });
+
+    // 9. Return the final response
+    return result.output;
 
   } catch (error) {
-    brainLogger.error(LogCategory.BRAIN, 'AI Service: Request failed', {
-      error: error.message
+    brainLogger.error(LogCategory.BRAIN, 'LangChain agent execution failed', {
+      error: error.message,
+      stack: error.stack,
     });
     throw error;
   }

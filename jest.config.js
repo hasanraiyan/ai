@@ -4,7 +4,7 @@ module.exports = {
     '^.+\\.js$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@google/generative-ai|expo-file-system|expo-.*)/)',
+    'node_modules/(?!(langchain|@langchain/core|@langchain/community|@langchain/google-genai|@google/generative-ai|expo-file-system|expo-.*)/)',
   ],
   moduleFileExtensions: ['js', 'json'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
