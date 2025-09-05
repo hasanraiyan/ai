@@ -3,7 +3,7 @@
 import { AgentExecutor, createToolCallingAgent } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
-import { BaseCallbackHandler } from "@langchain/core/callbacks";
+import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { createLLMClient } from '../lib/llm/llmAdapter.js';
 import { getLangChainTools } from '../lib/llm/langchainTools.js';
 import { brainLogger, LogCategory } from '../utils/logging.js';

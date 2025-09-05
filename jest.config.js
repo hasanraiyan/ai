@@ -4,7 +4,7 @@ module.exports = {
     '^.+\\.js$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(langchain|@langchain/core|@langchain/community|@langchain/google-genai|@google/generative-ai|expo-file-system|expo-.*)/)',
+    "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo/vector-icons|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|langchain|@langchain/.*))"
   ],
   moduleFileExtensions: ['js', 'json'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
