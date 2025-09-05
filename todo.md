@@ -1,27 +1,27 @@
-# TODO - Items for Review
+# LLM Refactor TODO
 
-This file lists items that were identified during the codebase analysis and may require further review or action.
+This file tracks the tasks related to the LangChain integration refactor.
 
-### Unused or Placeholder Files
+## Completed Tasks
 
--   `src/components/ImageGalleryModal.js`: This file is currently empty. It should be reviewed to determine if it's a placeholder for a future feature or if it can be safely removed.
+-   [x] Replace Google Gen AI integration with a LangChain-based adapter.
+-   [x] Remove both "Legacy" and "New Brain-Hands" agent systems.
+-   [x] Implement a single, unified agent using `langchain/agents`.
+-   [x] Create an LLM adapter (`llmAdapter.js`) to support multiple providers (Gemini, Ollama).
+-   [x] Create a tool adapter (`langchainTools.js`) to wrap existing tools for LangChain compatibility.
+-   [x] Refactor `aiService.js` to be the single entry point for the new agent.
+-   [x] Preserve UI feedback by using a custom callback handler for tool calls.
+-   [x] Add `.env.example` with new environment variables for configuration.
+-   [x] Update `Agent.md` with documentation for the new architecture.
+-   [x] Add `notes.md` to document design decisions.
+-   [x] Update this `todo.md` file.
+-   [ ] Implement unit and integration tests for the new `aiService.js` and its components.
+-   [ ] Manually verify the end-to-end functionality.
 
-### Experimental Features
+## Future Work & Potential Improvements
 
--   **Brain-Hands Agent System:** The following files are part of a new, experimental "Brain-Hands" agent architecture. Their usage is controlled by the `USE_NEW_AGENT_SYSTEM` feature flag in `src/constants/index.js`.
-    -   `src/prompts/masterPrompt.js`
-    -   `src/services/agentExecutor.js`
-    -   `src/services/brainService.js`
-    -   `src/services/handsService.js`
-    -   `src/services/enhancedTools.js`
-    -   `src/services/toolCompatibilityAdapter.js`
-    -   **Action:** Review the status of this feature. If it's stable, consider removing the feature flag and the legacy system. If it's deprecated, these files could be removed.
-
-### Developer Notes & Debug Code
-
--   **`src/services/TOOL_COMPATIBILITY_SUMMARY.md`**: This file appears to be a developer note. Review its contents and decide if it should be moved to project documentation or removed.
--   **`console.log` statements**: There are several `console.log` statements throughout the codebase, particularly in the `src/agents/` and `src/services/` directories. These should be replaced with the structured logger from `src/utils/logging.js` or removed for production builds.
-
-### Potential Duplication
-
--   **JSON Extraction**: There are two `extractJson` functions, one in `src/utils/extractJson.js` and a static method in `src/services/aiAgents.js`. The one in `aiAgents.js` is just a wrapper. This is not a major issue, but for consistency, all parts of the app should use the utility from `src/utils/extractJson.js`. The static method could be removed to avoid confusion.
+-   [ ] **Enhance History Management:** The current history formatting in `aiService.js` is basic. It doesn't handle `ToolMessage` from past conversations. A more robust solution would be to serialize and deserialize the LangChain `BaseMessage` objects directly.
+-   [ ] **UI for Configuration:** The LLM provider is configured via environment variables. A future feature could be to build a settings screen UI to manage these configurations.
+-   [ ] **Streaming Support:** The current implementation waits for the final response. Implementing streaming would significantly improve the user experience. This would involve using the `agentExecutor.stream()` method and updating the UI to handle the streamed chunks.
+-   [ ] **Expand Provider Support:** Add more providers to `llmAdapter.js` (e.g., Anthropic, OpenAI) as needed.
+-   [ ] **Error Handling:** Improve error handling to give more specific feedback to the user if an API key is missing or invalid for the selected provider.
