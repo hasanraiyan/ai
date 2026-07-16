@@ -22,14 +22,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { Paths, Directory, File } from 'expo-file-system';
 import { ThreadsContext } from '../contexts/ThreadsContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { CharactersContext } from '../contexts/CharactersContext';
 import { useTheme, spacing, typography } from '../utils/theme';
+import { systemLogger, LogCategory } from '../utils/logging';
 import ScreenHeader from '../components/ScreenHeader';
 
-const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
+const imageDir = new Directory(Paths.document, 'ai_generated_images');
 const { width: screenWidth } = Dimensions.get('window');
 
 // --- Reusable Components ---
@@ -215,16 +216,14 @@ const RecentImages = ({ navigation }) => {
   const loadRecentImages = useCallback(async () => {
     setLoading(true);
     try {
-      const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
-      if (!dirInfo.exists) { setImages([]); return; }
-      const files = (await FileSystem.readDirectoryAsync(IMAGE_DIR)).filter(f => /\.(jpe?g|png)$/i.test(f));
-      const fileData = await Promise.all(
-        files.map(async (fileName) => ({
-          id: fileName,
-          uri: IMAGE_DIR + fileName,
-          time: (await FileSystem.getInfoAsync(IMAGE_DIR + fileName)).modificationTime || 0,
-        }))
-      );
+      if (!imageDir.exists) { setImages([]); return; }
+      const entries = imageDir.list();
+      const files = entries.filter(e => e instanceof File && /\.(jpe?g|png)$/i.test(e.name));
+      const fileData = files.map(f => {
+        let time = 0;
+        try { time = f.info().modificationTime || 0; } catch (_) {}
+        return { id: f.name, uri: f.uri, time };
+      });
       setImages(fileData.sort((a, b) => b.time - a.time).slice(0, 6));
     } catch (e) {
       systemLogger.error(LogCategory.SYSTEM, "Couldn't load recent images", {

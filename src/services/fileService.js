@@ -1,11 +1,11 @@
 // src/services/fileService.js
 
-import * as FileSystem from 'expo-file-system';
+import { Paths, Directory } from 'expo-file-system';
 import Toast from 'react-native-toast-message';
 import { systemLogger } from '../utils/logging';
 import { LogCategory } from '../utils/logging';
 
-const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
+const imageDir = new Directory(Paths.document, 'ai_generated_images');
 
 /**
  * Deletes all contents of the AI image directory and then recreates it.
@@ -13,9 +13,7 @@ const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
  */
 export const deleteAllImageData = async () => {
   try {
-    const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
-
-    if (!dirInfo.exists) {
+    if (!imageDir.exists) {
       Toast.show({
         type: 'info',
         text1: 'No Images to Delete',
@@ -24,12 +22,12 @@ export const deleteAllImageData = async () => {
       return;
     }
 
-    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Deleting image directory', { IMAGE_DIR });
-    await FileSystem.deleteAsync(IMAGE_DIR, { idempotent: true });
+    if (__DEV__) systemLogger.debug(LogCategory.SYSTEM, 'Deleting image directory', { IMAGE_DIR: imageDir.uri });
+    imageDir.delete();
 
     // Re-create the directory for future use to prevent errors
-    await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
-    
+    imageDir.create({ intermediates: true, idempotent: true });
+
     Toast.show({
       type: 'success',
       text1: 'All Image Data Cleared',

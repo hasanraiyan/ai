@@ -22,10 +22,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { Paths, File } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { SettingsContext } from '../contexts/SettingsContext';
+import { brainLogger, LogCategory } from '../utils/logging';
 import { generateImage } from '../agents/aiImageAgent';
 import { imageCategories } from '../constants/imageCategories';
 import { models } from '../constants/models';
@@ -112,14 +113,14 @@ const ImageGalleryModal = ({ visible, images, initialIndex, onClose }) => {
         if (status !== 'granted') { Alert.alert('Permission Required', 'Please grant media library permissions to save images.'); return; }
         setDownloading(true);
         try {
-            const fileUri = `${FileSystem.documentDirectory}ai_image_${Date.now()}.jpg`;
-            const { uri } = await FileSystem.downloadAsync(url, fileUri);
-            await MediaLibrary.createAssetAsync(uri);
+            const dest = new File(Paths.document, `ai_image_${Date.now()}.jpg`);
+            const downloaded = await File.downloadFileAsync(url, dest, { idempotent: true });
+            await MediaLibrary.createAssetAsync(downloaded.uri);
             Alert.alert('Success!', 'Image saved to your gallery.');
         } catch (err) {
             brainLogger.error(LogCategory.BRAIN, 'Image download failed', {
                 error: err.message
-            }); 
+            });
             Alert.alert('Error', 'Failed to save image.');
         } finally {
             setDownloading(false);
