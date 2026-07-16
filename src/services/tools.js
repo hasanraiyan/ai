@@ -1,7 +1,7 @@
 // src/services/tools.js
 
 import axios from 'axios';
-import * as FileSystem from 'expo-file-system';
+import { Paths, Directory, File } from 'expo-file-system';
 import { encode as btoa } from 'base-64';
 import { IS_DEBUG } from '../constants';
 import { toolsLogger, LogCategory } from '../utils/logging';
@@ -172,40 +172,35 @@ const tools = {
 
   image_generator: async ({ prompt, metadata = {} }) => {
     if (__DEV__) toolsLogger.debug(LogCategory.TOOLS, `TOOL: Generating image for "${prompt}"`, metadata);
-    const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
-
-    const dirInfo = await FileSystem.getInfoAsync(IMAGE_DIR);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
+    const imageDir = new Directory(Paths.document, 'ai_generated_images');
+    if (!imageDir.exists) {
+      imageDir.create({ intermediates: true, idempotent: true });
     }
-    
-    const { 
-      width = 512, 
-      height = 512, 
+
+    const {
+      width = 512,
+      height = 512,
       imageGenModel = 'flux'
     } = metadata;
-    
+
     const encodedPrompt = encodeURIComponent(prompt);
     const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?enhance=true&nologo=true&width=${width}&height=${height}&model=${imageGenModel}`;
 
     const uniqueId = Date.now().toString();
-    const imageFilename = `${uniqueId}.png`;
-    const metadataFilename = `${uniqueId}.json`;
-    const fileUri = `${IMAGE_DIR}${imageFilename}`;
-    const metadataUri = `${IMAGE_DIR}${metadataFilename}`;
+    const imageFile = new File(imageDir, `${uniqueId}.png`);
+    const metadataFile = new File(imageDir, `${uniqueId}.json`);
 
     try {
-      const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
-      if (downloadResult.status !== 200) throw new Error(`Image download failed with status ${downloadResult.status}`);
-      
+      await File.downloadFileAsync(imageUrl, imageFile, { idempotent: true });
+
       const dataToSave = { ...metadata, fullPrompt: prompt, creationTimestamp: Date.now(), size: { width, height }, imageUrl: imageUrl };
-      await FileSystem.writeAsStringAsync(metadataUri, JSON.stringify(dataToSave, null, 2));
-      
-      return { success: true, message: 'Image generated successfully and is now available in the gallery.', data: { imageUrl, localUri: downloadResult.uri } };
+      metadataFile.write(JSON.stringify(dataToSave, null, 2));
+
+      return { success: true, message: 'Image generated successfully and is now available in the gallery.', data: { imageUrl, localUri: imageFile.uri } };
     } catch (err) {
       const errorMsg = `Image generation failed: ${err.message}`;
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
-      await FileSystem.deleteAsync(metadataUri, { idempotent: true });
+      try { if (imageFile.exists) imageFile.delete(); } catch (_) {}
+      try { if (metadataFile.exists) metadataFile.delete(); } catch (_) {}
       return { success: false, message: 'Failed to fetch or save the image.', data: null };
     }
   },

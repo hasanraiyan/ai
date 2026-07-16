@@ -3,12 +3,13 @@
 import React, { useState, useRef, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   StyleSheet, Text, View, FlatList,
-  Platform, Keyboard, Linking, Pressable, Clipboard, Alert, ToastAndroid,
+  Platform, Keyboard, Linking, Pressable, Alert, ToastAndroid,
   ActivityIndicator, Image, TouchableOpacity, LayoutAnimation, UIManager, KeyboardAvoidingView // Added
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { debounce } from 'lodash';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { ThreadsContext } from '../contexts/ThreadsContext';
@@ -26,6 +27,7 @@ import Composer from '../components/Composer';
 import ScreenHeader from '../components/ScreenHeader'; // Added
 import ModeToggle from '../components/ModeToggle'; // Added
 import { useTheme } from '../utils/theme';
+import { brainLogger, LogCategory } from '../utils/logging';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -395,7 +397,7 @@ ${agentInstructions}
     const pinActionText = isPinned ? 'Unpin Message' : 'Pin Message';
     Alert.alert('Message Options', '',
       [
-        { text: 'Copy Text', onPress: () => { Clipboard.setString(message.text); if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT); } },
+        { text: 'Copy Text', onPress: () => { Clipboard.setStringAsync(message.text); if (Platform.OS === 'android') ToastAndroid.show('Copied to clipboard', ToastAndroid.SHORT); } },
         { text: pinActionText, onPress: () => isPinned ? unpinMessage(message.id) : pinMessage(threadId, message) },
         { text: 'Cancel', style: 'cancel' }
       ]

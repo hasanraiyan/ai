@@ -13,7 +13,6 @@ import {
   Dimensions,
   Platform,
   RefreshControl,
-  Clipboard,
   ToastAndroid,
   Pressable,
   LayoutAnimation,
@@ -21,7 +20,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as Clipboard from 'expo-clipboard';
+import { Paths, Directory, File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Toast from 'react-native-toast-message';
@@ -34,7 +34,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const IMAGE_DIR = `${FileSystem.documentDirectory}ai_generated_images/`;
+const imageDir = new Directory(Paths.document, 'ai_generated_images');
+const IMAGE_DIR_URI = imageDir.uri + '/';
 const { width } = Dimensions.get('window');
 
 const PADDING = spacing.md;
@@ -42,10 +43,9 @@ const SPACING = spacing.sm;
 const HALF_WIDTH = (width - PADDING * 2 - SPACING) / 2;
 const FULL_WIDTH = width - PADDING * 2;
 
-async function ensureDirExists() {
-  const info = await FileSystem.getInfoAsync(IMAGE_DIR);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(IMAGE_DIR, { intermediates: true });
+function ensureDirExists() {
+  if (!imageDir.exists) {
+    imageDir.create({ intermediates: true, idempotent: true });
   }
 }
 
@@ -68,37 +68,46 @@ export default function GalleryScreen({ navigation }) {
     if (!refreshing) setLoading(true);
 
     try {
-      await ensureDirExists();
-      const files = await FileSystem.readDirectoryAsync(IMAGE_DIR);
-      const imageFiles = files.filter(f => /\.(jpe?g|png)$/i.test(f));
+      ensureDirExists();
+      const entries = imageDir.list();
+      const imageFiles = entries.filter(
+        e => e instanceof File && /\.(jpe?g|png)$/i.test(e.name)
+      );
 
-      const data = await Promise.all(
-        imageFiles.map(async fn => {
-          const uri = IMAGE_DIR + fn;
-          const base = fn.split('.')[0];
-          const metaUri = `${IMAGE_DIR}${base}.json`;
+      const data = imageFiles.map(imageFile => {
+        const base = imageFile.name.replace(/\.[^.]+$/, '');
+        const metaFile = new File(imageDir, `${base}.json`);
+        const uri = imageFile.uri;
 
-          let metadata = {
-            id: fn, uri, prompt: 'Untitled', fullPrompt: 'Untitled',
-            styleName: 'N/A', modelUsed: 'N/A', time: 0,
-            size: { width: 512, height: 512 }, imageUrl: '',
-            imageGenModel: 'flux', // Default for old images
-          };
+        let metadata = {
+          id: imageFile.name,
+          uri,
+          prompt: 'Untitled',
+          fullPrompt: 'Untitled',
+          styleName: 'N/A',
+          modelUsed: 'N/A',
+          time: 0,
+          size: { width: 512, height: 512 },
+          imageUrl: '',
+          imageGenModel: 'flux', // Default for old images
+        };
 
-          const info = await FileSystem.getInfoAsync(uri, { size: false });
+        try {
+          const info = imageFile.info();
           metadata.time = info.modificationTime || 0;
+        } catch (_) { /* ignore */ }
 
-          const mInfo = await FileSystem.getInfoAsync(metaUri);
-          if (mInfo.exists) {
-            const txt = await FileSystem.readAsStringAsync(metaUri);
+        if (metaFile.exists) {
+          try {
+            const txt = metaFile.text();
             const mdFromFile = JSON.parse(txt);
             mdFromFile.size = mdFromFile.size || { width: 512, height: 512 };
             metadata = { ...metadata, ...mdFromFile };
             metadata.time = mdFromFile.creationTimestamp || metadata.time;
-          }
-          return metadata;
-        })
-      );
+          } catch (_) { /* ignore corrupt metadata */ }
+        }
+        return metadata;
+      });
 
       data.sort((a, b) => b.time - a.time);
       setImages(data);
@@ -184,10 +193,12 @@ export default function GalleryScreen({ navigation }) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
           try {
-            await ensureDirExists();
+            ensureDirExists();
             const base = item.id.split('.')[0];
-            await FileSystem.deleteAsync(item.uri, { idempotent: true });
-            await FileSystem.deleteAsync(`${IMAGE_DIR}${base}.json`, { idempotent: true });
+            const imgFile = new File(item.uri);
+            const metaFile = new File(imageDir, `${base}.json`);
+            if (imgFile.exists) imgFile.delete();
+            if (metaFile.exists) metaFile.delete();
             setImages(imgs => imgs.filter(i => i.id !== item.id));
             Toast.show({ type: 'success', text1: 'Deleted' });
           } catch (err) {
@@ -200,7 +211,7 @@ export default function GalleryScreen({ navigation }) {
 
   function onCopyUrl(url) {
     if (!url) return Toast.show({ type: 'error', text1: 'No URL available' });
-    Clipboard.setString(url);
+    Clipboard.setStringAsync(url);
     if (Platform.OS === 'android') ToastAndroid.show('URL Copied!', ToastAndroid.SHORT);
     else Toast.show({ type: 'success', text1: 'URL Copied!' });
   }
